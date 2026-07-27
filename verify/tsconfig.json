@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2019",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "types": ["node"],
+    "resolveJsonModule": true,
+    "experimentalDecorators": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "outDir": "./dist",
+    "rootDir": ".."
+  },
+  "include": ["./verify.ts", "../src/app/nx-map/model/nx-map-model.ts", "../src/app/nx-map/services/nx-map-builder.service.ts"]
+}

@@ -1,0 +1,31 @@
+{
+  "name": "nx-map-demo",
+  "version": "0.0.1",
+  "scripts": {
+    "start": "ng serve",
+    "build": "ng build"
+  },
+  "dependencies": {
+    "@angular/animations": "13.3.11",
+    "@angular/common": "13.3.11",
+    "@angular/compiler": "13.3.11",
+    "@angular/core": "13.3.11",
+    "@angular/forms": "13.3.11",
+    "@angular/platform-browser": "13.3.11",
+    "@angular/platform-browser-dynamic": "13.3.11",
+    "@syncfusion/ej2-angular-base": "29.2.10",
+    "@syncfusion/ej2-angular-dropdowns": "29.2.11",
+    "@syncfusion/ej2-angular-maps": "29.2.11",
+    "@syncfusion/ej2-maps": "29.2.11",
+    "rxjs": "~7.5.0",
+    "tslib": "^2.3.0",
+    "zone.js": "~0.11.4"
+  },
+  "devDependencies": {
+    "@angular-devkit/build-angular": "13.3.11",
+    "@angular/cli": "13.3.11",
+    "@angular/compiler-cli": "13.3.11",
+    "@types/node": "~16.11.7",
+    "typescript": "~4.5.5"
+  }
+}

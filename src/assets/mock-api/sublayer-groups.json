@@ -30,35 +30,84 @@
           "latitude": 23.6139,
           "longitude": 58.5229,
           "name": "MAF",
+          "color": "green",
+          "shape": "Triangle"
+        },
+        {
+          "latitude": 23.05,
+          "longitude": 57.9,
+          "name": "NS",
+          "color": "gray",
+          "shape": "Triangle"
+        },
+        {
+          "latitude": 22.92,
+          "longitude": 57.82,
+          "name": "OM",
           "color": "red",
           "shape": "Triangle"
         },
         {
-          "latitude": 23.3158,
-          "longitude": 57.9535,
-          "name": "MOL HI POINT TO MAF",
-          "color": "red",
+          "latitude": 22.55,
+          "longitude": 57.6,
+          "name": "AQ",
+          "color": "orange",
           "shape": "Triangle"
         },
         {
-          "latitude": 22.67,
-          "longitude": 57.5625,
-          "name": "Nahda Booster Station HI POINT",
-          "color": "red",
+          "latitude": 22.25,
+          "longitude": 57.45,
+          "name": "QA",
+          "color": "orange",
           "shape": "Triangle"
         },
         {
-          "latitude": 22.4991,
-          "longitude": 57.1303,
-          "name": "Fahud to Nahda",
-          "color": "red",
+          "latitude": 21.95,
+          "longitude": 57.3,
+          "name": "AG",
+          "color": "green",
           "shape": "Triangle"
         },
         {
-          "latitude": 21.4116,
-          "longitude": 57.1185,
-          "name": "QA Station to Nahada BS",
-          "color": "red",
+          "latitude": 21.55,
+          "longitude": 57.15,
+          "name": "AN",
+          "color": "orange",
+          "shape": "Triangle"
+        },
+        {
+          "latitude": 21.15,
+          "longitude": 57,
+          "name": "SA",
+          "color": "orange",
+          "shape": "Triangle"
+        },
+        {
+          "latitude": 20.8,
+          "longitude": 56.9,
+          "name": "SU",
+          "color": "orange",
+          "shape": "Triangle"
+        },
+        {
+          "latitude": 20.35,
+          "longitude": 56.75,
+          "name": "SA-2",
+          "color": "orange",
+          "shape": "Triangle"
+        },
+        {
+          "latitude": 19.9,
+          "longitude": 56.55,
+          "name": "HU",
+          "color": "orange",
+          "shape": "Triangle"
+        },
+        {
+          "latitude": 19.45,
+          "longitude": 56.4,
+          "name": "NM",
+          "color": "green",
           "shape": "Triangle"
         }
       ]
@@ -75,20 +124,48 @@
             "longitude": 58.5229
           },
           {
-            "latitude": 23.3158,
-            "longitude": 57.9535
+            "latitude": 23.05,
+            "longitude": 57.9
           },
           {
-            "latitude": 22.67,
-            "longitude": 57.5625
+            "latitude": 22.92,
+            "longitude": 57.82
           },
           {
-            "latitude": 22.4991,
-            "longitude": 57.1303
+            "latitude": 22.55,
+            "longitude": 57.6
           },
           {
-            "latitude": 21.4116,
-            "longitude": 57.1185
+            "latitude": 22.25,
+            "longitude": 57.45
+          },
+          {
+            "latitude": 21.95,
+            "longitude": 57.3
+          },
+          {
+            "latitude": 21.55,
+            "longitude": 57.15
+          },
+          {
+            "latitude": 21.15,
+            "longitude": 57
+          },
+          {
+            "latitude": 20.8,
+            "longitude": 56.9
+          },
+          {
+            "latitude": 20.35,
+            "longitude": 56.75
+          },
+          {
+            "latitude": 19.9,
+            "longitude": 56.55
+          },
+          {
+            "latitude": 19.45,
+            "longitude": 56.4
           }
         ]
       }

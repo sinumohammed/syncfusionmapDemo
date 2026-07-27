@@ -1,0 +1,296 @@
+[
+  {
+    "layerName": "omanv1",
+    "isMainLayer": true,
+    "baseMapType": "shape",
+    "mapCenter": { "latitude": 21.0, "longitude": 57.0 },
+    "zoomFactor": 1,
+    "title": {
+      "text": "PDO"
+    },
+    "dataLabel": {
+      "visible": false,
+      "color": "beige",
+      "opacity": 0.9
+    },
+    "groups": [
+      {
+        "id": "mol",
+        "name": "Main Oil Line",
+        "visible": true,
+        "markerConfig": {
+          "style": {
+            "color": "",
+            "shape": "",
+            "height": 40,
+            "width": 40,
+            "labelStyle": {
+              "color": "white"
+            }
+          },
+          "clusterConfig": {
+            "allowClustering": true,
+            "allowDeepClustering": false,
+            "allowClusterExpand": true,
+            "labelStyle": {
+              "color": "white",
+              "size": "10px"
+            },
+            "shape": "Circle",
+            "height": 40,
+            "width": 40
+          },
+          "points": [
+            {
+              "latitude": 23.6139,
+              "longitude": 58.5229,
+              "name": "MAF",
+              "color": "red",
+              "shape": "Triangle"
+            },
+            {
+              "latitude": 23.3158,
+              "longitude": 57.9535,
+              "name": "MOL HI POINT TO MAF",
+              "color": "red",
+              "shape": "Triangle"
+            },
+            {
+              "latitude": 22.67,
+              "longitude": 57.5625,
+              "name": "Nahda Booster Station HI POINT",
+              "color": "red",
+              "shape": "Triangle"
+            },
+            {
+              "latitude": 22.4991,
+              "longitude": 57.1303,
+              "name": "Fahud to Nahda",
+              "color": "red",
+              "shape": "Triangle"
+            },
+            {
+              "latitude": 21.4116,
+              "longitude": 57.1185,
+              "name": "QA Station to Nahada BS",
+              "color": "red",
+              "shape": "Triangle"
+            }
+          ]
+        },
+        "lines": [
+          {
+            "visible": true,
+            "color": "blue",
+            "width": 2,
+            "dashArray": "4",
+            "points": [
+              { "latitude": 23.6139, "longitude": 58.5229 },
+              { "latitude": 23.3158, "longitude": 57.9535 },
+              { "latitude": 22.67, "longitude": 57.5625 },
+              { "latitude": 22.4991, "longitude": 57.1303 },
+              { "latitude": 21.4116, "longitude": 57.1185 }
+            ]
+          }
+        ],
+        "polygons": [
+          {
+            "name": "Muscat",
+            "background": "green",
+            "opacity": 0.5,
+            "points": [
+              { "latitude": 23.518, "longitude": 58.591 },
+              { "latitude": 23.552, "longitude": 58.535 },
+              { "latitude": 23.511, "longitude": 58.392 },
+              { "latitude": 23.568, "longitude": 58.134 },
+              { "latitude": 23.6955, "longitude": 58.112 },
+              { "latitude": 23.635, "longitude": 58.251 },
+              { "latitude": 23.627, "longitude": 58.482 },
+              { "latitude": 23.6215, "longitude": 58.5665 },
+              { "latitude": 23.571, "longitude": 58.614 }
+            ]
+          }
+        ],
+        "circles": [
+          {
+            "name": "Circle with 5km daimeter",
+            "center": { "latitude": 23.511, "longitude": 58.392 },
+            "radius": 10000,
+            "background": "transparent",
+            "opacity": 1,
+            "borderColor": "black",
+            "borderWidth": 2
+          }
+        ]
+      },
+      {
+        "id": "surface",
+        "name": "Surface",
+        "visible": true,
+        "markerConfig": {
+          "style": {
+            "color": "",
+            "shape": "",
+            "height": 40,
+            "width": 40,
+            "labelStyle": {
+              "color": "white"
+            }
+          },
+          "clusterConfig": {
+            "allowClustering": true,
+            "allowDeepClustering": false,
+            "allowClusterExpand": true,
+            "labelStyle": {
+              "color": "white",
+              "size": "10px"
+            },
+            "shape": "Circle",
+            "height": 40,
+            "width": 40
+          },
+          "points": [
+            {
+              "latitude": 18.145489376659732,
+              "longitude": 54.66601927667939,
+              "name": "",
+              "color": "red",
+              "shape": "Triangle"
+            },
+            {
+              "latitude": 20.997169481627978,
+              "longitude": 57.55049248820188,
+              "name": "AL GHUBAR -surface",
+              "color": "green",
+              "shape": "InvertedTriangle",
+              "points": [
+                {
+                  "latitude": 22.77827742926704,
+                  "longitude": 56.81026421040376,
+                  "name": "Surface DALEEL"
+                }
+              ]
+            },
+            {
+              "latitude": 20.559454427003395,
+              "longitude": 57.41829353920221,
+              "name": "ANZAUZ surface"
+            },
+            {
+              "latitude": 21.732152886279888,
+              "longitude": 58.31964068360497
+            }
+          ]
+        },
+        "lines": [
+          {
+            "visible": true,
+            "color": "red",
+            "width": 1,
+            "points": [
+              { "latitude": 20.559454427003395, "longitude": 57.41829353920221 },
+              { "latitude": 21.732152886279888, "longitude": 58.31964068360497 }
+            ]
+          }
+        ],
+        "polygons": [
+          {
+            "name": "Muscat- surface",
+            "background": "orange",
+            "opacity": 0.5,
+            "points": [
+              { "latitude": 23.418, "longitude": 58.591 },
+              { "latitude": 23.452, "longitude": 58.535 },
+              { "latitude": 23.411, "longitude": 58.392 },
+              { "latitude": 23.468, "longitude": 58.134 },
+              { "latitude": 23.5955, "longitude": 58.112 },
+              { "latitude": 23.535, "longitude": 58.251 },
+              { "latitude": 23.527, "longitude": 58.482 },
+              { "latitude": 23.5215, "longitude": 58.5665 },
+              { "latitude": 23.671, "longitude": 58.614 }
+            ]
+          }
+        ],
+        "circles": [
+          {
+            "name": "Circle with 1km daimeter surface",
+            "center": { "latitude": 23.411, "longitude": 58.392 },
+            "radius": 10000,
+            "background": "transparent",
+            "opacity": 1,
+            "borderColor": "maroon",
+            "borderWidth": 2
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "layerName": "alwusta",
+    "visible":false,
+    "title": {
+      "text": "Al Wusta"
+    },
+    "dataLabel": {
+      "visible": true,
+      "color": "beige",
+      "opacity": 0.9
+    },
+    "groups": [
+      {
+        "id": "alwusta-facility",
+        "name": "Al Wusta Facilities",
+        "visible": true,
+        "markerConfig": {
+          "style": {
+            "color": "",
+            "shape": "",
+            "height": 40,
+            "width": 40,
+            "labelStyle": {
+              "color": "white"
+            }
+          },
+          "clusterConfig": {
+            "allowClustering": true,
+            "allowDeepClustering": false,
+            "allowClusterExpand": true,
+            "labelStyle": {
+              "color": "white",
+              "size": "10px"
+            },
+            "shape": "Circle",
+            "height": 40,
+            "width": 40
+          },
+          "points": [
+            {
+              "latitude": 19.6664,
+              "longitude": 57.7038,
+              "name": "Duqm",
+              "color": "purple",
+              "shape": "Diamond"
+            },
+            {
+              "latitude": 19.9086,
+              "longitude": 56.2652,
+              "name": "Haima",
+              "color": "purple",
+              "shape": "Diamond"
+            },
+            {
+              "latitude": 20.4064,
+              "longitude": 58.0857,
+              "name": "Mahout",
+              "color": "purple",
+              "shape": "Diamond"
+            }
+          ]
+        },
+        "lines": [],
+        "polygons": [],
+        "circles": []
+      }
+    ]
+  }
+]

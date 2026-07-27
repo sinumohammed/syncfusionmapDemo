@@ -1,0 +1,22 @@
+@import "@syncfusion/ej2-base/styles/material.css";
+/* This installed @syncfusion/ej2-maps version ships no styles/*.css of its
+   own (theme CSS is distributed separately by Syncfusion, e.g. via
+   @syncfusion/ej2-themes) — every color/border/width used here comes from
+   our own config, so the demo renders correctly without it. Toolbar/tooltip
+   chrome will look unstyled; add the themes package if that matters. */
+
+/* Percentage heights only resolve against an ancestor with an actual
+   height, all the way up to the root — without this chain, nx-map-demo's
+   height:100% (see nx-map-demo.component.ts) has nothing concrete to
+   resolve against and collapses to 0. */
+html,
+body {
+  height: 100%;
+  margin: 0;
+  font-family: sans-serif;
+}
+
+app-root {
+  display: block;
+  height: 100%;
+}

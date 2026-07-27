@@ -151,8 +151,7 @@
         "borderColor": "black",
         "borderWidth": 2
       }
-    ],
-    "heading": "Main Oil Line"
+    ]
   },
   {
     "id": "surface",
@@ -288,7 +287,6 @@
         "borderColor": "maroon",
         "borderWidth": 2
       }
-    ],
-    "heading": "Surface"
+    ]
   }
 ]

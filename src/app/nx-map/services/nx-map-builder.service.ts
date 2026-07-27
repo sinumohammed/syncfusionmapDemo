@@ -26,25 +26,47 @@ interface LayerState {
   visible: boolean;
 }
 
-// One node per layer/group/item in the layer control's tree UI. Every
+// One entry per group in the layer control's tree UI. Every
 // marker/polygon/circle/line field here is a LIVE reference into this
 // layer's state (post-flatten) — toggling `.visible` on any of them and
 // calling refresh() is all a consumer needs to do; no id-matching required.
+export interface GroupEntry {
+  group: MapGroup;
+  markers: MapPoint[];
+  polygons: MapPolygon[];
+  circles: MapCircle[];
+  lines: MapLine[];
+}
+
+// Groups sharing the same MapGroup.heading (e.g. groups delivered by a
+// sub-layer API call, tagged with a heading at fetch time) are bucketed
+// together under one of these — a toggleable section in the filter popup,
+// checked when every group under it is visible.
+export interface HeadingNode {
+  heading: string;
+  groups: GroupEntry[];
+}
+
+// One node per layer in the layer control's tree UI (plus nested children
+// for any layer whose MapConfig.parentLayerName points at this one).
 export interface LayerTreeNode {
   layerIndex: number;
   layerName: string;
+  displayName: string;
   visible: boolean;
   // True for whichever config has `isMainLayer: true` (or configs[0] if
   // none does) — the layer panel should disable this node's own checkbox,
   // since hiding it would leave the map with nothing to render against.
   isMainLayer: boolean;
-  groups: {
-    group: MapGroup;
-    markers: MapPoint[];
-    polygons: MapPolygon[];
-    circles: MapCircle[];
-    lines: MapLine[];
-  }[];
+  // Groups with no `heading` — rendered directly under this layer, same as
+  // before headings existed.
+  groups: GroupEntry[];
+  // Groups bucketed by `heading`, in first-seen order.
+  headings: HeadingNode[];
+  // Other layers whose config.parentLayerName === this.layerName — e.g.
+  // static layers nested under the base layer in the filter popup, even
+  // though each still renders as its own independent Syncfusion SubLayer.
+  children: LayerTreeNode[];
 }
 
 @Injectable()
@@ -369,27 +391,71 @@ export class NXMapBuilderService {
     }
   }
 
-  // Builds the data the layer-control tree UI renders: one node per layer,
-  // each with its groups and — inside each group — live references to its
-  // markers/polygons/circles/lines. A consumer toggles visibility at any
-  // level by mutating `.visible` directly on these same objects (groups/
-  // items) or via setLayerVisible() (layers, since `visible` there is a
-  // plain boolean field on internal state, not an object reference), then
-  // calls refresh().
+  // Builds the data the layer-control tree UI renders: one node per
+  // "root" layer (a layer with no parentLayerName, or whose parent isn't
+  // among the loaded layers), each with its groups/headings and, in
+  // `children`, every other layer nested under it in the filter popup. A
+  // consumer toggles visibility at any level by mutating `.visible`
+  // directly on these same objects (groups/items) or via
+  // setLayerVisible() (layers, since `visible` there is a plain boolean
+  // field on internal state, not an object reference), then calls
+  // refresh(). Layers with config.participateInFilter === false still
+  // render on the map but are omitted from this tree entirely — no toggle
+  // offered for them.
   getLayerTree(): LayerTreeNode[] {
-    return this.layers.map((layer, layerIndex) => ({
-      layerIndex,
-      layerName: layer.config.layerName,
-      visible: layer.visible,
-      isMainLayer: layerIndex === this.mainLayerIndex,
-      groups: layer.groups.map(group => ({
+    const nodes = this.layers
+      .map((layer, layerIndex) => (layer.config.participateInFilter === false ? null : this.buildTreeNode(layer, layerIndex)))
+      .filter((node): node is LayerTreeNode => node !== null);
+
+    const nodesByLayerName = new Map(nodes.map(node => [node.layerName, node]));
+
+    nodes.forEach(node => {
+      const parentName = this.layers[node.layerIndex].config.parentLayerName;
+      const parent = parentName ? nodesByLayerName.get(parentName) : undefined;
+      if (parent && parent !== node) {
+        parent.children.push(node);
+      }
+    });
+
+    const nestedLayerNames = new Set(nodes.flatMap(node => node.children.map(child => child.layerName)));
+    return nodes.filter(node => !nestedLayerNames.has(node.layerName));
+  }
+
+  private buildTreeNode(layer: LayerState, layerIndex: number): LayerTreeNode {
+    const groups: GroupEntry[] = [];
+    const headingOrder: string[] = [];
+    const headingGroups = new Map<string, GroupEntry[]>();
+
+    layer.groups.forEach(group => {
+      const entry: GroupEntry = {
         group,
         markers: group.markerConfig?.points ?? [],
         polygons: group.polygons ?? [],
         circles: group.circles ?? [],
         lines: group.lines ?? []
-      }))
-    }));
+      };
+
+      if (group.heading) {
+        if (!headingGroups.has(group.heading)) {
+          headingOrder.push(group.heading);
+          headingGroups.set(group.heading, []);
+        }
+        headingGroups.get(group.heading)!.push(entry);
+      } else {
+        groups.push(entry);
+      }
+    });
+
+    return {
+      layerIndex,
+      layerName: layer.config.layerName,
+      displayName: layer.config.title?.text ?? layer.config.layerName,
+      visible: layer.visible,
+      isMainLayer: layerIndex === this.mainLayerIndex,
+      groups,
+      headings: headingOrder.map(heading => ({ heading, groups: headingGroups.get(heading)! })),
+      children: []
+    };
   }
 
   refresh(mapOptions: MapOptions) {

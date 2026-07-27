@@ -14,6 +14,14 @@ body {
   height: 100%;
   margin: 0;
   font-family: sans-serif;
+  /* The map is meant to fill the entire viewport with no page-level scroll
+     — without this, a few px of overflow (Syncfusion's toolbar/attribution
+     sizing, sub-pixel rounding in the height:100% chain) triggers a
+     scrollbar-feedback loop: a vertical scrollbar eats width, which can
+     nudge a horizontal one in, which eats height, needing the vertical
+     one... left unclamped, this shows up as "the top of the map needs a
+     scroll to see" on load. */
+  overflow: hidden;
 }
 
 app-root {

@@ -1,0 +1,44 @@
+{
+  "layerName": "al-buraymi",
+  "title": {
+    "text": "Al Buraymi"
+  },
+  "dataLabel": {
+    "visible": true,
+    "color": "beige",
+    "opacity": 0.9
+  },
+  "groups": [
+    {
+      "id": "al-buraymi-zone",
+      "name": "Al Buraymi Zone",
+      "visible": true,
+      "polygons": [
+        {
+          "name": "Al Buraymi Border Zone",
+          "background": "indigo",
+          "opacity": 0.5,
+          "points": [
+            { "latitude": 24.05, "longitude": 55.65 },
+            { "latitude": 24.05, "longitude": 56.45 },
+            { "latitude": 24.85, "longitude": 56.45 },
+            { "latitude": 24.85, "longitude": 55.65 }
+          ]
+        },
+        {
+          "name": "Al Buraymi Border Zone",
+          "background": "indigo",
+          "opacity": 0.5,
+          "points": [
+            { "latitude": 24.85, "longitude": 56.45 },
+            { "latitude": 24.85, "longitude": 57.25 },
+            { "latitude": 25.65, "longitude": 57.25 },
+            { "latitude": 25.65, "longitude": 56.45 }
+          ]
+        }
+      ],
+      "circles": [],
+      "lines": []
+    }
+  ]
+}

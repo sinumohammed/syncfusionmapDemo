@@ -1,0 +1,36 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "source": "demo",
+        "id": "OMDA",
+        "name": "Ad Dakhliyah"
+      },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [57.35, 22.75],
+              [58.15, 22.75],
+              [58.15, 23.55],
+              [57.35, 23.55],
+              [57.35, 22.75]
+            ]
+          ],
+          [
+            [
+              [58.15, 23.55],
+              [58.95, 23.55],
+              [58.95, 24.35],
+              [58.15, 24.35],
+              [58.15, 23.55]
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

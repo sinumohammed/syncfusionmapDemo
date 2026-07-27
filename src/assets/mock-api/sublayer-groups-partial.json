@@ -1,0 +1,157 @@
+[
+  {
+    "id": "mol",
+    "name": "Main Oil Line",
+    "visible": true,
+    "markerConfig": {
+      "style": {
+        "color": "",
+        "shape": "",
+        "height": 40,
+        "width": 40,
+        "labelStyle": {
+          "color": "white"
+        }
+      },
+      "clusterConfig": {
+        "allowClustering": true,
+        "allowDeepClustering": false,
+        "allowClusterExpand": true,
+        "labelStyle": {
+          "color": "white",
+          "size": "10px"
+        },
+        "shape": "Circle",
+        "height": 40,
+        "width": 40
+      },
+      "points": [
+        {
+          "latitude": 23.6139,
+          "longitude": 58.5229,
+          "name": "MAF",
+          "color": "red",
+          "shape": "Triangle"
+        },
+        {
+          "latitude": 23.3158,
+          "longitude": 57.9535,
+          "name": "MOL HI POINT TO MAF",
+          "color": "red",
+          "shape": "Triangle"
+        },
+        {
+          "latitude": 22.67,
+          "longitude": 57.5625,
+          "name": "Nahda Booster Station HI POINT",
+          "color": "red",
+          "shape": "Triangle"
+        },
+        {
+          "latitude": 22.4991,
+          "longitude": 57.1303,
+          "name": "Fahud to Nahda",
+          "color": "red",
+          "shape": "Triangle"
+        },
+        {
+          "latitude": 21.4116,
+          "longitude": 57.1185,
+          "name": "QA Station to Nahada BS",
+          "color": "red",
+          "shape": "Triangle"
+        }
+      ]
+    },
+    "lines": [
+      {
+        "visible": true,
+        "color": "blue",
+        "width": 2,
+        "dashArray": "4",
+        "points": [
+          {
+            "latitude": 23.6139,
+            "longitude": 58.5229
+          },
+          {
+            "latitude": 23.3158,
+            "longitude": 57.9535
+          },
+          {
+            "latitude": 22.67,
+            "longitude": 57.5625
+          },
+          {
+            "latitude": 22.4991,
+            "longitude": 57.1303
+          },
+          {
+            "latitude": 21.4116,
+            "longitude": 57.1185
+          }
+        ]
+      }
+    ],
+    "polygons": [
+      {
+        "name": "Muscat",
+        "background": "green",
+        "opacity": 0.5,
+        "points": [
+          {
+            "latitude": 23.518,
+            "longitude": 58.591
+          },
+          {
+            "latitude": 23.552,
+            "longitude": 58.535
+          },
+          {
+            "latitude": 23.511,
+            "longitude": 58.392
+          },
+          {
+            "latitude": 23.568,
+            "longitude": 58.134
+          },
+          {
+            "latitude": 23.6955,
+            "longitude": 58.112
+          },
+          {
+            "latitude": 23.635,
+            "longitude": 58.251
+          },
+          {
+            "latitude": 23.627,
+            "longitude": 58.482
+          },
+          {
+            "latitude": 23.6215,
+            "longitude": 58.5665
+          },
+          {
+            "latitude": 23.571,
+            "longitude": 58.614
+          }
+        ]
+      }
+    ],
+    "circles": [
+      {
+        "name": "Circle with 5km daimeter",
+        "center": {
+          "latitude": 23.511,
+          "longitude": 58.392
+        },
+        "radius": 10000,
+        "background": "transparent",
+        "opacity": 1,
+        "borderColor": "black",
+        "borderWidth": 2
+      }
+    ],
+    "heading": "Main Oil Line"
+  }
+]

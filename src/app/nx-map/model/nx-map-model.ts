@@ -95,6 +95,12 @@ export interface MapGroup {
   polygons?: MapPolygon[];
   circles?: MapCircle[];
   metadata?: any;
+  // Buckets this group under a toggleable heading node in the filter tree
+  // (e.g. "Facilities", "Wells") alongside any other group sharing the same
+  // string, typically used for groups arriving from a sub-layer API call.
+  // Groups without a heading render exactly as before — directly under
+  // their layer, no extra nesting.
+  heading?: string;
 }
 
 export interface DataLabel {
@@ -140,6 +146,27 @@ export interface MapConfig {
   // minimum visible stroke width at any zoom).
   mapCenter?: GeoLocation;
   zoomFactor?: number;
+  // Filter-tree-only nesting hint: this layer still renders as its own
+  // independent Syncfusion SubLayer (own shapeData/geometry), but
+  // getLayerTree() nests its node under the layer whose layerName matches
+  // this value instead of listing it as a top-level sibling. Used for
+  // static layers that should appear "under Oman" in the filter popup.
+  parentLayerName?: string;
+  // Default true. Set to false to keep this layer rendering on the map
+  // (unlike visible: false, which excludes it from the map AND the filter
+  // entirely) while omitting it from the filter tree altogether — no
+  // toggle offered for it, so a deployment can bake in a layer without
+  // exposing it as a user-facing option.
+  participateInFilter?: boolean;
+}
+
+// A value that's either hardcoded inline, loaded from a static file, or
+// fetched from a live API — the same three interchangeable sources apply
+// to both a layer's group/marker config and its shape/boundary geometry.
+export interface DataSource<T> {
+  source: "inline" | "file" | "api";
+  value?: T; // required when source === "inline"
+  url?: string; // required when source === "file" | "api" (HttpClient.get either way)
 }
 
 export interface MapState {

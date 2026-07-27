@@ -1,0 +1,44 @@
+{
+  "layerName": "al-dhahira",
+  "title": {
+    "text": "Al Dhahira"
+  },
+  "dataLabel": {
+    "visible": true,
+    "color": "beige",
+    "opacity": 0.9
+  },
+  "groups": [
+    {
+      "id": "al-dhahira-zone",
+      "name": "Al Dhahira Zone",
+      "visible": true,
+      "polygons": [
+        {
+          "name": "Al Dhahira Field Zone",
+          "background": "brown",
+          "opacity": 0.5,
+          "points": [
+            { "latitude": 22.80, "longitude": 56.35 },
+            { "latitude": 22.80, "longitude": 57.15 },
+            { "latitude": 23.60, "longitude": 57.15 },
+            { "latitude": 23.60, "longitude": 56.35 }
+          ]
+        },
+        {
+          "name": "Al Dhahira Field Zone",
+          "background": "brown",
+          "opacity": 0.5,
+          "points": [
+            { "latitude": 23.60, "longitude": 57.15 },
+            { "latitude": 23.60, "longitude": 57.95 },
+            { "latitude": 24.40, "longitude": 57.95 },
+            { "latitude": 24.40, "longitude": 57.15 }
+          ]
+        }
+      ],
+      "circles": [],
+      "lines": []
+    }
+  ]
+}

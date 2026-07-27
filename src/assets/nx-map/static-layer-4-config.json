@@ -1,0 +1,44 @@
+{
+  "layerName": "dhofar",
+  "title": {
+    "text": "Dhofar"
+  },
+  "dataLabel": {
+    "visible": true,
+    "color": "beige",
+    "opacity": 0.9
+  },
+  "groups": [
+    {
+      "id": "dhofar-zone",
+      "name": "Dhofar Zone",
+      "visible": true,
+      "polygons": [
+        {
+          "name": "Dhofar Exploration Zone",
+          "background": "olive",
+          "opacity": 0.5,
+          "points": [
+            { "latitude": 16.85, "longitude": 53.85 },
+            { "latitude": 16.85, "longitude": 54.65 },
+            { "latitude": 17.65, "longitude": 54.65 },
+            { "latitude": 17.65, "longitude": 53.85 }
+          ]
+        },
+        {
+          "name": "Dhofar Exploration Zone",
+          "background": "olive",
+          "opacity": 0.5,
+          "points": [
+            { "latitude": 17.65, "longitude": 54.65 },
+            { "latitude": 17.65, "longitude": 55.45 },
+            { "latitude": 18.45, "longitude": 55.45 },
+            { "latitude": 18.45, "longitude": 54.65 }
+          ]
+        }
+      ],
+      "circles": [],
+      "lines": []
+    }
+  ]
+}

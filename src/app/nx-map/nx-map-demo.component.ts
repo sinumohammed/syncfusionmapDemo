@@ -1,4 +1,6 @@
 import { AfterViewInit, Component, ElementRef, HostListener, OnInit, ViewChild } from "@angular/core";
+import { forkJoin, of } from "rxjs";
+import { map } from "rxjs/operators";
 import {
   Maps,
   MapsComponent,
@@ -10,34 +12,16 @@ import {
   Zoom,
   IMarkerClickEventArgs
 } from "@syncfusion/ej2-angular-maps";
-import { MapConfig, MapOptions } from "./model/nx-map-model";
-import { LayerTreeNode, NXMapBuilderService } from "./services/nx-map-builder.service";
+import { MapConfig, MapGroup, MapOptions } from "./model/nx-map-model";
+import { NXMapAppConfig } from "./model/nx-map-app-config";
+import { GroupEntry, HeadingNode, LayerTreeNode, NXMapBuilderService } from "./services/nx-map-builder.service";
+import { NXMapConfigService } from "./services/nx-map-config.service";
 import * as pdoMapConfig from "./data/pdo-map-config.json";
-import * as omanShape from "./data/oman-shape.json";
-import * as alwustaShape from "./data/alwusta-shape.json";
 
 // Marker clustering needs no separate module — it's part of Marker, driven
 // entirely by each marker group's `clusterSettings` (see the builder
 // service). Injecting Marker is enough.
 Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
-
-// Rough single-polygon Oman boundary for the demo (properties.name === "Oman"
-// matches shapePropertyPath/labelPath below). Swap for the host app's real
-// GeoJSON (e.g. maps/oman.json from NXMapDataService) when wiring this back in.
-const OMAN_SHAPE_DATA = (omanShape as any).default ?? omanShape;
-
-// Shape data for the second (SubLayer) entry now in pdo-map-config.json
-// (layerName: "alwusta") — a rough Al Wusta governorate boundary, to test
-// multi-layer rendering: two Syncfusion layers, each with its own shapeData
-// and groups, both shown or hidden independently through the layer panel.
-const ALWUSTA_SHAPE_DATA = (alwustaShape as any).default ?? alwustaShape;
-
-// Maps each MapConfig's layerName to its shapeData — extend this (or fetch
-// per layerName via NXMapDataService + forkJoin) as more layers are added.
-const SHAPE_DATA_BY_LAYER_NAME: Record<string, any> = {
-  omanv1: OMAN_SHAPE_DATA,
-  alwusta: ALWUSTA_SHAPE_DATA
-};
 
 @Component({
   selector: "app-nx-map-demo",
@@ -90,75 +74,160 @@ const SHAPE_DATA_BY_LAYER_NAME: Record<string, any> = {
               ✕
             </button>
           </div>
+
+          <!-- Manual test trigger for reloadSubLayerGroups() — no auto-firing
+               anywhere; this is the only thing that calls it. Alternates
+               between the full 2-group mock response and a partial 1-group
+               one (Surface dropped) each click, purely so clicking it twice
+               visibly proves the reload REPLACES the previous sub-layer
+               groups (Surface disappears from this popup, not just stops
+               rendering on the map) rather than appending to them — wire a
+               real payload/endpoint here when a live backend exists. -->
+          <div class="layer-panel-testbar">
+            <button type="button" class="reload-btn" (click)="reloadSubLayerGroupsDemo()">
+              Reload Sub-Layers ({{ subLayerDemoAlt ? "partial" : "full" }} → click for {{ subLayerDemoAlt ? "full" : "partial" }})
+            </button>
+          </div>
+
           <div class="layer-panel-subheader">Layers</div>
 
+          <div class="layer-panel-search">
+            <input
+              type="text"
+              placeholder="Search layers, groups, markers…"
+              [value]="filterText"
+              (input)="filterText = $any($event.target).value"
+            />
+          </div>
+
           <div class="layer-panel-body">
-            <details *ngFor="let layer of layerTree" open>
-              <summary>
-                <label
-                  (click)="$event.stopPropagation()"
-                  [title]="layer.isMainLayer ? 'Main layer — always visible' : ''"
-                >
-                  <input
-                    type="checkbox"
-                    [checked]="layer.visible"
-                    [disabled]="layer.isMainLayer"
-                    (click)="$event.stopPropagation(); toggleLayer(layer)"
-                  />
-                  {{ layer.layerName }}{{ layer.isMainLayer ? " (main)" : "" }}
-                </label>
-              </summary>
-
-              <details class="tree-indent" *ngFor="let entry of layer.groups" open>
-                <summary>
-                  <label (click)="$event.stopPropagation()">
-                    <input
-                      type="checkbox"
-                      [checked]="entry.group.visible !== false"
-                      (click)="$event.stopPropagation(); toggleVisible(entry.group)"
-                    />
-                    {{ entry.group.name }}
-                  </label>
-                </summary>
-
-                <div class="tree-indent leaves">
-                  <label *ngFor="let m of entry.markers">
-                    <input
-                      type="checkbox"
-                      [checked]="m.visible !== false"
-                      (click)="toggleVisible(m)"
-                    />
-                    {{ m.name || "Marker" }}
-                  </label>
-                  <label *ngFor="let p of entry.polygons">
-                    <input
-                      type="checkbox"
-                      [checked]="p.visible !== false"
-                      (click)="toggleVisible(p)"
-                    />
-                    {{ p.name || "Polygon" }}
-                  </label>
-                  <label *ngFor="let c of entry.circles">
-                    <input
-                      type="checkbox"
-                      [checked]="c.visible !== false"
-                      (click)="toggleVisible(c)"
-                    />
-                    {{ c.name || "Circle" }}
-                  </label>
-                  <label *ngFor="let l of entry.lines; let i = index">
-                    <input
-                      type="checkbox"
-                      [checked]="l.visible !== false"
-                      (click)="toggleVisible(l)"
-                    />
-                    Line {{ i + 1 }}
-                  </label>
-                </div>
-              </details>
-            </details>
+            <ng-container *ngFor="let layer of layerTree">
+              <ng-container *ngIf="layerMatchesSearch(layer)">
+                <ng-container *ngTemplateOutlet="layerNodeTpl; context: { layer: layer }"></ng-container>
+              </ng-container>
+            </ng-container>
           </div>
       </div>
+
+      <!-- Reused for every group leaf, whether it's an ungrouped
+           layer.groups entry or nested inside a heading — a group's own
+           checkbox plus its flat marker/polygon/circle/line leaves. -->
+      <ng-template #groupEntryTpl let-entry="entry">
+        <details class="tree-indent" open>
+          <summary>
+            <label (click)="$event.stopPropagation()">
+              <input
+                type="checkbox"
+                [checked]="groupState(entry) === 'checked'"
+                [indeterminate]="groupState(entry) === 'indeterminate'"
+                (click)="$event.stopPropagation(); toggleGroup(entry)"
+              />
+              {{ entry.group.name }}
+            </label>
+          </summary>
+
+          <div class="tree-indent leaves">
+            <ng-container *ngFor="let m of entry.markers">
+              <label *ngIf="matchesSearch(m.name || 'Marker')">
+                <input
+                  type="checkbox"
+                  [checked]="m.visible !== false"
+                  (click)="toggleLeaf(m, entry.group)"
+                />
+                {{ m.name || "Marker" }}
+              </label>
+            </ng-container>
+            <ng-container *ngFor="let p of entry.polygons">
+              <label *ngIf="matchesSearch(p.name || 'Polygon')">
+                <input
+                  type="checkbox"
+                  [checked]="p.visible !== false"
+                  (click)="toggleLeaf(p, entry.group)"
+                />
+                {{ p.name || "Polygon" }}
+              </label>
+            </ng-container>
+            <ng-container *ngFor="let c of entry.circles">
+              <label *ngIf="matchesSearch(c.name || 'Circle')">
+                <input
+                  type="checkbox"
+                  [checked]="c.visible !== false"
+                  (click)="toggleLeaf(c, entry.group)"
+                />
+                {{ c.name || "Circle" }}
+              </label>
+            </ng-container>
+            <ng-container *ngFor="let l of entry.lines; let i = index">
+              <label *ngIf="matchesSearch('Line ' + (i + 1))">
+                <input
+                  type="checkbox"
+                  [checked]="l.visible !== false"
+                  (click)="toggleLeaf(l, entry.group)"
+                />
+                Line {{ i + 1 }}
+              </label>
+            </ng-container>
+          </div>
+        </details>
+      </ng-template>
+
+      <!-- One layer node: its own summary checkbox, its ungrouped groups,
+           its toggleable heading sections (each bucketing groups from a
+           sub-layer API call), and any nested child layers (e.g. static
+           layers nested under the base/Oman layer) — rendered by calling
+           this same template again, so nesting depth isn't hardcoded. -->
+      <ng-template #layerNodeTpl let-layer="layer">
+        <details open>
+          <summary>
+            <label
+              (click)="$event.stopPropagation()"
+              [title]="layer.isMainLayer ? 'Main layer — always visible' : ''"
+            >
+              <input
+                type="checkbox"
+                [checked]="layerState(layer) === 'checked'"
+                [indeterminate]="layerState(layer) === 'indeterminate'"
+                [disabled]="layer.isMainLayer"
+                (click)="$event.stopPropagation(); toggleLayer(layer)"
+              />
+              {{ layer.displayName }}{{ layer.isMainLayer ? " (main)" : "" }}
+            </label>
+          </summary>
+
+          <ng-container *ngFor="let entry of layer.groups">
+            <ng-container *ngIf="groupMatchesSearch(entry)">
+              <ng-container *ngTemplateOutlet="groupEntryTpl; context: { entry: entry }"></ng-container>
+            </ng-container>
+          </ng-container>
+
+          <ng-container *ngFor="let h of layer.headings">
+            <details class="tree-indent" *ngIf="headingMatchesSearch(h)" open>
+              <summary>
+                <label (click)="$event.stopPropagation()">
+                  <input
+                    type="checkbox"
+                    [checked]="headingState(h) === 'checked'"
+                    [indeterminate]="headingState(h) === 'indeterminate'"
+                    (click)="$event.stopPropagation(); toggleHeading(h)"
+                  />
+                  {{ h.heading }}
+                </label>
+              </summary>
+              <ng-container *ngFor="let entry of h.groups">
+                <ng-container *ngIf="groupMatchesSearch(entry)">
+                  <ng-container *ngTemplateOutlet="groupEntryTpl; context: { entry: entry }"></ng-container>
+                </ng-container>
+              </ng-container>
+            </details>
+          </ng-container>
+
+          <ng-container *ngFor="let child of layer.children">
+            <div class="tree-indent" *ngIf="layerMatchesSearch(child)">
+              <ng-container *ngTemplateOutlet="layerNodeTpl; context: { layer: child }"></ng-container>
+            </div>
+          </ng-container>
+        </details>
+      </ng-template>
 
       <!-- Binding the whole [layers] array (rather than one <e-layer> per
            mapOptions.layers[i]) is what lets this render N Syncfusion
@@ -183,8 +252,16 @@ const SHAPE_DATA_BY_LAYER_NAME: Record<string, any> = {
         (click)="onMapClick($event)"
         (resize)="onMapResize()"
         (loaded)="onMapLoaded()"
+        (zoomComplete)="onZoomComplete()"
       >
       </ejs-maps>
+
+      <!-- On-screen equivalent of the console.log in onMarkerClick()/
+           onMapClick() — appears briefly over the map on a marker/polygon/
+           circle click, then clears itself (see showToast()). -->
+      <div class="click-toast" *ngIf="toastMessage">
+        {{ toastMessage }}
+      </div>
     </div>
   `,
   styles: [
@@ -306,6 +383,60 @@ const SHAPE_DATA_BY_LAYER_NAME: Record<string, any> = {
         letter-spacing: 0.3px;
       }
 
+      .nx-map-demo .layer-panel-testbar {
+        padding: 8px 12px 0;
+      }
+
+      .nx-map-demo .reload-btn {
+        width: 100%;
+        padding: 6px 8px;
+        font-size: 12px;
+        background: #eef3fc;
+        border: 1px solid #c3d4f0;
+        border-radius: 4px;
+        color: #1a73e8;
+        cursor: pointer;
+      }
+
+      .nx-map-demo .reload-btn:hover {
+        background: #e1eaf9;
+      }
+
+      .nx-map-demo .layer-panel-search {
+        padding: 4px 12px 8px;
+      }
+
+      .nx-map-demo .layer-panel-search input {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 6px 8px;
+        font-size: 13px;
+        border: 1px solid #dadce0;
+        border-radius: 4px;
+      }
+
+      /* Centered near the top of the map, above the layer control/toolbar
+         (z-index higher than both), so it's never covered by either. */
+      .nx-map-demo .click-toast {
+        position: absolute;
+        top: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 200;
+        background: rgba(26, 26, 26, 0.92);
+        color: #fff;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 13px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+        max-width: 80%;
+        text-align: center;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        pointer-events: none;
+      }
+
       .nx-map-demo .layer-panel-body {
         padding: 0 8px 8px;
       }
@@ -368,9 +499,15 @@ const SHAPE_DATA_BY_LAYER_NAME: Record<string, any> = {
   ]
 })
 export class NxMapDemoComponent implements OnInit, AfterViewInit {
-  @ViewChild("mapInstance") mapInstance: MapsComponent;
+  // Both assigned outside the constructor (mapInstance by Angular's
+  // @ViewChild after view init, mapOptions asynchronously by rebuildMap()
+  // once ngOnInit's forkJoin resolves) — every read of either is already
+  // guarded (template uses `?.` throughout, TS-side callers check
+  // `if (!this.mapOptions)` / `if (this.mapInstance)` before use), so `!`
+  // just tells the compiler what's already true at runtime.
+  @ViewChild("mapInstance") mapInstance!: MapsComponent;
 
-  mapOptions: MapOptions;
+  mapOptions!: MapOptions;
   layerPanelOpen = false;
   layerTree: LayerTreeNode[] = [];
 
@@ -381,54 +518,329 @@ export class NxMapDemoComponent implements OnInit, AfterViewInit {
   panelTop = 50;
   panelMaxHeight = 500;
 
-  // pdo-map-config.json now holds two entries: "omanv1" (base layer) and
-  // "alwusta" (rendered as a SubLayer). Add further entries directly to
-  // that JSON for more regions — the builder and this panel both already
-  // handle an arbitrary-length array, no component changes needed.
-  private configs: MapConfig[] = (pdoMapConfig as any).default ?? pdoMapConfig;
+  // Filter-tree search box — plain text, matched case-insensitively against
+  // layer/heading/group names and leaf labels (see matchesSearch() and the
+  // per-level xMatchesSearch() helpers below).
+  filterText = "";
 
-  constructor(private builder: NXMapBuilderService, private elRef: ElementRef<HTMLElement>) {}
+  // Brief on-screen confirmation of the last marker/polygon/circle click —
+  // see showToast()/onMarkerClick()/onMapClick().
+  toastMessage: string | null = null;
+
+  // Manual test-only toggle for the "Reload Sub-Layers" button — alternates
+  // which mock file the demo re-fetches so clicking it visibly proves
+  // reloadSubLayerGroups() replaces the previous groups rather than
+  // appending to them. Not part of the real reload mechanism itself.
+  subLayerDemoAlt = false;
+
+  // pdo-map-config.json is an NXMapAppConfig — a description of WHERE each
+  // piece of data comes from (inline/file/api), not the map data itself.
+  // See ngOnInit() for how it's resolved into the MapConfig[] the builder
+  // service expects.
+  private appConfig: NXMapAppConfig = (pdoMapConfig as any).default ?? pdoMapConfig;
+  private configs: MapConfig[] = [];
+
+  // Kept as fields (rather than only local variables inside ngOnInit) so
+  // reloadSubLayerGroups() can rebuild the map later without re-fetching
+  // the base layer/static layers all over again — only subLayerGroups
+  // actually changes on a reload.
+  private baseConfig: MapConfig | undefined;
+  private baseShape: any;
+  private staticLayerResults: { config: MapConfig; shape: any }[] = [];
+  private subLayerGroups: MapGroup[] = [];
+
+  constructor(
+    private builder: NXMapBuilderService,
+    private configService: NXMapConfigService,
+    private elRef: ElementRef<HTMLElement>
+  ) {}
 
   ngOnInit(): void {
-    // Swap SHAPE_DATA_BY_LAYER_NAME's static lookup for
-    // NXMapDataService.getMapInfo(...) per layerName (e.g. forkJoin over
-    // all configs' layerNames) when wiring this back into the host app.
-    const shapeDataByLayer = Object.fromEntries(
-      this.configs.map(cfg => [cfg.layerName, SHAPE_DATA_BY_LAYER_NAME[cfg.layerName]])
-    );
+    const appConfig = this.appConfig;
+
+    forkJoin({
+      baseConfig: this.configService.resolve(appConfig.baseLayerConfigSource),
+      baseShape: this.configService.resolve(appConfig.baseShapeDataSource),
+      // Sub-layer groups share the base layer's geography (no shapeData of
+      // their own) — the API response(s) are merged straight into the base
+      // layer's groups[] below, per nx-map-builder.service.ts's own
+      // documented guidance on same-geography categories vs new layers.
+      subGroups: this.configService.loadSubLayerGroups(appConfig.subLayerApis),
+      // Static (hardcoded) layers each have their own real boundary/shapeData
+      // — genuinely separate Syncfusion SubLayers — but are still nested
+      // under the base layer in the filter popup via parentLayerName.
+      // forkJoin([]) never emits (only completes) — guard the empty case so
+      // ngOnInit's subscribe still fires when a deployment has no static
+      // layers configured at all.
+      staticLayers: appConfig.staticLayers.length
+        ? forkJoin(
+            appConfig.staticLayers.map(ref =>
+              forkJoin({
+                config: this.configService.resolve(ref.configSource),
+                shape: this.configService.resolve(ref.shapeDataSource)
+              }).pipe(
+                map(({ config, shape }) => ({
+                  config: {
+                    ...config,
+                    parentLayerName: ref.parentLayerName ?? appConfig.baseLayerName,
+                    participateInFilter: ref.participateInFilter ?? true
+                  },
+                  shape
+                }))
+              )
+            )
+          )
+        : of([])
+    }).subscribe(({ baseConfig, baseShape, subGroups, staticLayers }) => {
+      this.baseConfig = baseConfig;
+      this.baseShape = baseShape;
+      this.staticLayerResults = staticLayers;
+      this.subLayerGroups = subGroups;
+      this.rebuildMap();
+    });
+  }
+
+  // Re-calls a configured sub-layer API endpoint with a different payload —
+  // wire this to whatever "some other action" should refresh the map's
+  // dynamic groups (a filter change, a search, etc). The new response
+  // REPLACES this.subLayerGroups entirely rather than appending to it, so
+  // whatever the endpoint returned last time is fully cleared before the
+  // new groups are merged into the base layer and the map/filter tree are
+  // rebuilt. `apiIndex` picks which configured endpoint to re-call — 0 (the
+  // default) is the only one for today's single-entry subLayerApis config.
+  // `urlOverride` exists only for reloadSubLayerGroupsDemo()'s benefit (see
+  // below) — a real integration should leave it unset and vary results via
+  // `payload` against the one configured URL instead.
+  reloadSubLayerGroups(payload?: Record<string, string | number | boolean>, apiIndex = 0, urlOverride?: string): void {
+    const api = this.appConfig.subLayerApis[apiIndex];
+    if (!api) {
+      return;
+    }
+    const effectiveApi = urlOverride ? { ...api, url: urlOverride } : api;
+    this.configService.loadSubLayerGroup(effectiveApi, payload).subscribe(groups => {
+      this.subLayerGroups = groups;
+      this.rebuildMap();
+    });
+  }
+
+  // The manual "Reload Sub-Layers" button's click handler — nothing else
+  // calls this or reloadSubLayerGroups(). Since the demo's endpoint is a
+  // static mock file (not a real backend that would actually vary its
+  // response by payload), this alternates the URL itself between the full
+  // 2-group response and a partial 1-group one, purely so a click visibly
+  // proves the reload REPLACES the previous groups — e.g. the "Surface"
+  // heading disappearing from this popup entirely, not just going empty —
+  // rather than accumulating duplicates. Swap this for a real
+  // endpoint/payload once a live backend exists; reloadSubLayerGroups()
+  // itself already re-calls a single configured URL with whatever payload
+  // you pass it.
+  reloadSubLayerGroupsDemo(): void {
+    this.subLayerDemoAlt = !this.subLayerDemoAlt;
+    const url = this.subLayerDemoAlt
+      ? "assets/mock-api/sublayer-groups-partial.json"
+      : "assets/mock-api/sublayer-groups.json";
+    this.reloadSubLayerGroups({ demo: this.subLayerDemoAlt ? "partial" : "full" }, 0, url);
+  }
+
+  // Shared by the initial load and reloadSubLayerGroups(): recombines
+  // whatever's currently in baseConfig/staticLayerResults/subLayerGroups
+  // into the MapConfig[] + shapeDataByLayer the builder expects, then
+  // rebuilds mapOptions and the filter tree from scratch. A full
+  // buildMap() (not just builder.refresh()) is needed here because
+  // subLayerGroups changing can add/remove whole groups, not just flip
+  // visibility on existing ones.
+  private rebuildMap(): void {
+    if (!this.baseConfig) {
+      return;
+    }
+    const mergedBase: MapConfig = {
+      ...this.baseConfig,
+      isMainLayer: true,
+      groups: [...(this.baseConfig.groups ?? []), ...this.subLayerGroups]
+    };
+
+    this.configs = [mergedBase, ...this.staticLayerResults.map(s => s.config)];
+
+    const shapeDataByLayer: Record<string, any> = {
+      [this.appConfig.baseLayerName]: this.baseShape
+    };
+    this.staticLayerResults.forEach(s => {
+      shapeDataByLayer[s.config.layerName] = s.shape;
+    });
 
     this.mapOptions = this.builder.buildMap(this.configs, shapeDataByLayer);
     this.layerTree = this.builder.getLayerTree();
   }
 
-  // Hides/shows the whole layer (shape + everything in it). The main layer
-  // is excluded — every other layer's groups/markers render relative to
-  // it, so turning it off would leave the map with nothing at all. The
-  // checkbox is already [disabled] for it; this guard covers the case
-  // where [disabled] doesn't stop the click event itself from firing.
-  //
-  // Writes through this.layerTree[layer.layerIndex] rather than mutating
-  // the passed `layer` object directly — keeps this correct even if a
-  // future change (e.g. a search/filter view) hands the template a
-  // filtered copy of the tree instead of the original array's objects.
-  toggleLayer(layer: LayerTreeNode): void {
-    const original = this.layerTree[layer.layerIndex];
-    if (original.isMainLayer) {
-      return;
+  // Tri-state checkbox status shared by every parent level in the filter
+  // tree (group/heading/layer). "checked" means everything under this node
+  // is currently visible, "unchecked" means none of it is, and
+  // "indeterminate" means some but not all — the standard checkbox-tree
+  // convention, and what makes toggling a single leaf item show up as a
+  // partial check on its group, and that group's partial state bubble up
+  // through any heading and up to the layer itself.
+  private groupLeaves(entry: GroupEntry): { visible?: boolean }[] {
+    return [...entry.markers, ...entry.polygons, ...entry.circles, ...entry.lines];
+  }
+
+  // Case-insensitive substring match against the current search box text;
+  // an empty search matches everything, so the tree renders in full when
+  // the box is blank.
+  matchesSearch(label: string): boolean {
+    const query = this.filterText.trim().toLowerCase();
+    return !query || (label || "").toLowerCase().includes(query);
+  }
+
+  // A group "matches" if its own name matches, or ANY of its leaves do —
+  // whichever leaves matched are what actually render (see the leaf-level
+  // *ngIf="matchesSearch(...)" in groupEntryTpl); this just decides whether
+  // the group's own row (and its ancestor chain, below) stays in the tree
+  // at all while a search is active.
+  groupMatchesSearch(entry: GroupEntry): boolean {
+    if (!this.filterText.trim()) {
+      return true;
     }
-    original.visible = !original.visible;
-    this.builder.setLayerVisible(original.layerIndex, original.visible);
+    if (this.matchesSearch(entry.group.name)) {
+      return true;
+    }
+    return (
+      entry.markers.some(m => this.matchesSearch(m.name || "Marker")) ||
+      entry.polygons.some(p => this.matchesSearch(p.name || "Polygon")) ||
+      entry.circles.some(c => this.matchesSearch(c.name || "Circle")) ||
+      entry.lines.some((_l, i) => this.matchesSearch(`Line ${i + 1}`))
+    );
+  }
+
+  headingMatchesSearch(heading: HeadingNode): boolean {
+    if (!this.filterText.trim()) {
+      return true;
+    }
+    return this.matchesSearch(heading.heading) || heading.groups.some(e => this.groupMatchesSearch(e));
+  }
+
+  // Recurses into nested child layers too, so e.g. searching "Musandam"
+  // keeps the Oman node (its parent) in the tree even though "Musandam"
+  // isn't in Oman's own name.
+  layerMatchesSearch(layer: LayerTreeNode): boolean {
+    if (!this.filterText.trim()) {
+      return true;
+    }
+    return (
+      this.matchesSearch(layer.displayName) ||
+      layer.groups.some(e => this.groupMatchesSearch(e)) ||
+      layer.headings.some(h => this.headingMatchesSearch(h)) ||
+      layer.children.some(c => this.layerMatchesSearch(c))
+    );
+  }
+
+  private combineStates(states: ("checked" | "unchecked" | "indeterminate")[]): "checked" | "unchecked" | "indeterminate" {
+    if (!states.length || states.every(s => s === "checked")) {
+      return "checked";
+    }
+    if (states.every(s => s === "unchecked")) {
+      return "unchecked";
+    }
+    return "indeterminate";
+  }
+
+  // A group whose own `visible` is false is fully unchecked regardless of
+  // its leaves' own flags — none of them render while the group itself is
+  // off. Otherwise, checked/unchecked/indeterminate reflects exactly which
+  // of its markers/polygons/circles/lines are currently visible.
+  groupState(entry: GroupEntry): "checked" | "unchecked" | "indeterminate" {
+    if (entry.group.visible === false) {
+      return "unchecked";
+    }
+    const leaves = this.groupLeaves(entry);
+    if (!leaves.length) {
+      return "checked";
+    }
+    return this.combineStates(leaves.map(l => (l.visible !== false ? "checked" : "unchecked")));
+  }
+
+  headingState(heading: HeadingNode): "checked" | "unchecked" | "indeterminate" {
+    return this.combineStates(heading.groups.map(e => this.groupState(e)));
+  }
+
+  layerState(layer: LayerTreeNode): "checked" | "unchecked" | "indeterminate" {
+    if (!layer.visible) {
+      return "unchecked";
+    }
+    const states = [
+      ...layer.groups.map(e => this.groupState(e)),
+      ...layer.headings.map(h => this.headingState(h)),
+      ...layer.children.map(c => this.layerState(c))
+    ];
+    return this.combineStates(states);
+  }
+
+  private setGroupVisibility(entry: GroupEntry, visible: boolean): void {
+    entry.group.visible = visible;
+    this.groupLeaves(entry).forEach(l => {
+      l.visible = visible;
+    });
+  }
+
+  private setLayerTreeVisibility(layer: LayerTreeNode, visible: boolean): void {
+    layer.visible = visible;
+    layer.groups.forEach(entry => this.setGroupVisibility(entry, visible));
+    layer.headings.forEach(heading => heading.groups.forEach(entry => this.setGroupVisibility(entry, visible)));
+    layer.children.forEach(child => this.setLayerTreeVisibility(child, visible));
+  }
+
+  // Checking a group that's currently unchecked/indeterminate shows every
+  // leaf under it (and turns the group itself on); checking a fully-checked
+  // group hides everything under it instead — same "click an indeterminate
+  // checkbox -> select all" convention used at every level here.
+  toggleGroup(entry: GroupEntry): void {
+    const shouldShow = this.groupState(entry) !== "checked";
+    this.setGroupVisibility(entry, shouldShow);
     this.builder.refresh(this.mapOptions);
     this.render();
   }
 
-  // Shared by groups AND individual markers/polygons/circles/lines — all of
-  // them are BaseMapObject-derived and share the same `visible?: boolean`
-  // field. getLayerTree() hands out live references, so mutating `.visible`
-  // here is exactly what buildMarkerPoints/buildNavigationLines/buildPolygon
-  // check on the next refresh().
-  toggleVisible(item: { visible?: boolean }): void {
-    item.visible = !(item.visible !== false);
+  // Shared by every toggleable heading node in the filter popup — cascades
+  // to every group (and each of THEIR leaves) nested under it, not just the
+  // groups' own `visible` flag, so unchecking a heading really does clear
+  // every leaf underneath it rather than leaving stale per-leaf flags that
+  // would resurface the next time the heading is checked back on.
+  toggleHeading(heading: HeadingNode): void {
+    const shouldShow = this.headingState(heading) !== "checked";
+    heading.groups.forEach(entry => this.setGroupVisibility(entry, shouldShow));
+    this.builder.refresh(this.mapOptions);
+    this.render();
+  }
+
+  // Hides/shows the whole layer (shape + everything in it), cascading the
+  // same show/hide down through every group/heading/nested-child-layer
+  // under it. The main layer is excluded — every other layer's
+  // groups/markers render relative to it, so turning it off would leave the
+  // map with nothing at all. The checkbox is already [disabled] for it;
+  // this guard covers the case where [disabled] doesn't stop the click
+  // event itself from firing.
+  toggleLayer(layer: LayerTreeNode): void {
+    if (layer.isMainLayer) {
+      return;
+    }
+    const shouldShow = this.layerState(layer) !== "checked";
+    this.setLayerTreeVisibility(layer, shouldShow);
+    this.builder.setLayerVisible(layer.layerIndex, shouldShow);
+    this.builder.refresh(this.mapOptions);
+    this.render();
+  }
+
+  // A single leaf's own visible flag is independent of its group's, EXCEPT
+  // that checking a leaf ON only has any visible effect if its group is
+  // also on (buildMarkerPoints/etc. skip a group's contents entirely while
+  // group.visible is false) — so checking one leaf back on also turns its
+  // parent group on, otherwise the leaf would flip its own flag but stay
+  // invisible on the map with no visual feedback at all.
+  toggleLeaf(item: { visible?: boolean }, group: MapGroup): void {
+    const shouldShow = !(item.visible !== false);
+    item.visible = shouldShow;
+    if (shouldShow) {
+      group.visible = true;
+    }
     this.builder.refresh(this.mapOptions);
     this.render();
   }
@@ -439,6 +851,7 @@ export class NxMapDemoComponent implements OnInit, AfterViewInit {
       return;
     }
     console.log(`You selected ${graphic.groupName}`, graphic);
+    this.showToast(`You clicked "${graphic.object.name || "Item"}" in "${graphic.groupName}"`);
   }
 
   onMapClick(args: any): void {
@@ -447,6 +860,22 @@ export class NxMapDemoComponent implements OnInit, AfterViewInit {
       return;
     }
     console.log(`You selected ${graphic.groupName}`, graphic);
+    this.showToast(`You clicked "${graphic.object.name || "Item"}" in "${graphic.groupName}"`);
+  }
+
+  // On-screen equivalent of the console.log above — shows briefly near the
+  // top of the map, then clears itself. Re-triggering (another click before
+  // the timer fires) restarts the timer rather than stacking multiple
+  // pending clears, so the message always stays up for a full 2.5s from the
+  // MOST RECENT click.
+  private toastTimer: ReturnType<typeof setTimeout> | undefined;
+
+  showToast(message: string): void {
+    clearTimeout(this.toastTimer);
+    this.toastMessage = message;
+    this.toastTimer = setTimeout(() => {
+      this.toastMessage = null;
+    }, 2500);
   }
 
   private render(): void {
@@ -490,6 +919,35 @@ export class NxMapDemoComponent implements OnInit, AfterViewInit {
   onMapLoaded(): void {
     this.wireResetButton();
     this.animateNavigationLines();
+  }
+
+  private zoomRefreshTimer: ReturnType<typeof setTimeout> | undefined;
+
+  // Verified against a live render (not just theorized): after a real zoom
+  // (double-click, wheel, or the toolbar), Syncfusion drops the marker DOM
+  // elements for every marker-bearing layer except one — e.g. the base
+  // layer's 13 markers vanish entirely while alwusta's 3 remain — even
+  // though mapOptions/markerSettings never changed. Calling the Maps
+  // component's OWN refresh() (no mapOptions/builder involvement) restores
+  // them without resetting the current zoom scale, so this is Syncfusion's
+  // own internal render/model desync after a zoom transform, not a data
+  // problem on our side.
+  //
+  // zoomComplete can fire once per wheel tick during continuous scrolling —
+  // an earlier version of this handler called refresh() on every tick via
+  // the shared render() helper (an un-cancelled setTimeout chain), which
+  // stacked up overlapping refreshes during continuous zooming and made the
+  // map go blank after enough steps. Clearing the previous timer before
+  // scheduling a new one — so only ONE refresh ever fires, after zooming
+  // has actually settled — is what's different this time.
+  onZoomComplete(): void {
+    clearTimeout(this.zoomRefreshTimer);
+    this.zoomRefreshTimer = setTimeout(() => {
+      if (this.mapInstance) {
+        this.mapInstance.refresh();
+        this.animateNavigationLines();
+      }
+    }, 250);
   }
 
   // zoomSettings.resetToInitial governs whether Syncfusion's own toolbar

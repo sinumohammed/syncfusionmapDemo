@@ -1,0 +1,36 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "source": "demo",
+        "id": "OMDF",
+        "name": "Dhofar"
+      },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [53.85, 16.85],
+              [54.65, 16.85],
+              [54.65, 17.65],
+              [53.85, 17.65],
+              [53.85, 16.85]
+            ]
+          ],
+          [
+            [
+              [54.65, 17.65],
+              [55.45, 17.65],
+              [55.45, 18.45],
+              [54.65, 18.45],
+              [54.65, 17.65]
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

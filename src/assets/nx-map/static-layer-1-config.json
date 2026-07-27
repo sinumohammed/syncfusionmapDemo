@@ -1,0 +1,44 @@
+{
+  "layerName": "musandam",
+  "title": {
+    "text": "Musandam"
+  },
+  "dataLabel": {
+    "visible": true,
+    "color": "beige",
+    "opacity": 0.9
+  },
+  "groups": [
+    {
+      "id": "musandam-zone",
+      "name": "Musandam Zone",
+      "visible": true,
+      "polygons": [
+        {
+          "name": "Musandam Restricted Zone",
+          "background": "teal",
+          "opacity": 0.5,
+          "points": [
+            { "latitude": 25.20, "longitude": 55.90 },
+            { "latitude": 25.20, "longitude": 56.70 },
+            { "latitude": 25.90, "longitude": 56.70 },
+            { "latitude": 25.90, "longitude": 55.90 }
+          ]
+        },
+        {
+          "name": "Musandam Restricted Zone",
+          "background": "teal",
+          "opacity": 0.5,
+          "points": [
+            { "latitude": 25.20, "longitude": 56.70 },
+            { "latitude": 25.20, "longitude": 57.50 },
+            { "latitude": 25.90, "longitude": 57.50 },
+            { "latitude": 25.90, "longitude": 56.70 }
+          ]
+        }
+      ],
+      "circles": [],
+      "lines": []
+    }
+  ]
+}

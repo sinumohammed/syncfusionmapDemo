@@ -1,0 +1,36 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "source": "demo",
+        "id": "OMMU",
+        "name": "Musandam"
+      },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [55.90, 25.20],
+              [56.70, 25.20],
+              [56.70, 25.90],
+              [55.90, 25.90],
+              [55.90, 25.20]
+            ]
+          ],
+          [
+            [
+              [56.70, 25.20],
+              [57.50, 25.20],
+              [57.50, 25.90],
+              [56.70, 25.90],
+              [56.70, 25.20]
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

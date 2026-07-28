@@ -4,41 +4,11 @@
     "text": "Ad Dakhliyah"
   },
   "dataLabel": {
-    "visible": true,
+    "visible": false,
     "color": "beige",
     "opacity": 0.9
   },
   "groups": [
-    {
-      "id": "ad-dakhliyah-zone",
-      "name": "Ad Dakhliyah Zone",
-      "visible": true,
-      "polygons": [
-        {
-          "name": "Ad Dakhliyah Field Zone",
-          "background": "navy",
-          "opacity": 0.5,
-          "points": [
-            { "latitude": 22.75, "longitude": 57.35 },
-            { "latitude": 22.75, "longitude": 58.15 },
-            { "latitude": 23.55, "longitude": 58.15 },
-            { "latitude": 23.55, "longitude": 57.35 }
-          ]
-        },
-        {
-          "name": "Ad Dakhliyah Field Zone",
-          "background": "navy",
-          "opacity": 0.5,
-          "points": [
-            { "latitude": 23.55, "longitude": 58.15 },
-            { "latitude": 23.55, "longitude": 58.95 },
-            { "latitude": 24.35, "longitude": 58.95 },
-            { "latitude": 24.35, "longitude": 58.15 }
-          ]
-        }
-      ],
-      "circles": [],
-      "lines": []
-    }
+    
   ]
 }

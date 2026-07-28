@@ -109,21 +109,32 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
           </div>
       </div>
 
+      <!-- A group entry's own checkbox+label row — factored out so both
+           branches below (expandable vs leaf-only) render the exact same
+           markup instead of duplicating the checkbox bindings. -->
+      <ng-template #groupSummaryTpl let-entry="entry" let-layer="layer">
+        <label (click)="$event.stopPropagation()">
+          <input
+            type="checkbox"
+            [checked]="groupState(entry) === 'checked'"
+            [indeterminate]="groupState(entry) === 'indeterminate'"
+            (click)="$event.stopPropagation(); toggleGroup(entry, layer)"
+          />
+          {{ entry.group.name }}
+        </label>
+      </ng-template>
+
       <!-- Reused for every group leaf, whether it's an ungrouped
            layer.groups entry or nested inside a heading — a group's own
-           checkbox plus its flat marker/polygon/circle/line leaves. -->
+           checkbox plus its flat marker/polygon/circle/line leaves. A group
+           with no markers/polygons/circles/lines at all (groupHasLeaves()
+           false) has nothing to expand, so it renders as a plain row
+           instead — a <details> here would otherwise still show its
+           disclosure arrow even though opening it reveals nothing. -->
       <ng-template #groupEntryTpl let-entry="entry" let-layer="layer">
-        <details class="tree-indent" open>
+        <details class="tree-indent" open *ngIf="groupHasLeaves(entry); else groupLeafRow">
           <summary>
-            <label (click)="$event.stopPropagation()">
-              <input
-                type="checkbox"
-                [checked]="groupState(entry) === 'checked'"
-                [indeterminate]="groupState(entry) === 'indeterminate'"
-                (click)="$event.stopPropagation(); toggleGroup(entry, layer)"
-              />
-              {{ entry.group.name }}
-            </label>
+            <ng-container *ngTemplateOutlet="groupSummaryTpl; context: { entry: entry, layer: layer }"></ng-container>
           </summary>
 
           <div class="tree-indent leaves">
@@ -169,29 +180,44 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
             </ng-container>
           </div>
         </details>
+        <ng-template #groupLeafRow>
+          <div class="tree-indent no-children">
+            <ng-container *ngTemplateOutlet="groupSummaryTpl; context: { entry: entry, layer: layer }"></ng-container>
+          </div>
+        </ng-template>
+      </ng-template>
+
+      <!-- A layer node's own checkbox+label row — factored out for the same
+           reason as groupSummaryTpl above. -->
+      <ng-template #layerSummaryTpl let-layer="layer">
+        <label
+          (click)="$event.stopPropagation()"
+          [title]="layer.isMainLayer ? 'Main layer — always visible' : ''"
+        >
+          <input
+            type="checkbox"
+            [checked]="layerState(layer) === 'checked'"
+            [indeterminate]="layerState(layer) === 'indeterminate'"
+            [disabled]="layer.isMainLayer"
+            (click)="$event.stopPropagation(); toggleLayer(layer)"
+          />
+          {{ layer.displayName }}{{ layer.isMainLayer ? " (main)" : "" }}
+        </label>
       </ng-template>
 
       <!-- One layer node: its own summary checkbox, its ungrouped groups,
            its toggleable heading sections (each bucketing groups from a
            sub-layer API call), and any nested child layers (e.g. static
            layers nested under the base/Oman layer) — rendered by calling
-           this same template again, so nesting depth isn't hardcoded. -->
+           this same template again, so nesting depth isn't hardcoded. A
+           layer with none of the above (layerHasContent() false — e.g. a
+           static layer configured with groups: []) has nothing to expand,
+           so it renders as a plain row instead of a <details> that would
+           still show a disclosure arrow over an empty panel. -->
       <ng-template #layerNodeTpl let-layer="layer">
-        <details open>
+        <details open *ngIf="layerHasContent(layer); else layerLeafRow">
           <summary>
-            <label
-              (click)="$event.stopPropagation()"
-              [title]="layer.isMainLayer ? 'Main layer — always visible' : ''"
-            >
-              <input
-                type="checkbox"
-                [checked]="layerState(layer) === 'checked'"
-                [indeterminate]="layerState(layer) === 'indeterminate'"
-                [disabled]="layer.isMainLayer"
-                (click)="$event.stopPropagation(); toggleLayer(layer)"
-              />
-              {{ layer.displayName }}{{ layer.isMainLayer ? " (main)" : "" }}
-            </label>
+            <ng-container *ngTemplateOutlet="layerSummaryTpl; context: { layer: layer }"></ng-container>
           </summary>
 
           <ng-container *ngFor="let entry of layer.groups">
@@ -227,6 +253,11 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
             </div>
           </ng-container>
         </details>
+        <ng-template #layerLeafRow>
+          <div class="no-children">
+            <ng-container *ngTemplateOutlet="layerSummaryTpl; context: { layer: layer }"></ng-container>
+          </div>
+        </ng-template>
       </ng-template>
 
       <!-- Binding the whole [layers] array (rather than one <e-layer> per
@@ -461,6 +492,13 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
         margin-left: 16px;
       }
 
+      /* A childless group/layer row (no <details> wrapper, so no native
+         disclosure triangle) — matches a <summary>'s own left inset so it
+         still lines up with sibling rows that DO have an arrow. */
+      .nx-map-demo .no-children {
+        margin-left: 1em;
+      }
+
       .nx-map-demo .layer-panel label {
         display: flex;
         align-items: center;
@@ -667,25 +705,6 @@ export class NxMapDemoComponent implements OnInit, AfterViewInit {
     if (!this.baseConfig) {
       return;
     }
-
-    // builder.buildMap() rebuilds every layer/group as brand-new objects,
-    // always defaulting to visible — a reload would otherwise silently
-    // re-show any layer/group the user had manually unchecked, even ones
-    // that had nothing to do with whatever changed. Snapshot the current
-    // visibility (keyed by layerName / layerName+groupId, since those are
-    // the only stable identifiers that survive a full rebuild) before
-    // building, then reapply it onto the freshly-built tree below.
-    const layerVisibility = new Map<string, boolean>();
-    const groupVisibility = new Map<string, boolean>();
-    const snapshot = (layer: LayerTreeNode) => {
-      layerVisibility.set(layer.layerName, layer.visible);
-      [...layer.groups, ...layer.headings.flatMap(h => h.groups)].forEach(entry => {
-        groupVisibility.set(`${layer.layerName}::${entry.group.id}`, entry.group.visible !== false);
-      });
-      layer.children.forEach(snapshot);
-    };
-    this.layerTree.forEach(snapshot);
-
     const mergedBase: MapConfig = {
       ...this.baseConfig,
       isMainLayer: true,
@@ -701,35 +720,28 @@ export class NxMapDemoComponent implements OnInit, AfterViewInit {
       shapeDataByLayer[s.config.layerName] = s.shape;
     });
 
+    // Every layer/group comes back fully checked (buildMap()'s default) —
+    // a reload is a full reset, not a merge with whatever was previously
+    // toggled.
     this.mapOptions = this.builder.buildMap(this.configs, shapeDataByLayer);
     this.layerTree = this.builder.getLayerTree();
-
-    // Reapply the snapshotted visibility onto the new tree/builder state —
-    // a reload should never silently re-show something the user had
-    // hidden. No-op on the very first call (layerVisibility/groupVisibility
-    // are empty since this.layerTree started as []).
-    const reapply = (layer: LayerTreeNode) => {
-      const wasVisible = layerVisibility.get(layer.layerName);
-      if (wasVisible !== undefined && wasVisible !== layer.visible) {
-        layer.visible = wasVisible;
-        this.builder.setLayerVisible(layer.layerIndex, wasVisible);
-      }
-      [...layer.groups, ...layer.headings.flatMap(h => h.groups)].forEach(entry => {
-        const key = `${layer.layerName}::${entry.group.id}`;
-        if (groupVisibility.has(key)) {
-          entry.group.visible = groupVisibility.get(key);
-        }
-      });
-      layer.children.forEach(reapply);
-    };
-    this.layerTree.forEach(reapply);
-
-    // buildMap() already computed mapOptions.layers using each group's
-    // default (pre-reapply) visibility — refresh() regenerates
-    // markerSettings/polygonSettings/navigationLineSettings from the
-    // corrected flags reapply() just set.
-    this.builder.refresh(this.mapOptions);
     this.render();
+  }
+
+  // Whether a group has anything to expand at all — drives groupEntryTpl's
+  // choice between a <details> (with its disclosure arrow) and a plain
+  // no-arrow row for a group whose markers/polygons/circles/lines are all
+  // empty.
+  groupHasLeaves(entry: GroupEntry): boolean {
+    return this.groupLeaves(entry).length > 0;
+  }
+
+  // Whether a layer node has anything to expand at all (groups, headings,
+  // or nested child layers) — drives layerNodeTpl's choice between a
+  // <details> and a plain no-arrow row for a layer configured with no
+  // groups of its own (e.g. a static layer whose config has `groups: []`).
+  layerHasContent(layer: LayerTreeNode): boolean {
+    return layer.groups.length > 0 || layer.headings.length > 0 || layer.children.length > 0;
   }
 
   // Tri-state checkbox status shared by every parent level in the filter
@@ -848,21 +860,21 @@ export class NxMapDemoComponent implements OnInit, AfterViewInit {
     layer.children.forEach(child => this.setLayerTreeVisibility(child, visible));
   }
 
-  // Keeps a layer's own master `visible` flag (the thing that actually
+  // Turns a layer's own master `visible` flag (the thing that actually
   // controls whether Syncfusion draws its shape/boundary at all — separate
   // from the checkbox's DISPLAYED state, which is purely computed from its
-  // descendants) in sync with whether anything under it is still checked.
-  // Without this, unchecking the very last visible group/leaf under a
-  // layer left the checkbox correctly showing unchecked while the layer's
-  // shape kept rendering on the map regardless — the checkbox and the
-  // actual drawing had silently drifted apart. Symmetrically, checking
-  // something back on while the layer itself was off (e.g. after fully
-  // unchecking it, or unchecking the whole layer directly) needs to flip
-  // the layer back on too, or the newly-checked item stays invisible with
-  // no feedback. The main layer is exempt — hiding it would leave nothing
-  // for every other layer to render against (same guard as toggleLayer()).
+  // descendants) back ON whenever something under it becomes visible again
+  // while the shape itself was off — otherwise the newly-checked item stays
+  // invisible with no feedback. Deliberately one-directional: unchecking
+  // every leaf/group under a layer does NOT hide the shape here — that's
+  // the only way to see a region's boundary on its own with no
+  // markers/polygons/lines drawn, and forcing the shape off too would make
+  // that impossible. Explicitly unchecking the layer's OWN checkbox
+  // (toggleLayer()) is the only thing that hides the shape. The main layer
+  // is exempt — hiding it would leave nothing for every other layer to
+  // render against (same guard as toggleLayer()).
   private syncLayerVisibility(layer: LayerTreeNode): void {
-    if (layer.isMainLayer) {
+    if (layer.isMainLayer || layer.visible) {
       return;
     }
     const anyVisible = [
@@ -871,9 +883,9 @@ export class NxMapDemoComponent implements OnInit, AfterViewInit {
       ...layer.children.map(c => this.layerState(c))
     ].some(s => s !== "unchecked");
 
-    if (anyVisible !== layer.visible) {
-      layer.visible = anyVisible;
-      this.builder.setLayerVisible(layer.layerIndex, anyVisible);
+    if (anyVisible) {
+      layer.visible = true;
+      this.builder.setLayerVisible(layer.layerIndex, true);
     }
   }
 
@@ -1000,10 +1012,16 @@ export class NxMapDemoComponent implements OnInit, AfterViewInit {
       return;
     }
     const host = this.elRef.nativeElement;
-    this.mapOptions.layers.forEach((layerSettings, i) => {
+    this.mapOptions.layers.forEach((_layerSettings, i) => {
       const group = host.querySelector(`[id$="_LayerIndex_${i}"]`) as HTMLElement | null;
       if (group) {
-        group.style.display = layerSettings.visible === false ? "none" : "";
+        // builder.refresh() always feeds Syncfusion's OWN layers[i].visible
+        // as true (see its comment) — reading it here would show every
+        // layer as visible regardless of what the user actually toggled.
+        // getLayerVisible() is the real per-layer flag that was never
+        // handed to Syncfusion, specifically so its layersCollection never
+        // drops/renumbers an entry and desyncs this index-based lookup.
+        group.style.display = this.builder.getLayerVisible(i) ? "" : "none";
       }
     });
   }

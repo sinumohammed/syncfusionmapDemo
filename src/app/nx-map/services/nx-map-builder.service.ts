@@ -128,6 +128,17 @@ export class NXMapBuilderService {
       config,
       shapeData: shapeDataByLayer[config.layerName],
       visible: true,
+      // Every leaf-bearing field is freshly cloned here (not just the
+      // group wrapper) — markerConfig.points already was, via
+      // flattenPointHierarchy(), but polygons/circles/lines previously
+      // came through as the SAME shared objects from `config` on every
+      // call. Since configs are cached and reused across repeated
+      // initialize() calls (e.g. every reload), a runtime `.visible`
+      // toggle on an uncloned polygon/circle/line mutated the shared
+      // source data permanently — a "reload resets everything to fully
+      // checked" reload silently stayed unchecked forever for any
+      // group whose only leaves were polygons/circles/lines (markers were
+      // never affected, since those were already cloned).
       groups: (config.groups ?? []).map(group => ({
         ...group,
         markerConfig: group.markerConfig
@@ -135,7 +146,10 @@ export class NXMapBuilderService {
               ...group.markerConfig,
               points: this.flattenPointHierarchy(group.markerConfig.points ?? [])
             }
-          : group.markerConfig
+          : group.markerConfig,
+        polygons: (group.polygons ?? []).map(p => ({ ...p, points: [...p.points] })),
+        circles: (group.circles ?? []).map(c => ({ ...c })),
+        lines: (group.lines ?? []).map(l => ({ ...l, points: [...l.points] }))
       }))
     }));
   }
@@ -462,13 +476,36 @@ export class NXMapBuilderService {
     // Reassign (not mutate) layers so Syncfusion's change detection on the
     // e-layer directives actually picks up the new settings, for every
     // layer — not just the first.
+    //
+    // `visible` is ALWAYS true here, regardless of this.layers[layerIndex]'s
+    // own flag — confirmed live: feeding Syncfusion's OWN layer `visible:
+    // false` makes it drop that entry from its internal layersCollection
+    // entirely and renumber every LATER layer's rendered "_LayerIndex_<n>"
+    // DOM id down by one. Since nx-map-demo.component.ts's
+    // syncLayerDomVisibility() hides layers by walking this same
+    // mapOptions.layers array BY POSITION and matching it against
+    // "_LayerIndex_<i>" in the DOM, that renumbering makes it toggle the
+    // WRONG (now-shifted) layer's shape off — visually, unchecking one
+    // layer also hides whichever layer used to sit right after it. Keeping
+    // Syncfusion's own flag pinned to true keeps layersCollection's length
+    // and numbering stable; getLayerVisible() below is the real (indexable)
+    // source of truth syncLayerDomVisibility() should use instead.
     mapOptions.layers = mapOptions.layers.map((existing, layerIndex) => ({
       ...existing,
-      visible: this.layers[layerIndex]?.visible ?? true,
+      visible: true,
       markerSettings: this.buildMarkerPoints(layerIndex),
       navigationLineSettings: this.buildNavigationLines(layerIndex),
       polygonSettings: this.buildPolygon(layerIndex)
     }));
+  }
+
+  // The real per-layer visibility flag — NOT mirrored onto Syncfusion's own
+  // mapOptions.layers[i].visible (see refresh() above for why). Callers that
+  // need to know whether a layer is actually supposed to be hidden (e.g.
+  // syncLayerDomVisibility()'s DOM-level display:none toggle) should read
+  // this instead of the Syncfusion-bound layer settings.
+  getLayerVisible(layerIndex: number): boolean {
+    return this.layers[layerIndex]?.visible ?? true;
   }
 
   // configs: one entry per Syncfusion layer. shapeDataByLayer: that layer's

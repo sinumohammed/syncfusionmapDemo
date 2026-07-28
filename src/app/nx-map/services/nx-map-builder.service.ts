@@ -1,6 +1,8 @@
 import { Injectable } from "@angular/core";
 import { MarkerSettingsModel } from "@syncfusion/ej2-angular-maps";
+import * as nxMapThemesJson from "../data/nx-map-themes.json";
 import {
+  ClusterConfig,
   GeoLocation,
   GraphicLookup,
   GraphicType,
@@ -11,9 +13,17 @@ import {
   MapOptions,
   MapPoint,
   MapPolygon,
+  MapTheme,
+  MapThemeFill,
+  MapThemeRegistry,
   MarkerShape,
   ParseTargetResult
 } from "../model/nx-map-model";
+
+// Bundled the same way pdo-map-config.json is in nx-map-demo.component.ts —
+// a compile-time import, no HTTP round trip, so buildMap()/initialize() stay
+// synchronous.
+const nxMapThemes: MapThemeRegistry = ((nxMapThemesJson as any).default ?? nxMapThemesJson) as MapThemeRegistry;
 
 interface LayerState {
   config: MapConfig;
@@ -24,6 +34,10 @@ interface LayerState {
   // own `visible` (which only hides that group's markers/lines/polygons
   // within a still-visible layer).
   visible: boolean;
+  // Resolved once in initialize() from config.theme — always a full
+  // (possibly empty) MapTheme object, defaulting to the "default" entry for
+  // an unset or unrecognized theme name. See resolveTheme().
+  theme: MapTheme;
 }
 
 // One entry per group in the layer control's tree UI. Every
@@ -106,7 +120,12 @@ export class NXMapBuilderService {
   // lower layer's markers/polygons even though they still exist in the DOM.
   // Use `type: 'SubLayer'` plus a semi-transparent shapeSettings.fill on the
   // config (see buildLayers) when layers must stack over a base layer.
-  initialize(configs: MapConfig[], shapeDataByLayer: Record<string, any>) {
+  // baseTheme: the app-wide default theme name (NXMapAppConfig.theme) — a
+  // layer with no theme of its own inherits this instead of falling
+  // straight to "default", so a deployment can set the look once instead
+  // of repeating the same theme on every layer's config. A layer's own
+  // `theme` still wins over it (see resolveTheme() below).
+  initialize(configs: MapConfig[], shapeDataByLayer: Record<string, any>, baseTheme?: string) {
     const rawMainIndex = configs.findIndex(c => c.isMainLayer);
     const mainIndex = rawMainIndex === -1 ? 0 : rawMainIndex;
     if (configs[mainIndex]?.visible === false) {
@@ -128,6 +147,7 @@ export class NXMapBuilderService {
       config,
       shapeData: shapeDataByLayer[config.layerName],
       visible: true,
+      theme: this.resolveTheme(config.theme ?? baseTheme),
       // Every leaf-bearing field is freshly cloned here (not just the
       // group wrapper) — markerConfig.points already was, via
       // flattenPointHierarchy(), but polygons/circles/lines previously
@@ -152,6 +172,27 @@ export class NXMapBuilderService {
         lines: (group.lines ?? []).map(l => ({ ...l, points: [...l.points] }))
       }))
     }));
+  }
+
+  // Looks up a theme by name for a layer's config.theme — "default" for an
+  // unset name, and "default" again for a name that isn't in the registry
+  // (so a typo'd theme falls back to today's stock look instead of
+  // rendering with no styling at all). The final `?? {}` is a defensive
+  // guard only — it'd take a malformed nx-map-themes.json missing its own
+  // "default" entry to ever reach it.
+  private resolveTheme(name: string | undefined): MapTheme {
+    return nxMapThemes[name ?? "default"] ?? nxMapThemes["default"] ?? {};
+  }
+
+  // A group's own theme (e.g. set by a sub-layer API response, per-group —
+  // see MapGroup.theme) always wins over its layer's theme; a group with no
+  // theme of its own just uses whatever the layer resolved to. This is the
+  // theme every per-group builder method (buildMarkerPoints,
+  // buildNavigationLines, buildPolygon) should merge point/line/polygon/
+  // circle fields against — never layerTheme directly, or a group-level API
+  // override would silently do nothing.
+  private resolveGroupTheme(group: MapGroup, layerTheme: MapTheme): MapTheme {
+    return group.theme ? this.resolveTheme(group.theme) : layerTheme;
   }
 
   private visibleGroups(layer: LayerState): MapGroup[] {
@@ -183,15 +224,19 @@ export class NXMapBuilderService {
     });
   }
 
-  private toMarker(point: MapPoint, lookupKey: string) {
+  // theme is the layer's own resolved MapTheme (see resolveTheme()) — an
+  // inline value on the point always wins; an omitted field falls back to
+  // the theme's marker style, and only then to a last-resort literal (kept
+  // here in case a theme registry entry itself omits that field too).
+  private toMarker(point: MapPoint, lookupKey: string, theme: MapTheme) {
     return {
       latitude: point.latitude,
       longitude: point.longitude,
       name: point.name,
-      shape: point.shape || MarkerShape.Balloon,
-      color: point.color,
-      width: point.width ?? 20,
-      height: point.height ?? 20,
+      shape: point.shape ?? theme.marker?.shape ?? MarkerShape.Balloon,
+      color: point.color ?? theme.marker?.color,
+      width: point.width ?? theme.marker?.width ?? 20,
+      height: point.height ?? theme.marker?.height ?? 20,
       __lookupKey: lookupKey
     };
   }
@@ -203,6 +248,12 @@ export class NXMapBuilderService {
     const layer = this.layers[layerIndex];
 
     return this.visibleGroups(layer).map(g => {
+      // Each group resolves its OWN theme (falling back to the layer's) —
+      // not just the layer's theme directly — so a sub-layer API group
+      // carrying its own `theme` field picks its own look independent of
+      // whatever layer it got merged into. See resolveGroupTheme().
+      const theme = this.resolveGroupTheme(g, layer.theme);
+
       // A group's own points array may include markers individually hidden
       // via the tree UI (point.visible === false) — everything else in
       // MapPoint defaults to visible when the flag is simply absent.
@@ -216,19 +267,19 @@ export class NXMapBuilderService {
           groupName: g.name,
           object: point
         });
-        return this.toMarker(point, lookupKey);
+        return this.toMarker(point, lookupKey, theme);
       });
 
       return {
         visible: g.visible ?? true,
         animationDuration: 0,
-        shape: g.markerConfig?.style?.shape,
-        fill: g.markerConfig?.style?.color,
-        width: g.markerConfig?.style?.width,
-        height: g.markerConfig?.style?.height,
+        shape: g.markerConfig?.style?.shape ?? theme.marker?.shape,
+        fill: g.markerConfig?.style?.color ?? theme.marker?.color,
+        width: g.markerConfig?.style?.width ?? theme.marker?.width,
+        height: g.markerConfig?.style?.height ?? theme.marker?.height,
         border: {
-          width: 1,
-          color: "#285255"
+          width: theme.marker?.border?.width ?? 1,
+          color: theme.marker?.border?.color ?? "#285255"
         },
         tooltipSettings: {
           visible: true,
@@ -243,29 +294,62 @@ export class NXMapBuilderService {
         // Syncfusion's per-marker-layer clustering property is
         // `clusterSettings` (NOT `markerClusterSettings` — that one only
         // exists on LayerSettingsModel, one per whole layer).
-        clusterSettings: g.markerConfig?.clusterConfig,
+        clusterSettings: this.mergeClusterConfig(g.markerConfig?.clusterConfig, theme.cluster),
         dataSource
       } as MarkerSettingsModel;
     });
+  }
+
+  // Shallow-merges a group's own clusterConfig over the layer theme's
+  // cluster defaults (including the nested labelStyle, merged the same
+  // way) — inline fields always win, an omitted field falls back to the
+  // theme. Returns undefined only when NEITHER supplies anything, so a
+  // group/theme with no clustering intent still renders with no
+  // clusterSettings at all, same as before this merge existed.
+  private mergeClusterConfig(
+    inline: ClusterConfig | undefined,
+    themeCluster: MapTheme["cluster"] | undefined
+  ): ClusterConfig | undefined {
+    if (!inline && !themeCluster) {
+      return undefined;
+    }
+    return {
+      allowClustering: inline?.allowClustering,
+      allowDeepClustering: inline?.allowDeepClustering,
+      allowClusterExpand: inline?.allowClusterExpand,
+      imageUrl: inline?.imageUrl,
+      shape: inline?.shape ?? themeCluster?.shape,
+      color: inline?.color ?? themeCluster?.color,
+      width: inline?.width ?? themeCluster?.width,
+      height: inline?.height ?? themeCluster?.height,
+      labelStyle: inline?.labelStyle ?? themeCluster?.labelStyle
+    };
   }
 
   private buildNavigationLines(layerIndex: number) {
     const layer = this.layers[layerIndex];
 
     return this.visibleGroups(layer)
-      .flatMap(g => (g.lines ?? []).filter(l => l.visible !== false))
-      .map(line => ({
-        visible: line.visible,
-        color: line.color,
-        width: line.width,
-        dashArray: line.dashArray,
-        latitude: line.points.map(x => x.latitude),
-        longitude: line.points.map(x => x.longitude)
-      }));
+      .flatMap(g => (g.lines ?? []).filter(l => l.visible !== false).map(line => ({ line, g })))
+      .map(({ line, g }) => {
+        // Resolved per-group (see buildMarkerPoints' comment) rather than
+        // once for the whole layer, so a sub-layer API group's own theme
+        // reaches its lines too.
+        const theme = this.resolveGroupTheme(g, layer.theme).line;
+        return {
+          visible: line.visible,
+          color: line.color ?? theme?.color,
+          width: line.width ?? theme?.width,
+          dashArray: line.dashArray ?? theme?.dashArray,
+          latitude: line.points.map(x => x.latitude),
+          longitude: line.points.map(x => x.longitude)
+        };
+      });
   }
 
   private buildPolygon(layerIndex: number) {
     const layer = this.layers[layerIndex];
+    const theme = layer.theme;
     const lookup: GraphicLookup[] = [];
     this.polygonLookup[layerIndex] = lookup;
 
@@ -282,13 +366,15 @@ export class NXMapBuilderService {
       .filter(g => g.visible)
       .flatMap(g => (g.polygons ?? []).filter(p => p.visible !== false).map(polygon => ({ polygon, g })))
       .forEach(({ polygon, g }) => {
+        // Per-group, same reasoning as buildMarkerPoints/buildNavigationLines.
+        const groupTheme = this.resolveGroupTheme(g, theme);
         polygons.push({
           tooltipText: polygon.name,
           points: polygon.points,
-          fill: polygon.background || "red",
-          opacity: polygon.opacity || 0.7,
-          borderColor: polygon.borderColor || "green",
-          borderWidth: polygon.borderWidth || 2
+          fill: polygon.background ?? groupTheme.polygon?.background ?? "red",
+          opacity: polygon.opacity ?? groupTheme.polygon?.opacity ?? 0.7,
+          borderColor: polygon.borderColor ?? groupTheme.polygon?.borderColor ?? "green",
+          borderWidth: polygon.borderWidth ?? groupTheme.polygon?.borderWidth ?? 2
         });
         lookup.push({
           type: GraphicType.Polygon,
@@ -302,17 +388,22 @@ export class NXMapBuilderService {
       .filter(g => g.visible)
       .flatMap(g => (g.circles ?? []).filter(c => c.visible !== false).map(circle => ({ circle, g })))
       .forEach(({ circle, g }) => {
-        const constructed = this.circleToPolygon(circle);
+        const groupTheme = this.resolveGroupTheme(g, theme);
+        // circleToPolygon() already resolves fill/opacity/border against
+        // groupTheme.circle (and its own last-resort literals) internally,
+        // so `constructed`'s fields are used as-is here — no second
+        // fallback needed at this call site.
+        const constructed = this.circleToPolygon(circle, groupTheme.circle);
         if (!constructed) {
           return;
         }
         polygons.push({
           tooltipText: constructed.name,
           points: constructed.points,
-          fill: constructed.background || "red",
-          opacity: constructed.opacity || 0.7,
-          borderColor: constructed.borderColor || "green",
-          borderWidth: constructed.borderWidth || 2
+          fill: constructed.background,
+          opacity: constructed.opacity,
+          borderColor: constructed.borderColor,
+          borderWidth: constructed.borderWidth
         });
         lookup.push({
           type: GraphicType.Circle,
@@ -323,18 +414,23 @@ export class NXMapBuilderService {
       });
 
     return {
+      // Layer-level only, deliberately not resolved per-group: Syncfusion's
+      // polygonSettings.tooltipSettings is a single object for the whole
+      // layer, not one per group, so a group-level theme override has
+      // nowhere to apply here even though it does for fill/opacity/border
+      // above.
       tooltipSettings: {
         visible: true,
         border: {
-          width: 2,
-          color: "red"
+          width: theme.tooltip?.border?.width ?? 2,
+          color: theme.tooltip?.border?.color ?? "red"
         }
       },
       polygons
     };
   }
 
-  private circleToPolygon(circle: MapCircle): MapPolygon {
+  private circleToPolygon(circle: MapCircle, circleTheme: MapThemeFill | undefined): MapPolygon {
     const points: GeoLocation[] = [];
 
     const segments = circle.segments ?? 64;
@@ -367,10 +463,10 @@ export class NXMapBuilderService {
 
     return {
       name: circle.name,
-      background: circle.background || "red",
-      opacity: circle.opacity || 0.7,
-      borderColor: circle.borderColor || "green",
-      borderWidth: circle.borderWidth || 2,
+      background: circle.background ?? circleTheme?.background ?? "red",
+      opacity: circle.opacity ?? circleTheme?.opacity ?? 0.7,
+      borderColor: circle.borderColor ?? circleTheme?.borderColor ?? "green",
+      borderWidth: circle.borderWidth ?? circleTheme?.borderWidth ?? 2,
       points
     };
   }
@@ -510,9 +606,11 @@ export class NXMapBuilderService {
 
   // configs: one entry per Syncfusion layer. shapeDataByLayer: that layer's
   // GeoJSON, keyed by config.layerName (e.g. from NXMapDataService — fetch
-  // one per layerName and forkJoin them before calling this).
-  buildMap(configs: MapConfig[], shapeDataByLayer: Record<string, any>): MapOptions {
-    this.initialize(configs, shapeDataByLayer);
+  // one per layerName and forkJoin them before calling this). baseTheme:
+  // NXMapAppConfig.theme — the app-wide default every layer inherits unless
+  // it sets its own MapConfig.theme.
+  buildMap(configs: MapConfig[], shapeDataByLayer: Record<string, any>, baseTheme?: string): MapOptions {
+    this.initialize(configs, shapeDataByLayer, baseTheme);
     // Index into this.layers (post-filter), NOT the raw configs param —
     // visible: false entries may have been dropped, shifting indices.
     const mainConfig = this.layers[this.mainLayerIndex].config;
@@ -598,9 +696,9 @@ export class NXMapBuilderService {
               visible: layer.config.dataLabel?.visible ?? false,
               labelPath: "name",
               textStyle: {
-                color: layer.config.dataLabel?.color
+                color: layer.config.dataLabel?.color ?? layer.theme.dataLabel?.color
               },
-              opacity: layer.config.dataLabel?.opacity
+              opacity: layer.config.dataLabel?.opacity ?? layer.theme.dataLabel?.opacity
             },
         markerSettings: this.buildMarkerPoints(layerIndex),
         navigationLineSettings: this.buildNavigationLines(layerIndex),

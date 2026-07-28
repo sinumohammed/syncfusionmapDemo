@@ -723,7 +723,7 @@ export class NxMapDemoComponent implements OnInit, AfterViewInit {
     // Every layer/group comes back fully checked (buildMap()'s default) —
     // a reload is a full reset, not a merge with whatever was previously
     // toggled.
-    this.mapOptions = this.builder.buildMap(this.configs, shapeDataByLayer);
+    this.mapOptions = this.builder.buildMap(this.configs, shapeDataByLayer, this.appConfig.theme);
     this.layerTree = this.builder.getLayerTree();
     this.render();
   }

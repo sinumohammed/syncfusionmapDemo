@@ -34,4 +34,12 @@ export interface NXMapAppConfig {
   baseShapeDataSource: DataSource<any>;
   staticLayers: StaticLayerRef[];
   subLayerApis: SubLayerApiConfig[];
+  // App-wide default theme (a name into nx-map-themes.json) — every layer
+  // inherits this unless it sets its own MapConfig.theme, which wins. Set
+  // this ONCE here instead of repeating the same theme on every layer's own
+  // config; a sub-layer API group also inherits it through whichever layer
+  // it gets merged into, so its own groups don't need a `theme` field
+  // either unless a specific group needs to override it individually (see
+  // MapGroup.theme).
+  theme?: string;
 }

@@ -595,6 +595,7 @@
   {
     "id": "surface",
     "name": "Surface",
+    "theme": "theme2",
     "visible": true,
     "markerConfig": {
       "style": {

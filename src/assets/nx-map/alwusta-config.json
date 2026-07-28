@@ -60,8 +60,24 @@
         ]
       },
       "lines": [],
-      "polygons": [],
-      "circles": []
+      "polygons": [
+        {
+          "name": "Al Wusta Demo Zone",
+          "points": [
+            { "latitude": 19.4, "longitude": 56.9 },
+            { "latitude": 19.4, "longitude": 57.5 },
+            { "latitude": 20.0, "longitude": 57.5 },
+            { "latitude": 20.0, "longitude": 56.9 }
+          ]
+        }
+      ],
+      "circles": [
+        {
+          "name": "Al Wusta Demo Circle",
+          "center": { "latitude": 20.2, "longitude": 57.9 },
+          "radius": 15000
+        }
+      ]
     }
   ]
 }

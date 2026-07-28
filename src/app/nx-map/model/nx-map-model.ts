@@ -101,6 +101,16 @@ export interface MapGroup {
   // Groups without a heading render exactly as before — directly under
   // their layer, no extra nesting.
   heading?: string;
+  // Per-group theme override — same lookup as MapConfig.theme (a name into
+  // nx-map-themes.json), but decided by THIS group's own data rather than
+  // the static layer config. Exists specifically for sub-layer API groups:
+  // the layer they get merged into (see rebuildMap() in
+  // nx-map-demo.component.ts) is fixed at config time, but each group the
+  // API returns can carry its own theme, e.g. one API response bucketing
+  // some groups under "theme1" and others under "theme2". Falls back to the
+  // layer's own theme when unset — inline point/polygon/circle/line fields
+  // still win over both.
+  theme?: string;
 }
 
 export interface DataLabel {
@@ -108,6 +118,60 @@ export interface DataLabel {
   color?: string;
   opacity?: number;
 }
+
+// Theme schema — one named entry in nx-map-themes.json. Every field here
+// maps 1:1 to a fallback the builder applies when the corresponding
+// group/point/line/polygon/circle field is omitted in the config JSON —
+// whatever's supplied inline always wins over the theme. Deliberately
+// scoped to fields the builder actually reads today; e.g. marker-level
+// labelStyle isn't wired to any Syncfusion rendering, so it has no theme
+// counterpart here.
+export interface MapThemeMarker {
+  shape?: MarkerShape;
+  color?: string;
+  width?: number;
+  height?: number;
+  border?: { width?: number; color?: string };
+}
+
+export interface MapThemeCluster extends ShapeStyle {
+  labelStyle?: LabelStyle;
+}
+
+export interface MapThemeLine {
+  color?: string;
+  width?: number;
+  dashArray?: string;
+}
+
+export interface MapThemeFill {
+  background?: string;
+  opacity?: number;
+  borderColor?: string;
+  borderWidth?: number;
+}
+
+export interface MapThemeTooltip {
+  border?: { width?: number; color?: string };
+}
+
+export interface MapThemeDataLabel {
+  color?: string;
+  opacity?: number;
+}
+
+export interface MapTheme {
+  marker?: MapThemeMarker;
+  cluster?: MapThemeCluster;
+  line?: MapThemeLine;
+  polygon?: MapThemeFill;
+  circle?: MapThemeFill;
+  tooltip?: MapThemeTooltip;
+  dataLabel?: MapThemeDataLabel;
+}
+
+// nx-map-themes.json's shape — a flat registry keyed by theme name.
+export type MapThemeRegistry = Record<string, MapTheme>;
 
 export interface MapConfig {
   layerName: string;
@@ -158,6 +222,14 @@ export interface MapConfig {
   // toggle offered for it, so a deployment can bake in a layer without
   // exposing it as a user-facing option.
   participateInFilter?: boolean;
+  // Selects a named entry from nx-map-themes.json to supply fallback
+  // style/color/dimension values for this layer's markers, clusters, lines,
+  // polygons, circles, tooltip border, and dataLabel, for whichever of
+  // those fields the config doesn't set inline. Missing/unrecognized names
+  // resolve to "default", which reproduces the builder's original
+  // hardcoded fallbacks exactly — layers that don't set this see no visual
+  // change.
+  theme?: string;
 }
 
 // A value that's either hardcoded inline, loaded from a static file, or

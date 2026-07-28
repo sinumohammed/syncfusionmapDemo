@@ -14,7 +14,7 @@
         }
       },
       "clusterConfig": {
-        "allowClustering": true,
+        "allowClustering": false,
         "allowDeepClustering": false,
         "allowClusterExpand": true,
         "labelStyle": {
@@ -41,13 +41,6 @@
           "shape": "Triangle"
         },
         {
-          "latitude": 22.92,
-          "longitude": 57.82,
-          "name": "OM",
-          "color": "red",
-          "shape": "Triangle"
-        },
-        {
           "latitude": 22.55,
           "longitude": 57.6,
           "name": "AQ",
@@ -71,14 +64,14 @@
         {
           "latitude": 21.55,
           "longitude": 57.15,
-          "name": "AN",
+          "name": "AN-1",
           "color": "orange",
           "shape": "Triangle"
         },
         {
           "latitude": 21.15,
           "longitude": 57,
-          "name": "SA",
+          "name": "SA-1",
           "color": "orange",
           "shape": "Triangle"
         },
@@ -86,13 +79,6 @@
           "latitude": 20.8,
           "longitude": 56.9,
           "name": "SU",
-          "color": "orange",
-          "shape": "Triangle"
-        },
-        {
-          "latitude": 20.35,
-          "longitude": 56.75,
-          "name": "SA-2",
           "color": "orange",
           "shape": "Triangle"
         },
@@ -109,6 +95,146 @@
           "name": "NM",
           "color": "green",
           "shape": "Triangle"
+        },
+        {
+          "latitude": 19.05,
+          "longitude": 56.25,
+          "name": "MM",
+          "color": "gray",
+          "shape": "Triangle"
+        },
+        {
+          "latitude": 22.92,
+          "longitude": 57.82,
+          "name": "OM-1",
+          "color": "red",
+          "shape": "Diamond"
+        },
+        {
+          "latitude": 23.15,
+          "longitude": 58.05,
+          "name": "YK",
+          "color": "red",
+          "shape": "Diamond"
+        },
+        {
+          "latitude": 23.1,
+          "longitude": 58,
+          "name": "NO",
+          "color": "gray",
+          "shape": "Diamond"
+        },
+        {
+          "latitude": 23.08,
+          "longitude": 57.95,
+          "name": "FH",
+          "color": "orange",
+          "shape": "Diamond"
+        },
+        {
+          "latitude": 23.35,
+          "longitude": 58.15,
+          "name": "DA",
+          "color": "red",
+          "shape": "Diamond"
+        },
+        {
+          "latitude": 23.38,
+          "longitude": 58.2,
+          "name": "OB-1",
+          "color": "red",
+          "shape": "Diamond"
+        },
+        {
+          "latitude": 23.55,
+          "longitude": 58.3,
+          "name": "AS",
+          "color": "red",
+          "shape": "Diamond"
+        },
+        {
+          "latitude": 22.85,
+          "longitude": 57.75,
+          "name": "BK",
+          "color": "gray",
+          "shape": "Diamond"
+        },
+        {
+          "latitude": 22.7,
+          "longitude": 57.65,
+          "name": "OB-2",
+          "color": "orange",
+          "shape": "Diamond"
+        },
+        {
+          "latitude": 22.5,
+          "longitude": 57.5,
+          "name": "OA",
+          "color": "green",
+          "shape": "Diamond"
+        },
+        {
+          "latitude": 22.2,
+          "longitude": 57.4,
+          "name": "SN",
+          "color": "gray",
+          "shape": "Diamond"
+        },
+        {
+          "latitude": 22,
+          "longitude": 57.55,
+          "name": "CC",
+          "color": "orange",
+          "shape": "Diamond"
+        },
+        {
+          "latitude": 21.7,
+          "longitude": 56.95,
+          "name": "PE",
+          "color": "gray",
+          "shape": "Diamond"
+        },
+        {
+          "latitude": 21.5,
+          "longitude": 57.05,
+          "name": "ZA",
+          "color": "red",
+          "shape": "Diamond"
+        },
+        {
+          "latitude": 20.35,
+          "longitude": 56.75,
+          "name": "SA-2",
+          "color": "orange",
+          "shape": "Diamond"
+        },
+        {
+          "latitude": 19.98,
+          "longitude": 56.6,
+          "name": "OM-2",
+          "color": "gray",
+          "shape": "Diamond"
+        },
+        {
+          "latitude": 19.85,
+          "longitude": 56.68,
+          "name": "RI",
+          "color": "gray",
+          "shape": "Diamond"
+        },
+        {
+          "latitude": 19.5,
+          "longitude": 56.3,
+          "name": "TA",
+          "color": "gray",
+          "shape": "Diamond"
+        },
+        {
+          "latitude": 19.48,
+          "longitude": 56.35,
+          "name": "AN-2",
+          "color": "red",
+          "shape": "Diamond"
         }
       ]
     },
@@ -116,8 +242,7 @@
       {
         "visible": true,
         "color": "blue",
-        "width": 2,
-        "dashArray": "4",
+        "width": 5,
         "points": [
           {
             "latitude": 23.6139,
@@ -126,10 +251,6 @@
           {
             "latitude": 23.05,
             "longitude": 57.9
-          },
-          {
-            "latitude": 22.92,
-            "longitude": 57.82
           },
           {
             "latitude": 22.55,
@@ -156,16 +277,257 @@
             "longitude": 56.9
           },
           {
-            "latitude": 20.35,
-            "longitude": 56.75
-          },
-          {
             "latitude": 19.9,
             "longitude": 56.55
           },
           {
             "latitude": 19.45,
             "longitude": 56.4
+          },
+          {
+            "latitude": 19.05,
+            "longitude": 56.25
+          }
+        ]
+      },
+      {
+        "visible": true,
+        "color": "blue",
+        "width": 5,
+        "points": [
+          {
+            "latitude": 23.35,
+            "longitude": 58.15
+          },
+          {
+            "latitude": 23.38,
+            "longitude": 58.2
+          },
+          {
+            "latitude": 23.15,
+            "longitude": 58.05
+          },
+          {
+            "latitude": 23.1,
+            "longitude": 58
+          },
+          {
+            "latitude": 23.08,
+            "longitude": 57.95
+          },
+          {
+            "latitude": 23.05,
+            "longitude": 57.9
+          }
+        ]
+      },
+      {
+        "visible": true,
+        "color": "blue",
+        "width": 5,
+        "points": [
+          {
+            "latitude": 20.8,
+            "longitude": 56.9
+          },
+          {
+            "latitude": 20.35,
+            "longitude": 56.75
+          }
+        ]
+      },
+      {
+        "visible": true,
+        "color": "green",
+        "width": 1.5,
+        "points": [
+          {
+            "latitude": 23.35,
+            "longitude": 58.15
+          },
+          {
+            "latitude": 23.55,
+            "longitude": 58.3
+          }
+        ]
+      },
+      {
+        "visible": true,
+        "color": "green",
+        "width": 1.5,
+        "points": [
+          {
+            "latitude": 23.1,
+            "longitude": 58
+          },
+          {
+            "latitude": 22.85,
+            "longitude": 57.75
+          }
+        ]
+      },
+      {
+        "visible": true,
+        "color": "green",
+        "width": 1.5,
+        "points": [
+          {
+            "latitude": 23.1,
+            "longitude": 58
+          },
+          {
+            "latitude": 22.7,
+            "longitude": 57.65
+          }
+        ]
+      },
+      {
+        "visible": true,
+        "color": "green",
+        "width": 1.5,
+        "points": [
+          {
+            "latitude": 22.7,
+            "longitude": 57.65
+          },
+          {
+            "latitude": 22.5,
+            "longitude": 57.5
+          }
+        ]
+      },
+      {
+        "visible": true,
+        "color": "green",
+        "width": 1.5,
+        "points": [
+          {
+            "latitude": 22.25,
+            "longitude": 57.45
+          },
+          {
+            "latitude": 22.2,
+            "longitude": 57.4
+          }
+        ]
+      },
+      {
+        "visible": true,
+        "color": "green",
+        "width": 1.5,
+        "points": [
+          {
+            "latitude": 22.25,
+            "longitude": 57.45
+          },
+          {
+            "latitude": 22,
+            "longitude": 57.55
+          }
+        ]
+      },
+      {
+        "visible": true,
+        "color": "green",
+        "width": 1.5,
+        "points": [
+          {
+            "latitude": 21.5,
+            "longitude": 57.05
+          },
+          {
+            "latitude": 21.7,
+            "longitude": 56.95
+          }
+        ]
+      },
+      {
+        "visible": true,
+        "color": "green",
+        "width": 1.5,
+        "points": [
+          {
+            "latitude": 21.55,
+            "longitude": 57.15
+          },
+          {
+            "latitude": 21.5,
+            "longitude": 57.05
+          }
+        ]
+      },
+      {
+        "visible": true,
+        "color": "green",
+        "width": 1.5,
+        "points": [
+          {
+            "latitude": 19.9,
+            "longitude": 56.55
+          },
+          {
+            "latitude": 19.85,
+            "longitude": 56.68
+          }
+        ]
+      },
+      {
+        "visible": true,
+        "color": "green",
+        "width": 1.5,
+        "points": [
+          {
+            "latitude": 19.45,
+            "longitude": 56.4
+          },
+          {
+            "latitude": 19.5,
+            "longitude": 56.3
+          }
+        ]
+      },
+      {
+        "visible": true,
+        "color": "green",
+        "width": 1.5,
+        "points": [
+          {
+            "latitude": 19.45,
+            "longitude": 56.4
+          },
+          {
+            "latitude": 19.48,
+            "longitude": 56.35
+          }
+        ]
+      },
+      {
+        "visible": true,
+        "color": "green",
+        "width": 1.5,
+        "points": [
+          {
+            "latitude": 23.05,
+            "longitude": 57.9
+          },
+          {
+            "latitude": 22.92,
+            "longitude": 57.82
+          }
+        ]
+      },
+      {
+        "visible": true,
+        "color": "green",
+        "width": 1.5,
+        "points": [
+          {
+            "latitude": 19.9,
+            "longitude": 56.55
+          },
+          {
+            "latitude": 19.98,
+            "longitude": 56.6
           }
         ]
       }
@@ -228,7 +590,8 @@
         "borderColor": "black",
         "borderWidth": 2
       }
-    ]
+    ],
+    "heading": "Main Oil Line"
   },
   {
     "id": "surface",
@@ -364,6 +727,7 @@
         "borderColor": "maroon",
         "borderWidth": 2
       }
-    ]
+    ],
+    "heading": "Surface"
   }
 ]

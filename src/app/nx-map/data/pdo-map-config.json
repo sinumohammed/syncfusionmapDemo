@@ -97,7 +97,7 @@
         "source": "file",
         "url": "assets/nx-map/static-layer-5-shape.json"
       },
-      "participateInFilter": false
+      "participateInFilter": true
     }
   ],
   "subLayerApis": [

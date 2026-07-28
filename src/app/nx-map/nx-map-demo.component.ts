@@ -112,7 +112,7 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
       <!-- Reused for every group leaf, whether it's an ungrouped
            layer.groups entry or nested inside a heading — a group's own
            checkbox plus its flat marker/polygon/circle/line leaves. -->
-      <ng-template #groupEntryTpl let-entry="entry">
+      <ng-template #groupEntryTpl let-entry="entry" let-layer="layer">
         <details class="tree-indent" open>
           <summary>
             <label (click)="$event.stopPropagation()">
@@ -120,7 +120,7 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
                 type="checkbox"
                 [checked]="groupState(entry) === 'checked'"
                 [indeterminate]="groupState(entry) === 'indeterminate'"
-                (click)="$event.stopPropagation(); toggleGroup(entry)"
+                (click)="$event.stopPropagation(); toggleGroup(entry, layer)"
               />
               {{ entry.group.name }}
             </label>
@@ -132,7 +132,7 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
                 <input
                   type="checkbox"
                   [checked]="m.visible !== false"
-                  (click)="toggleLeaf(m, entry.group)"
+                  (click)="toggleLeaf(m, entry.group, layer)"
                 />
                 {{ m.name || "Marker" }}
               </label>
@@ -142,7 +142,7 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
                 <input
                   type="checkbox"
                   [checked]="p.visible !== false"
-                  (click)="toggleLeaf(p, entry.group)"
+                  (click)="toggleLeaf(p, entry.group, layer)"
                 />
                 {{ p.name || "Polygon" }}
               </label>
@@ -152,7 +152,7 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
                 <input
                   type="checkbox"
                   [checked]="c.visible !== false"
-                  (click)="toggleLeaf(c, entry.group)"
+                  (click)="toggleLeaf(c, entry.group, layer)"
                 />
                 {{ c.name || "Circle" }}
               </label>
@@ -162,7 +162,7 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
                 <input
                   type="checkbox"
                   [checked]="l.visible !== false"
-                  (click)="toggleLeaf(l, entry.group)"
+                  (click)="toggleLeaf(l, entry.group, layer)"
                 />
                 Line {{ i + 1 }}
               </label>
@@ -196,7 +196,7 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
 
           <ng-container *ngFor="let entry of layer.groups">
             <ng-container *ngIf="groupMatchesSearch(entry)">
-              <ng-container *ngTemplateOutlet="groupEntryTpl; context: { entry: entry }"></ng-container>
+              <ng-container *ngTemplateOutlet="groupEntryTpl; context: { entry: entry, layer: layer }"></ng-container>
             </ng-container>
           </ng-container>
 
@@ -208,14 +208,14 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
                     type="checkbox"
                     [checked]="headingState(h) === 'checked'"
                     [indeterminate]="headingState(h) === 'indeterminate'"
-                    (click)="$event.stopPropagation(); toggleHeading(h)"
+                    (click)="$event.stopPropagation(); toggleHeading(h, layer)"
                   />
                   {{ h.heading }}
                 </label>
               </summary>
               <ng-container *ngFor="let entry of h.groups">
                 <ng-container *ngIf="groupMatchesSearch(entry)">
-                  <ng-container *ngTemplateOutlet="groupEntryTpl; context: { entry: entry }"></ng-container>
+                  <ng-container *ngTemplateOutlet="groupEntryTpl; context: { entry: entry, layer: layer }"></ng-container>
                 </ng-container>
               </ng-container>
             </details>
@@ -667,6 +667,25 @@ export class NxMapDemoComponent implements OnInit, AfterViewInit {
     if (!this.baseConfig) {
       return;
     }
+
+    // builder.buildMap() rebuilds every layer/group as brand-new objects,
+    // always defaulting to visible — a reload would otherwise silently
+    // re-show any layer/group the user had manually unchecked, even ones
+    // that had nothing to do with whatever changed. Snapshot the current
+    // visibility (keyed by layerName / layerName+groupId, since those are
+    // the only stable identifiers that survive a full rebuild) before
+    // building, then reapply it onto the freshly-built tree below.
+    const layerVisibility = new Map<string, boolean>();
+    const groupVisibility = new Map<string, boolean>();
+    const snapshot = (layer: LayerTreeNode) => {
+      layerVisibility.set(layer.layerName, layer.visible);
+      [...layer.groups, ...layer.headings.flatMap(h => h.groups)].forEach(entry => {
+        groupVisibility.set(`${layer.layerName}::${entry.group.id}`, entry.group.visible !== false);
+      });
+      layer.children.forEach(snapshot);
+    };
+    this.layerTree.forEach(snapshot);
+
     const mergedBase: MapConfig = {
       ...this.baseConfig,
       isMainLayer: true,
@@ -684,6 +703,32 @@ export class NxMapDemoComponent implements OnInit, AfterViewInit {
 
     this.mapOptions = this.builder.buildMap(this.configs, shapeDataByLayer);
     this.layerTree = this.builder.getLayerTree();
+
+    // Reapply the snapshotted visibility onto the new tree/builder state —
+    // a reload should never silently re-show something the user had
+    // hidden. No-op on the very first call (layerVisibility/groupVisibility
+    // are empty since this.layerTree started as []).
+    const reapply = (layer: LayerTreeNode) => {
+      const wasVisible = layerVisibility.get(layer.layerName);
+      if (wasVisible !== undefined && wasVisible !== layer.visible) {
+        layer.visible = wasVisible;
+        this.builder.setLayerVisible(layer.layerIndex, wasVisible);
+      }
+      [...layer.groups, ...layer.headings.flatMap(h => h.groups)].forEach(entry => {
+        const key = `${layer.layerName}::${entry.group.id}`;
+        if (groupVisibility.has(key)) {
+          entry.group.visible = groupVisibility.get(key);
+        }
+      });
+      layer.children.forEach(reapply);
+    };
+    this.layerTree.forEach(reapply);
+
+    // buildMap() already computed mapOptions.layers using each group's
+    // default (pre-reapply) visibility — refresh() regenerates
+    // markerSettings/polygonSettings/navigationLineSettings from the
+    // corrected flags reapply() just set.
+    this.builder.refresh(this.mapOptions);
     this.render();
   }
 
@@ -803,13 +848,44 @@ export class NxMapDemoComponent implements OnInit, AfterViewInit {
     layer.children.forEach(child => this.setLayerTreeVisibility(child, visible));
   }
 
+  // Keeps a layer's own master `visible` flag (the thing that actually
+  // controls whether Syncfusion draws its shape/boundary at all — separate
+  // from the checkbox's DISPLAYED state, which is purely computed from its
+  // descendants) in sync with whether anything under it is still checked.
+  // Without this, unchecking the very last visible group/leaf under a
+  // layer left the checkbox correctly showing unchecked while the layer's
+  // shape kept rendering on the map regardless — the checkbox and the
+  // actual drawing had silently drifted apart. Symmetrically, checking
+  // something back on while the layer itself was off (e.g. after fully
+  // unchecking it, or unchecking the whole layer directly) needs to flip
+  // the layer back on too, or the newly-checked item stays invisible with
+  // no feedback. The main layer is exempt — hiding it would leave nothing
+  // for every other layer to render against (same guard as toggleLayer()).
+  private syncLayerVisibility(layer: LayerTreeNode): void {
+    if (layer.isMainLayer) {
+      return;
+    }
+    const anyVisible = [
+      ...layer.groups.map(e => this.groupState(e)),
+      ...layer.headings.map(h => this.headingState(h)),
+      ...layer.children.map(c => this.layerState(c))
+    ].some(s => s !== "unchecked");
+
+    if (anyVisible !== layer.visible) {
+      layer.visible = anyVisible;
+      this.builder.setLayerVisible(layer.layerIndex, anyVisible);
+    }
+  }
+
   // Checking a group that's currently unchecked/indeterminate shows every
-  // leaf under it (and turns the group itself on); checking a fully-checked
-  // group hides everything under it instead — same "click an indeterminate
-  // checkbox -> select all" convention used at every level here.
-  toggleGroup(entry: GroupEntry): void {
+  // leaf under it; checking a fully-checked group hides everything under
+  // it instead — same "click an indeterminate checkbox -> select all"
+  // convention used at every level here. Either way, syncLayerVisibility()
+  // keeps the layer's own master flag matching whatever's left checked.
+  toggleGroup(entry: GroupEntry, layer: LayerTreeNode): void {
     const shouldShow = this.groupState(entry) !== "checked";
     this.setGroupVisibility(entry, shouldShow);
+    this.syncLayerVisibility(layer);
     this.builder.refresh(this.mapOptions);
     this.render();
   }
@@ -819,9 +895,10 @@ export class NxMapDemoComponent implements OnInit, AfterViewInit {
   // groups' own `visible` flag, so unchecking a heading really does clear
   // every leaf underneath it rather than leaving stale per-leaf flags that
   // would resurface the next time the heading is checked back on.
-  toggleHeading(heading: HeadingNode): void {
+  toggleHeading(heading: HeadingNode, layer: LayerTreeNode): void {
     const shouldShow = this.headingState(heading) !== "checked";
     heading.groups.forEach(entry => this.setGroupVisibility(entry, shouldShow));
+    this.syncLayerVisibility(layer);
     this.builder.refresh(this.mapOptions);
     this.render();
   }
@@ -844,18 +921,18 @@ export class NxMapDemoComponent implements OnInit, AfterViewInit {
     this.render();
   }
 
-  // A single leaf's own visible flag is independent of its group's, EXCEPT
-  // that checking a leaf ON only has any visible effect if its group is
-  // also on (buildMarkerPoints/etc. skip a group's contents entirely while
-  // group.visible is false) — so checking one leaf back on also turns its
-  // parent group on, otherwise the leaf would flip its own flag but stay
-  // invisible on the map with no visual feedback at all.
-  toggleLeaf(item: { visible?: boolean }, group: MapGroup): void {
+  // A single leaf's own visible flag is independent of its group's/layer's,
+  // EXCEPT that checking a leaf ON also turns its parent group back on, and
+  // syncLayerVisibility() keeps the layer's own master flag matching
+  // whatever's left checked either way (on when this was the first thing
+  // checked back on, off when this was the last thing left visible).
+  toggleLeaf(item: { visible?: boolean }, group: MapGroup, layer: LayerTreeNode): void {
     const shouldShow = !(item.visible !== false);
     item.visible = shouldShow;
     if (shouldShow) {
       group.visible = true;
     }
+    this.syncLayerVisibility(layer);
     this.builder.refresh(this.mapOptions);
     this.render();
   }
@@ -900,9 +977,35 @@ export class NxMapDemoComponent implements OnInit, AfterViewInit {
         // Lines are redrawn (new <path> elements) on every refresh — the
         // draw-in animation needs re-applying each time, not just on the
         // very first load.
+        this.syncLayerDomVisibility();
         setTimeout(() => this.animateNavigationLines(), 100);
       }, 200);
     }
+  }
+
+  // Confirmed against a live render: toggling a Syncfusion layer's own
+  // `visible` flag to false updates the data model correctly (checkbox,
+  // mapOptions.layers[i].visible) but Syncfusion does NOT actually hide
+  // that layer's rendered shape/boundary — not from the [layers] binding
+  // alone, and not even after an explicit mapInstance.refresh() call. Only
+  // its markers/polygons correctly disappear when a refresh regenerates
+  // their DATA (dataSource arrays shrinking to empty) — the shape itself
+  // just keeps rendering regardless of `visible`. Since refresh() fully
+  // recreates each layer's DOM group, this has to run AFTER refresh(), not
+  // before, or the display:none we set gets thrown away with the old
+  // elements. Same class of DOM-level workaround as wireResetButton()/
+  // animateNavigationLines() above for other Syncfusion gaps.
+  private syncLayerDomVisibility(): void {
+    if (!this.mapOptions?.layers) {
+      return;
+    }
+    const host = this.elRef.nativeElement;
+    this.mapOptions.layers.forEach((layerSettings, i) => {
+      const group = host.querySelector(`[id$="_LayerIndex_${i}"]`) as HTMLElement | null;
+      if (group) {
+        group.style.display = layerSettings.visible === false ? "none" : "";
+      }
+    });
   }
 
   ngAfterViewInit(): void {
@@ -960,6 +1063,7 @@ export class NxMapDemoComponent implements OnInit, AfterViewInit {
     this.zoomRefreshTimer = setTimeout(() => {
       if (this.mapInstance) {
         this.mapInstance.refresh();
+        this.syncLayerDomVisibility();
         this.animateNavigationLines();
       }
     }, 250);

@@ -649,6 +649,20 @@ export class NxMapDemoComponent implements OnInit, AfterViewInit {
   // buildMap() (not just builder.refresh()) is needed here because
   // subLayerGroups changing can add/remove whole groups, not just flip
   // visibility on existing ones.
+  //
+  // render() at the end is NOT optional here: reassigning mapOptions gives
+  // Angular a new object reference for [layers], but Syncfusion's own
+  // internal marker/shape rendering doesn't reliably redraw from an @Input
+  // change alone — removed groups' markers were confirmed to linger on the
+  // map (while correctly disappearing from the filter tree) until some
+  // unrelated click happened to run an Angular change-detection cycle that
+  // Syncfusion's own zoom-refresh path also depends on (see onZoomComplete()
+  // above for the same class of issue). Every OTHER mutation path here
+  // (toggleGroup/toggleHeading/toggleLayer/toggleLeaf) already calls
+  // render() for exactly this reason — rebuildMap() was the one path that
+  // didn't. render() itself already guards on `this.mapInstance` being set,
+  // so this is a safe no-op on the very first call from ngOnInit (before
+  // ngAfterViewInit has run).
   private rebuildMap(): void {
     if (!this.baseConfig) {
       return;
@@ -670,6 +684,7 @@ export class NxMapDemoComponent implements OnInit, AfterViewInit {
 
     this.mapOptions = this.builder.buildMap(this.configs, shapeDataByLayer);
     this.layerTree = this.builder.getLayerTree();
+    this.render();
   }
 
   // Tri-state checkbox status shared by every parent level in the filter

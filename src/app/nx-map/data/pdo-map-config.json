@@ -23,10 +23,6 @@
       "groups": []
     }
   },
-  "baseShapeDataSource": {
-    "source": "file",
-    "url": "assets/nx-map/oman-shape.json"
-  },
   "staticLayers": [
     {
       "layerName": "alwusta",
@@ -45,10 +41,6 @@
       "configSource": {
         "source": "file",
         "url": "assets/nx-map/static-layer-1-config.json"
-      },
-      "shapeDataSource": {
-        "source": "file",
-        "url": "assets/nx-map/static-layer-1-shape.json"
       },
       "participateInFilter": true
     },

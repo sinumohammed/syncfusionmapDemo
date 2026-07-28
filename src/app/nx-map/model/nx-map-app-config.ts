@@ -6,7 +6,12 @@ import { DataSource, MapConfig } from "./nx-map-model";
 export interface StaticLayerRef {
   layerName: string;
   configSource: DataSource<MapConfig>;
-  shapeDataSource: DataSource<any>;
+  // Omit to fall back to SHAPE_DATA_BY_LAYER_NAME (shape-data-registry.ts),
+  // looked up by this layerName — see
+  // NXMapConfigService.resolveShapeData(). Set this explicitly whenever a
+  // deployment's shape data lives somewhere the bundled registry doesn't
+  // cover; it always wins over the registry when present.
+  shapeDataSource?: DataSource<any>;
   // Defaults to the app config's baseLayerName — nests this layer under the
   // base layer in the filter tree (see MapConfig.parentLayerName).
   parentLayerName?: string;
@@ -31,7 +36,9 @@ export interface SubLayerApiConfig {
 export interface NXMapAppConfig {
   baseLayerName: string;
   baseLayerConfigSource: DataSource<MapConfig>;
-  baseShapeDataSource: DataSource<any>;
+  // Omit to fall back to SHAPE_DATA_BY_LAYER_NAME, looked up by
+  // baseLayerName — same rule as StaticLayerRef.shapeDataSource above.
+  baseShapeDataSource?: DataSource<any>;
   staticLayers: StaticLayerRef[];
   subLayerApis: SubLayerApiConfig[];
   // App-wide default theme (a name into nx-map-themes.json) — every layer

@@ -641,7 +641,7 @@ export class NxMapDemoComponent implements OnInit, AfterViewInit {
 
     forkJoin({
       baseConfig: this.configService.resolve(appConfig.baseLayerConfigSource),
-      baseShape: this.configService.resolve(appConfig.baseShapeDataSource),
+      baseShape: this.configService.resolveShapeData(appConfig.baseLayerName, appConfig.baseShapeDataSource),
       // Sub-layer groups share the base layer's geography (no shapeData of
       // their own) — the API response(s) are merged straight into the base
       // layer's groups[] below, per nx-map-builder.service.ts's own
@@ -658,7 +658,7 @@ export class NxMapDemoComponent implements OnInit, AfterViewInit {
             appConfig.staticLayers.map(ref =>
               forkJoin({
                 config: this.configService.resolve(ref.configSource),
-                shape: this.configService.resolve(ref.shapeDataSource)
+                shape: this.configService.resolveShapeData(ref.layerName, ref.shapeDataSource)
               }).pipe(
                 map(({ config, shape }) => ({
                   config: {

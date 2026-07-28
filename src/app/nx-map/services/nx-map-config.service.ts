@@ -2,6 +2,7 @@ import { Injectable } from "@angular/core";
 import { HttpClient, HttpParams } from "@angular/common/http";
 import { forkJoin, Observable, of } from "rxjs";
 import { map } from "rxjs/operators";
+import { SHAPE_DATA_BY_LAYER_NAME } from "../data/shape-data-registry";
 import { DataSource, MapGroup } from "../model/nx-map-model";
 import { SubLayerApiConfig } from "../model/nx-map-app-config";
 
@@ -21,6 +22,26 @@ export class NXMapConfigService {
       case "api":
         return this.http.get<T>(source.url as string);
     }
+  }
+
+  // Resolves a layer's shapeData with the bundled registry as a fallback:
+  // an explicit `source` (baseShapeDataSource/StaticLayerRef.shapeDataSource)
+  // always wins when provided — this only falls back to
+  // SHAPE_DATA_BY_LAYER_NAME, keyed by `layerName`, when the config omits a
+  // source entirely. A layerName with neither logs a warning and resolves
+  // to undefined rather than throwing — the layer still builds, just with
+  // no shapeData (no boundary/shape drawn for it).
+  resolveShapeData(layerName: string, source?: DataSource<any>): Observable<any> {
+    if (source) {
+      return this.resolve(source);
+    }
+    const fallback = SHAPE_DATA_BY_LAYER_NAME[layerName];
+    if (!fallback) {
+      console.warn(
+        `[NXMap] No shapeDataSource configured for layer "${layerName}", and no fallback found in SHAPE_DATA_BY_LAYER_NAME — this layer will have no shape/boundary.`
+      );
+    }
+    return of(fallback);
   }
 
   // Fetches (or RE-fetches) one sub-layer API endpoint's groups. `payload`

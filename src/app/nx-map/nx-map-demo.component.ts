@@ -203,6 +203,27 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
           />
           {{ layer.displayName }}{{ layer.isMainLayer ? " (main)" : "" }}
         </label>
+
+        <!-- Test-only control: switches this layer's theme at runtime (no
+             config-file edit needed) so the cascade (group -> layer ->
+             app-wide -> "default") can be tried live. "Inherit" maps to
+             undefined, same as never setting MapConfig.theme at all. -->
+        <select
+          class="theme-select"
+          [title]="'Theme for ' + layer.displayName"
+          (click)="$event.stopPropagation()"
+          (change)="onLayerThemeChange(layer, $any($event.target).value)"
+        >
+          <!-- [selected] set explicitly on each option, rather than relying
+               on the <select>'s own [value] to match against options
+               rendered by *ngFor below — a plain [value] binding on the
+               select can desync here: once Angular sets it to a string
+               that's unchanged on a later check, it skips re-applying the
+               DOM property, even if that first attempt happened before the
+               *ngFor options existed yet to match against. -->
+          <option value="" [selected]="!layer.themeName">Inherit</option>
+          <option *ngFor="let name of themeNames" [value]="name" [selected]="layer.themeName === name">{{ name }}</option>
+        </select>
       </ng-template>
 
       <!-- One layer node: its own summary checkbox, its ungrouped groups,
@@ -515,6 +536,20 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
         color: #5f6368;
       }
 
+      /* Test-only per-layer theme switcher (onLayerThemeChange()) — kept
+         small/inline next to the layer's own label so it doesn't compete
+         for attention with the actual checkbox tree. */
+      .nx-map-demo .layer-panel select.theme-select {
+        margin-left: 6px;
+        font-size: 11px;
+        padding: 1px 3px;
+        border: 1px solid #dadce0;
+        border-radius: 3px;
+        color: #5f6368;
+        background: #fff;
+        cursor: pointer;
+      }
+
       /* ej2-base's material theme resets native form control styling
          globally, which otherwise makes plain checkboxes render with
          zero visible size — force the browser's default checkbox back on
@@ -548,6 +583,12 @@ export class NxMapDemoComponent implements OnInit, AfterViewInit {
   mapOptions!: MapOptions;
   layerPanelOpen = false;
   layerTree: LayerTreeNode[] = [];
+
+  // Every theme name in the registry, for the layer panel's per-layer theme
+  // <select> — static (doesn't depend on mapOptions/layerTree), populated
+  // in the constructor body (NOT as a field initializer — those can run
+  // before constructor-injected `this.builder` is assigned).
+  themeNames: string[] = [];
 
   // Fallback position before the real toolbar rect is measured (or if it
   // can't be found at all) — overwritten by alignLayerControl() below.
@@ -591,7 +632,9 @@ export class NxMapDemoComponent implements OnInit, AfterViewInit {
     private builder: NXMapBuilderService,
     private configService: NXMapConfigService,
     private elRef: ElementRef<HTMLElement>
-  ) {}
+  ) {
+    this.themeNames = this.builder.getThemeNames();
+  }
 
   ngOnInit(): void {
     const appConfig = this.appConfig;
@@ -929,6 +972,19 @@ export class NxMapDemoComponent implements OnInit, AfterViewInit {
     const shouldShow = this.layerState(layer) !== "checked";
     this.setLayerTreeVisibility(layer, shouldShow);
     this.builder.setLayerVisible(layer.layerIndex, shouldShow);
+    this.builder.refresh(this.mapOptions);
+    this.render();
+  }
+
+  // Test-only handler for the layer panel's theme <select> — lets you try
+  // any theme on a layer live, without touching config JSON. "" (the
+  // "Inherit" option) maps to undefined, same as a layer that never set
+  // MapConfig.theme at all — it'll fall back through the same
+  // group -> layer -> app-wide -> "default" cascade as before.
+  onLayerThemeChange(layer: LayerTreeNode, value: string): void {
+    const themeName = value || undefined;
+    this.builder.setLayerTheme(layer.layerIndex, themeName);
+    layer.themeName = themeName;
     this.builder.refresh(this.mapOptions);
     this.render();
   }

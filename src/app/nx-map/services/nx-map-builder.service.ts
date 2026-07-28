@@ -81,6 +81,10 @@ export interface LayerTreeNode {
   // static layers nested under the base layer in the filter popup, even
   // though each still renders as its own independent Syncfusion SubLayer.
   children: LayerTreeNode[];
+  // This layer's own theme override (MapConfig.theme), or undefined when
+  // it's inheriting from the app-wide/default theme instead. Drives the
+  // layer panel's theme <select> — see setLayerTheme().
+  themeName: string | undefined;
 }
 
 @Injectable()
@@ -107,6 +111,12 @@ export class NXMapBuilderService {
   // won't let the user turn off.
   private mainLayerIndex = 0;
 
+  // The app-wide default theme name (NXMapAppConfig.theme), remembered from
+  // the last initialize() call so setLayerTheme() can re-resolve a layer's
+  // theme back to "inherit from app-wide" (undefined override) correctly,
+  // the same way initialize() itself would.
+  private baseTheme: string | undefined;
+
   constructor() {}
 
   // `shapeDataByLayer` is keyed by each config's `layerName` — e.g.
@@ -126,6 +136,7 @@ export class NXMapBuilderService {
   // of repeating the same theme on every layer's config. A layer's own
   // `theme` still wins over it (see resolveTheme() below).
   initialize(configs: MapConfig[], shapeDataByLayer: Record<string, any>, baseTheme?: string) {
+    this.baseTheme = baseTheme;
     const rawMainIndex = configs.findIndex(c => c.isMainLayer);
     const mainIndex = rawMainIndex === -1 ? 0 : rawMainIndex;
     if (configs[mainIndex]?.visible === false) {
@@ -193,6 +204,35 @@ export class NXMapBuilderService {
   // override would silently do nothing.
   private resolveGroupTheme(group: MapGroup, layerTheme: MapTheme): MapTheme {
     return group.theme ? this.resolveTheme(group.theme) : layerTheme;
+  }
+
+  // Every theme name in the registry — for a UI (e.g. the layer panel's
+  // theme <select>) to offer as choices. "default" is included; callers
+  // that want an explicit "inherit" option should add that themselves and
+  // pass undefined to setLayerTheme() for it, rather than the literal
+  // string "default".
+  getThemeNames(): string[] {
+    return Object.keys(nxMapThemes);
+  }
+
+  // Changes ONE layer's theme override at runtime — e.g. a test control in
+  // the layer panel, letting you try a theme without editing config JSON.
+  // Mirrors exactly what initialize() does for a layer's initial theme:
+  // undefined here means "inherit from the app-wide baseTheme (or
+  // 'default')", same as never having set MapConfig.theme in the first
+  // place. Persists onto layer.config.theme too (not just layer.theme) so
+  // a later reload/rebuildMap() that re-reads configs doesn't silently
+  // revert it — though today's reload path (rebuildMap()) rebuilds configs
+  // from scratch anyway and would reset this regardless; call sites should
+  // follow this with builder.refresh(mapOptions) + a render() to actually
+  // repaint, same as every other runtime toggle in this service.
+  setLayerTheme(layerIndex: number, themeName: string | undefined): void {
+    const layer = this.layers[layerIndex];
+    if (!layer) {
+      return;
+    }
+    layer.config.theme = themeName;
+    layer.theme = this.resolveTheme(themeName ?? this.baseTheme);
   }
 
   private visibleGroups(layer: LayerState): MapGroup[] {
@@ -564,7 +604,8 @@ export class NXMapBuilderService {
       isMainLayer: layerIndex === this.mainLayerIndex,
       groups,
       headings: headingOrder.map(heading => ({ heading, groups: headingGroups.get(heading)! })),
-      children: []
+      children: [],
+      themeName: layer.config.theme
     };
   }
 

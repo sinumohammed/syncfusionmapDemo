@@ -1,6 +1,6 @@
 import { AfterViewInit, Component, ElementRef, HostListener, OnInit, ViewChild } from "@angular/core";
 import { forkJoin, of } from "rxjs";
-import { map } from "rxjs/operators";
+import { map, switchMap } from "rxjs/operators";
 import {
   Maps,
   MapsComponent,
@@ -17,6 +17,12 @@ import { NXMapAppConfig } from "./model/nx-map-app-config";
 import { GroupEntry, HeadingNode, LayerTreeNode, NXMapBuilderService } from "./services/nx-map-builder.service";
 import { NXMapConfigService } from "./services/nx-map-config.service";
 import * as pdoMapConfig from "./data/pdo-map-config.json";
+// TEMP TEST ONLY — driving the demo off your real parent-component payload
+// (real-parent-config.json) via buildAppConfig(), in place of
+// pdo-map-config.json, so it can be tested live in the browser. Revert this
+// import (and the appConfig field below) once you're done testing.
+import * as realParentConfigJson from "./data/real-parent-config.json";
+import { buildAppConfig, RawLayerNode } from "./data/parent-config-transform";
 
 // Marker clustering needs no separate module — it's part of Marker, driven
 // entirely by each marker group's `clusterSettings` (see the builder
@@ -616,7 +622,13 @@ export class NxMapDemoComponent implements OnInit, AfterViewInit {
   // piece of data comes from (inline/file/api), not the map data itself.
   // See ngOnInit() for how it's resolved into the MapConfig[] the builder
   // service expects.
-  private appConfig: NXMapAppConfig = (pdoMapConfig as any).default ?? pdoMapConfig;
+  // TEMP TEST ONLY — swapped from pdoMapConfig to drive the demo off your
+  // real payload via buildAppConfig(). Original line commented below;
+  // revert to it once you're done testing.
+  // private appConfig: NXMapAppConfig = (pdoMapConfig as any).default ?? pdoMapConfig;
+  private appConfig: NXMapAppConfig = buildAppConfig(
+    ((realParentConfigJson as any).default ?? realParentConfigJson) as RawLayerNode
+  );
   private configs: MapConfig[] = [];
 
   // Kept as fields (rather than only local variables inside ngOnInit) so
@@ -639,46 +651,83 @@ export class NxMapDemoComponent implements OnInit, AfterViewInit {
   ngOnInit(): void {
     const appConfig = this.appConfig;
 
-    forkJoin({
-      baseConfig: this.configService.resolve(appConfig.baseLayerConfigSource),
-      baseShape: this.configService.resolveShapeData(appConfig.baseLayerName, appConfig.baseShapeDataSource),
-      // Sub-layer groups share the base layer's geography (no shapeData of
-      // their own) — the API response(s) are merged straight into the base
-      // layer's groups[] below, per nx-map-builder.service.ts's own
-      // documented guidance on same-geography categories vs new layers.
-      subGroups: this.configService.loadSubLayerGroups(appConfig.subLayerApis),
-      // Static (hardcoded) layers each have their own real boundary/shapeData
-      // — genuinely separate Syncfusion SubLayers — but are still nested
-      // under the base layer in the filter popup via parentLayerName.
-      // forkJoin([]) never emits (only completes) — guard the empty case so
-      // ngOnInit's subscribe still fires when a deployment has no static
-      // layers configured at all.
-      staticLayers: appConfig.staticLayers.length
-        ? forkJoin(
-            appConfig.staticLayers.map(ref =>
-              forkJoin({
-                config: this.configService.resolve(ref.configSource),
-                shape: this.configService.resolveShapeData(ref.layerName, ref.shapeDataSource)
-              }).pipe(
-                map(({ config, shape }) => ({
-                  config: {
-                    ...config,
-                    parentLayerName: ref.parentLayerName ?? appConfig.baseLayerName,
-                    participateInFilter: ref.participateInFilter ?? true
-                  },
-                  shape
-                }))
-              )
-            )
-          )
-        : of([])
-    }).subscribe(({ baseConfig, baseShape, subGroups, staticLayers }) => {
-      this.baseConfig = baseConfig;
-      this.baseShape = baseShape;
-      this.staticLayerResults = staticLayers;
-      this.subLayerGroups = subGroups;
-      this.rebuildMap();
-    });
+    // Resolved SEQUENTIALLY (not inside the forkJoin below) specifically so
+    // baseConfig.layerName — the one and only source of truth for the base
+    // layer's name — is already known before anything that needs it
+    // (shapeDataSource's registry-fallback lookup, and each static layer's
+    // default parentLayerName) gets resolved. There's deliberately no
+    // separate "base layer name" field on NXMapAppConfig to pass to those in
+    // parallel instead — see its own comment for why.
+    this.configService
+      .resolve(appConfig.baseLayerConfigSource)
+      .pipe(
+        switchMap(baseConfig =>
+          forkJoin({
+            baseConfig: of(baseConfig),
+            baseShape: this.configService.resolveShapeData(baseConfig.layerName, appConfig.shapeDataSource),
+            // Sub-layer groups share the base layer's geography (no shapeData
+            // of their own) — the API response(s) are merged straight into
+            // the base layer's groups[] below, per
+            // nx-map-builder.service.ts's own documented guidance on
+            // same-geography categories vs new layers.
+            subGroups: this.configService.loadSubLayerGroups(appConfig.subLayerApis),
+            // Static (hardcoded) layers each have their own real
+            // boundary/shapeData — genuinely separate Syncfusion SubLayers —
+            // but are still nested under the base layer in the filter popup
+            // via parentLayerName. forkJoin([]) never emits (only
+            // completes) — guard the empty case so this still fires when a
+            // deployment has no static layers configured at all.
+            //
+            // Each ref's configSource is resolved FIRST (switchMap), same
+            // reasoning as the base layer above: this layer's layerName is
+            // only known once configSource actually resolves (an immediate
+            // JSON.parse for "inline", a real fetch for "file"/"api") —
+            // there's no separate up-front name to pass to
+            // resolveShapeData()'s registry-fallback lookup instead.
+            staticLayers: appConfig.staticLayers.length
+              ? forkJoin(
+                  appConfig.staticLayers.map(ref =>
+                    this.configService.resolve(ref.configSource).pipe(
+                      switchMap(config =>
+                        forkJoin({
+                          shape: this.configService.resolveShapeData(config.layerName, ref.shapeDataSource),
+                          // This layer's OWN sub-layer groups (distinct from
+                          // appConfig.subLayerApis, which only ever merges
+                          // into the BASE layer) — merged into THIS layer's
+                          // groups[] below. A ref with none just resolves an
+                          // empty array, leaving config.groups untouched.
+                          subGroups: this.configService.loadSubLayerGroups(ref.subLayerApis ?? [])
+                        }).pipe(
+                          map(({ shape, subGroups }) => ({
+                            config: {
+                              ...config,
+                              // Overrides the config's own theme (if any) only
+                              // when ref.theme is actually set — same
+                              // precedence as parentLayerName/
+                              // participateInFilter below.
+                              theme: ref.theme ?? config.theme,
+                              groups: [...(config.groups ?? []), ...subGroups],
+                              parentLayerName: ref.parentLayerName ?? baseConfig.layerName,
+                              participateInFilter: ref.participateInFilter ?? true
+                            },
+                            shape
+                          }))
+                        )
+                      )
+                    )
+                  )
+                )
+              : of([])
+          })
+        )
+      )
+      .subscribe(({ baseConfig, baseShape, subGroups, staticLayers }) => {
+        this.baseConfig = baseConfig;
+        this.baseShape = baseShape;
+        this.staticLayerResults = staticLayers;
+        this.subLayerGroups = subGroups;
+        this.rebuildMap();
+      });
   }
 
   // Re-calls a configured sub-layer API endpoint with a different payload —
@@ -757,7 +806,7 @@ export class NxMapDemoComponent implements OnInit, AfterViewInit {
     this.configs = [mergedBase, ...this.staticLayerResults.map(s => s.config)];
 
     const shapeDataByLayer: Record<string, any> = {
-      [this.appConfig.baseLayerName]: this.baseShape
+      [this.baseConfig.layerName]: this.baseShape
     };
     this.staticLayerResults.forEach(s => {
       shapeDataByLayer[s.config.layerName] = s.shape;

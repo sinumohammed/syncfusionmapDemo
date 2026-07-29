@@ -25,8 +25,9 @@ export class NXMapConfigService {
   }
 
   // Resolves a layer's shapeData with the bundled registry as a fallback:
-  // an explicit `source` (baseShapeDataSource/StaticLayerRef.shapeDataSource)
-  // always wins when provided — this only falls back to
+  // an explicit `source` (NXMapAppConfig.shapeDataSource for the base layer,
+  // StaticLayerRef.shapeDataSource for any other) always wins when
+  // provided — this only falls back to
   // SHAPE_DATA_BY_LAYER_NAME, keyed by `layerName`, when the config omits a
   // source entirely. A layerName with neither logs a warning and resolves
   // to undefined rather than throwing — the layer still builds, just with

@@ -1,0 +1,45 @@
+{
+  "LayerConfigSource": 0,
+  "LayerConfigJSON": "{\"layerName\":\"omanv1\",\"isMainLayer\":true,\"baseMapType\":\"shape\",\"mapCenter\":{\"latitude\":21.8,\"longitude\":57},\"zoomFactor\":1,\"title\":{\"text\":\"Oman\"},\"dataLabel\":{\"visible\":false,\"color\":\"beige\",\"opacity\":0.9},\"groups\":[]}",
+  "LayerConfigURL": null,
+  "ShapeDataSource": 1,
+  "ShapeDataJSON": null,
+  "ShapeDataURL": null,
+  "SubLayersAPI": "assets/mock-api/sublayer-groups.json",
+  "Theme": "theme1",
+  "Configuration": [
+    {
+      "LayerConfigSource": 0,
+      "LayerConfigJSON": "{\"layerName\":\"alwusta\",\"title\":{\"text\":\"Al Wusta\"},\"dataLabel\":{\"visible\":true,\"color\":\"beige\",\"opacity\":0.9},\"groups\":[{\"id\":\"alwusta-facility\",\"name\":\"Al Wusta Facilities\",\"visible\":true,\"markerConfig\":{\"style\":{\"color\":\"\",\"shape\":\"\",\"height\":40,\"width\":40,\"labelStyle\":{\"color\":\"white\"}},\"clusterConfig\":{\"allowClustering\":true,\"allowDeepClustering\":false,\"allowClusterExpand\":true,\"labelStyle\":{\"color\":\"white\",\"size\":\"10px\"},\"shape\":\"Circle\",\"height\":40,\"width\":40},\"points\":[{\"latitude\":19.6664,\"longitude\":57.7038,\"name\":\"Duqm\",\"color\":\"purple\",\"shape\":\"Diamond\"},{\"latitude\":19.9086,\"longitude\":56.2652,\"name\":\"Haima\",\"color\":\"purple\",\"shape\":\"Diamond\"},{\"latitude\":20.4064,\"longitude\":58.0857,\"name\":\"Mahout\",\"color\":\"purple\",\"shape\":\"Diamond\"}]},\"lines\":[],\"polygons\":[{\"name\":\"Al Wusta Demo Zone\",\"points\":[{\"latitude\":19.4,\"longitude\":56.9},{\"latitude\":19.4,\"longitude\":57.5},{\"latitude\":20.0,\"longitude\":57.5},{\"latitude\":20.0,\"longitude\":56.9}]}],\"circles\":[{\"name\":\"Al Wusta Demo Circle\",\"center\":{\"latitude\":20.2,\"longitude\":57.9},\"radius\":15000}]}]}",
+      "LayerConfigURL": null,
+      "ShapeDataSource": 1,
+      "ShapeDataJSON": null,
+      "ShapeDataURL": null,
+      "SubLayersAPI": null,
+      "Theme": "theme2",
+      "Configuration": null
+    },
+    {
+      "LayerConfigSource": 0,
+      "LayerConfigJSON": "{\"layerName\":\"dhofar\",\"title\":{\"text\":\"Dhofar\"},\"dataLabel\":{\"visible\":true,\"color\":\"beige\",\"opacity\":0.9},\"groups\":[{\"id\":\"dhofar-zone\",\"name\":\"Dhofar Zone\",\"visible\":true,\"polygons\":[{\"name\":\"Dhofar Exploration Zone\",\"background\":\"olive\",\"opacity\":0.5,\"points\":[{\"latitude\":16.85,\"longitude\":53.85},{\"latitude\":16.85,\"longitude\":54.65},{\"latitude\":17.65,\"longitude\":54.65},{\"latitude\":17.65,\"longitude\":53.85}]},{\"name\":\"Dhofar Exploration Zone\",\"background\":\"olive\",\"opacity\":0.5,\"points\":[{\"latitude\":17.65,\"longitude\":54.65},{\"latitude\":17.65,\"longitude\":55.45},{\"latitude\":18.45,\"longitude\":55.45},{\"latitude\":18.45,\"longitude\":54.65}]}],\"circles\":[],\"lines\":[]}]}",
+      "LayerConfigURL": null,
+      "ShapeDataSource": 1,
+      "ShapeDataJSON": null,
+      "ShapeDataURL": null,
+      "SubLayersAPI": null,
+      "Theme": null,
+      "Configuration": null
+    },
+    {
+      "LayerConfigSource": 0,
+      "LayerConfigJSON": "{\"layerName\":\"musandam\",\"theme\":\"theme2\",\"title\":{\"text\":\"Musandam\"},\"dataLabel\":{\"visible\":true,\"color\":\"beige\",\"opacity\":0.9},\"groups\":[{\"id\":\"musandam-zone\",\"name\":\"Musandam Zone\",\"visible\":true,\"polygons\":[{\"name\":\"Musandam Restricted Zone\",\"background\":\"teal\",\"opacity\":0.5,\"points\":[{\"latitude\":25.20,\"longitude\":55.90},{\"latitude\":25.20,\"longitude\":56.70},{\"latitude\":25.90,\"longitude\":56.70},{\"latitude\":25.90,\"longitude\":55.90}]},{\"name\":\"Musandam Restricted Zone\",\"background\":\"teal\",\"opacity\":0.5,\"points\":[{\"latitude\":25.20,\"longitude\":56.70},{\"latitude\":25.20,\"longitude\":57.50},{\"latitude\":25.90,\"longitude\":57.50},{\"latitude\":25.90,\"longitude\":56.70}]}],\"circles\":[],\"lines\":[]}]}",
+      "LayerConfigURL": null,
+      "ShapeDataSource": 0,
+      "ShapeDataJSON": "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"properties\":{\"source\":\"demo\",\"id\":\"OMMU\",\"name\":\"Musandam\"},\"geometry\":{\"type\":\"MultiPolygon\",\"coordinates\":[[[[55.90,25.20],[56.70,25.20],[56.70,25.90],[55.90,25.90],[55.90,25.20]]],[[[56.70,25.20],[57.50,25.20],[57.50,25.90],[56.70,25.90],[56.70,25.20]]]]}}]}",
+      "ShapeDataURL": null,
+      "SubLayersAPI": null,
+      "Theme": null,
+      "Configuration": null
+    }
+  ]
+}

@@ -19,9 +19,8 @@ Angular + Syncfusion Maps (`@syncfusion/ej2-angular-maps`) demo that renders one
 
 ```ts
 interface NXMapAppConfig {
-  baseLayerName: string;
-  baseLayerConfigSource: DataSource<MapConfig>; // the base layer's own groups (usually empty — see below)
-  baseShapeDataSource: DataSource<any>;         // the base layer's boundary GeoJSON
+  baseLayerConfigSource: DataSource<MapConfig>; // the base layer's own groups (usually empty — see below); its `layerName` is the only source of truth for the base layer's name — no separate field for it
+  shapeDataSource?: DataSource<any>;            // the base layer's boundary GeoJSON — same property name as StaticLayerRef.shapeDataSource below; omit to fall back to the bundled SHAPE_DATA_BY_LAYER_NAME registry (data/shape-data-registry.ts), keyed by the base layer's own layerName
   staticLayers: StaticLayerRef[];               // hardcoded layers, each with their own config + shape source
   subLayerApis: SubLayerApiConfig[];            // one or more endpoints returning MapGroup(s) at runtime
 }
@@ -33,9 +32,9 @@ interface DataSource<T> {
 }
 ```
 
-- **Base layer** (`baseLayerName`, e.g. `"omanv1"`) — the outer country/region shape. It's usually just the boundary with **no groups of its own** (`groups: []`); its job is to give every other layer/sub-layer something to render relative to. Its shape/boundary geometry (`baseShapeDataSource`) and its group/marker config (`baseLayerConfigSource`) are independent sources — either can be `"inline"`, `"file"`, or `"api"`.
+- **Base layer** (its name is whatever `baseLayerConfigSource` resolves to, e.g. `"omanv1"` — not a separate config field) — the outer country/region shape. It's usually just the boundary with **no groups of its own** (`groups: []`); its job is to give every other layer/sub-layer something to render relative to. Its shape/boundary geometry (`shapeDataSource`) and its group/marker config (`baseLayerConfigSource`) are independent sources — either can be `"inline"`, `"file"`, or `"api"`.
 - **Static layers** (`staticLayers: StaticLayerRef[]`) — hardcoded layers with their own real boundary/shapeData (genuinely separate Syncfusion `SubLayer`s, same mechanism as a governorate boundary). Each entry:
-  - `parentLayerName?` (default: `baseLayerName`) — nests this layer under the base layer's node in the filter popup. It still renders as its own independent Syncfusion `SubLayer` on the map; this only affects how the filter tree groups things visually.
+  - `parentLayerName?` (default: the base layer's own `layerName`) — nests this layer under the base layer's node in the filter popup. It still renders as its own independent Syncfusion `SubLayer` on the map; this only affects how the filter tree groups things visually.
   - `participateInFilter?` (default `true`) — set `false` to keep a layer rendering on the map while omitting it from the filter popup entirely (distinct from the existing `MapConfig.visible: false`, which excludes a layer from both the map **and** the filter).
 - **Sub-layer API config** (`subLayerApis: SubLayerApiConfig[]`) — purely configuration, no data. Each entry is one endpoint URL plus an optional default `heading`. The actual `MapGroup[]` content arrives only at runtime from the API call(s), and is merged straight into the **base layer's** `groups[]` — sub-layers share the base layer's geography, so unlike static layers they don't get their own Syncfusion layer (see the "same geography → groups, not layers" guidance in `nx-map-builder.service.ts`).
 

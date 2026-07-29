@@ -14,8 +14,9 @@ function json<T>(mod: any): T {
 }
 
 // Maps each MapConfig's layerName to its shapeData — a fallback ONLY
-// consulted when a layer's config doesn't supply its own
-// baseShapeDataSource/StaticLayerRef.shapeDataSource at all (see
+// consulted when a layer's config doesn't supply its own shapeDataSource at
+// all (NXMapAppConfig.shapeDataSource for the base layer,
+// StaticLayerRef.shapeDataSource for any other — see
 // NXMapConfigService.resolveShapeData()). A config that DOES supply one
 // always uses that instead, so this registry never overrides an explicit
 // per-deployment shape source — it just saves repeating the same

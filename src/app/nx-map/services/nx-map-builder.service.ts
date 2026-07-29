@@ -180,7 +180,10 @@ export class NXMapBuilderService {
           : group.markerConfig,
         polygons: (group.polygons ?? []).map(p => ({ ...p, points: [...p.points] })),
         circles: (group.circles ?? []).map(c => ({ ...c })),
-        lines: (group.lines ?? []).map(l => ({ ...l, points: [...l.points] }))
+        // A line defined via pointIds (see MapLine.pointIds) has no own
+        // `points` array at all — only clone it when present, rather than
+        // assuming every line has one.
+        lines: (group.lines ?? []).map(l => ({ ...l, points: l.points ? [...l.points] : l.points }))
       }))
     }));
   }
@@ -366,8 +369,49 @@ export class NXMapBuilderService {
     };
   }
 
+  // Every marker id -> its coordinates, across ALL of this layer's groups
+  // (not just one group) — so a line can connect markers that live in
+  // different groups, e.g. a Facilities marker to a Surface marker. Built
+  // fresh per call rather than cached: cheap at this data scale, and
+  // guarantees it reflects whatever's currently in layer.groups even if a
+  // reload/rebuild changed marker ids since the last build. Includes markers
+  // from groups that are currently toggled off — a line's own visibility is
+  // independent of whether its endpoint marker's group happens to be
+  // checked, so an invisible group shouldn't make its markers unresolvable.
+  private buildPointIdLookup(layer: LayerState): Map<string, GeoLocation> {
+    const lookup = new Map<string, GeoLocation>();
+    layer.groups.forEach(g => {
+      (g.markerConfig?.points ?? []).forEach(p => {
+        if (p.id && p.latitude != null && p.longitude != null) {
+          lookup.set(p.id, { latitude: p.latitude, longitude: p.longitude });
+        }
+      });
+    });
+    return lookup;
+  }
+
+  // line.pointIds (when set) takes precedence over line.points — resolves
+  // each id against the layer-wide marker lookup above. An id with no
+  // matching marker logs a warning and is skipped (that one waypoint is
+  // dropped, not the whole line), same style as flattenPointHierarchy's
+  // existing invalid-point warning.
+  private resolveLinePoints(line: MapLine, pointLookup: Map<string, GeoLocation>): GeoLocation[] {
+    if (line.pointIds?.length) {
+      return line.pointIds.flatMap(id => {
+        const location = pointLookup.get(id);
+        if (!location) {
+          console.warn(`[NXMap] Line references unknown point id "${id}" — skipping this waypoint.`, line);
+          return [];
+        }
+        return [location];
+      });
+    }
+    return line.points ?? [];
+  }
+
   private buildNavigationLines(layerIndex: number) {
     const layer = this.layers[layerIndex];
+    const pointLookup = this.buildPointIdLookup(layer);
 
     return this.visibleGroups(layer)
       .flatMap(g => (g.lines ?? []).filter(l => l.visible !== false).map(line => ({ line, g })))
@@ -376,13 +420,14 @@ export class NXMapBuilderService {
         // once for the whole layer, so a sub-layer API group's own theme
         // reaches its lines too.
         const theme = this.resolveGroupTheme(g, layer.theme).line;
+        const resolvedPoints = this.resolveLinePoints(line, pointLookup);
         return {
           visible: line.visible,
           color: line.color ?? theme?.color,
           width: line.width ?? theme?.width,
           dashArray: line.dashArray ?? theme?.dashArray,
-          latitude: line.points.map(x => x.latitude),
-          longitude: line.points.map(x => x.longitude)
+          latitude: resolvedPoints.map(x => x.latitude),
+          longitude: resolvedPoints.map(x => x.longitude)
         };
       });
   }

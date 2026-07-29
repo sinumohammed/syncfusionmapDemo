@@ -66,7 +66,20 @@ export interface MapPoint extends BaseMapObject, GeoLocation, ShapeStyle {
 }
 
 export interface MapLine extends BaseMapObject, LineStyle {
-  points: MapPoint[];
+  // Raw waypoint coordinates — still supported for a waypoint that isn't a
+  // real named marker (e.g. a bend in a pipeline route). Optional because
+  // `pointIds` below is the preferred way to define a line: it references
+  // markers by id rather than repeating their lat/long, so a marker only
+  // ever needs to be moved in ONE place (its own point definition) instead
+  // of also updating every line that happens to pass through it.
+  points?: MapPoint[];
+  // Ordered list of marker ids (MapPoint.id, via BaseMapObject) this line
+  // connects — resolved by the builder against every marker point in this
+  // line's LAYER (not just its own group, so a line can connect markers
+  // living in different groups). Takes precedence over `points` when set;
+  // an id that doesn't match any known marker logs a warning and that
+  // waypoint is skipped rather than breaking the whole line.
+  pointIds?: string[];
   angle?: number;
 }
 

@@ -54,6 +54,9 @@
     "dataLabel": {
       "color": "#003366",
       "opacity": 0.9
+    },
+    "layer": {
+      "background": "#eef3fc"
     }
   },
   "theme2": {
@@ -90,6 +93,9 @@
     "dataLabel": {
       "color": "#336600",
       "opacity": 0.9
+    },
+    "layer": {
+      "background": "#fdf0e8"
     }
   }
 }

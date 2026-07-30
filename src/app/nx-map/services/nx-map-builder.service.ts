@@ -17,7 +17,8 @@ import {
   MapThemeFill,
   MapThemeRegistry,
   MarkerShape,
-  ParseTargetResult
+  ParseTargetResult,
+  ShapeStyle
 } from "../model/nx-map-model";
 
 // Bundled the same way pdo-map-config.json is in nx-map-demo.component.ts —
@@ -68,9 +69,10 @@ export interface LayerTreeNode {
   layerName: string;
   displayName: string;
   visible: boolean;
-  // True for whichever config has `isMainLayer: true` (or configs[0] if
-  // none does) — the layer panel should disable this node's own checkbox,
-  // since hiding it would leave the map with nothing to render against.
+  // True for whichever layer is at position 0 (see MapConfig's own comment
+  // on why "main" is purely positional) — the layer panel should disable
+  // this node's own checkbox, since hiding it would leave the map with
+  // nothing to render against.
   isMainLayer: boolean;
   // Groups with no `heading` — rendered directly under this layer, same as
   // before headings existed.
@@ -105,10 +107,13 @@ export class NXMapBuilderService {
   // polygons — built in that exact order so indexes always match).
   private polygonLookup: GraphicLookup[][] = [];
 
-  // Index of the config with `isMainLayer: true`, or 0 if none is marked.
-  // The main layer always renders as Syncfusion's base 'Layer' type (every
-  // other config becomes a 'SubLayer'), and it's the one the layer panel
-  // won't let the user turn off.
+  // Index into `this.layers` (post-filter — see initialize()) of the
+  // main/base layer. Purely positional: configs[0] passed to initialize()
+  // is ALWAYS treated as main, never a per-config flag to search for — see
+  // MapConfig's own comment on why. The main layer always renders as
+  // Syncfusion's base 'Layer' type (every other config becomes a
+  // 'SubLayer'), and it's the one the layer panel won't let the user turn
+  // off.
   private mainLayerIndex = 0;
 
   // The app-wide default theme name (NXMapAppConfig.theme), remembered from
@@ -137,8 +142,11 @@ export class NXMapBuilderService {
   // `theme` still wins over it (see resolveTheme() below).
   initialize(configs: MapConfig[], shapeDataByLayer: Record<string, any>, baseTheme?: string) {
     this.baseTheme = baseTheme;
-    const rawMainIndex = configs.findIndex(c => c.isMainLayer);
-    const mainIndex = rawMainIndex === -1 ? 0 : rawMainIndex;
+    // Purely positional — configs[0] is ALWAYS the main/base layer, however
+    // many configs are passed or in whatever order the caller assembled
+    // them. Everything else is a static/child layer, no per-config flag to
+    // search for; see MapConfig's own comment for why.
+    const mainIndex = 0;
     if (configs[mainIndex]?.visible === false) {
       console.warn(
         `[NXMap] Layer "${configs[mainIndex].layerName}" is the main layer and can't be excluded via visible: false — including it anyway.`
@@ -151,8 +159,10 @@ export class NXMapBuilderService {
     // above) — everything else renders relative to it.
     const includedConfigs = configs.filter((c, i) => i === mainIndex || c.visible !== false);
 
-    const explicitMain = includedConfigs.findIndex(c => c.isMainLayer);
-    this.mainLayerIndex = explicitMain === -1 ? includedConfigs.indexOf(configs[mainIndex]) : explicitMain;
+    // Re-derive main's position within includedConfigs (NOT configs) — a
+    // visible: false layer earlier in the array may have been dropped,
+    // shifting indices.
+    this.mainLayerIndex = includedConfigs.indexOf(configs[mainIndex]);
 
     this.layers = includedConfigs.map(config => ({
       config,
@@ -267,19 +277,50 @@ export class NXMapBuilderService {
     });
   }
 
-  // theme is the layer's own resolved MapTheme (see resolveTheme()) — an
-  // inline value on the point always wins; an omitted field falls back to
-  // the theme's marker style, and only then to a last-resort literal (kept
-  // here in case a theme registry entry itself omits that field too).
-  private toMarker(point: MapPoint, lookupKey: string, theme: MapTheme) {
+  // Every real MarkerShape value, for case-insensitive matching below —
+  // computed once rather than on every call.
+  private static readonly KNOWN_SHAPES = Object.values(MarkerShape);
+
+  // Normalizes a shape value's casing so "circle"/"CIRCLE"/"cIrClE" etc.
+  // coming from external config (inline JSON, a fetched file, or a live
+  // API) all match Syncfusion's PascalCase MarkerShape values ("Circle",
+  // "Diamond", ..., "InvertedTriangle") regardless of how the source data
+  // happened to send it. Matched case-insensitively against the REAL enum
+  // values rather than just capitalizing the first letter — a naive
+  // "capitalize first, lowercase the rest" would turn "invertedtriangle"
+  // into "Invertedtriangle", missing InvertedTriangle's internal capital
+  // T. A shape that doesn't match any known value at all (a typo, or a
+  // genuinely custom name) falls back to that same simple normalization
+  // rather than silently dropping it. Applied to the FINAL resolved shape
+  // (after the point/group/theme fallback chain), not to each individual
+  // source, so only one normalization ever happens per marker.
+  private capitalizeShape(shape: string | undefined): MarkerShape | undefined {
+    if (!shape) {
+      return undefined;
+    }
+    const known = NXMapBuilderService.KNOWN_SHAPES.find(s => s.toLowerCase() === shape.toLowerCase());
+    return (known ?? shape.charAt(0).toUpperCase() + shape.slice(1).toLowerCase()) as MarkerShape;
+  }
+
+  // theme is the layer's own resolved MapTheme (see resolveTheme());
+  // groupStyle is this point's OWN group's markerConfig.style. Precedence,
+  // most specific wins: the point's own field, then its group's
+  // markerConfig.style, then the theme's marker style, then a last-resort
+  // literal (kept here in case a theme registry entry itself omits that
+  // field too). groupStyle sits between the point and the theme rather
+  // than being skipped entirely — a group that sets its own style should
+  // apply to every point in it that doesn't override that field itself,
+  // same as it already visibly does for the group's own aggregate
+  // MarkerSettingsModel in buildMarkerPoints() below.
+  private toMarker(point: MapPoint, lookupKey: string, theme: MapTheme, groupStyle: ShapeStyle | undefined) {
     return {
       latitude: point.latitude,
       longitude: point.longitude,
       name: point.name,
-      shape: point.shape ?? theme.marker?.shape ?? MarkerShape.Balloon,
-      color: point.color ?? theme.marker?.color,
-      width: point.width ?? theme.marker?.width ?? 20,
-      height: point.height ?? theme.marker?.height ?? 20,
+      shape: this.capitalizeShape(point.shape ?? groupStyle?.shape ?? theme.marker?.shape ?? MarkerShape.Balloon),
+      color: point.color ?? groupStyle?.color ?? theme.marker?.color,
+      width: point.width ?? groupStyle?.width ?? theme.marker?.width ?? 20,
+      height: point.height ?? groupStyle?.height ?? theme.marker?.height ?? 20,
       __lookupKey: lookupKey
     };
   }
@@ -310,13 +351,13 @@ export class NXMapBuilderService {
           groupName: g.name,
           object: point
         });
-        return this.toMarker(point, lookupKey, theme);
+        return this.toMarker(point, lookupKey, theme, g.markerConfig?.style);
       });
 
       return {
         visible: g.visible ?? true,
         animationDuration: 0,
-        shape: g.markerConfig?.style?.shape ?? theme.marker?.shape,
+        shape: this.capitalizeShape(g.markerConfig?.style?.shape ?? theme.marker?.shape),
         fill: g.markerConfig?.style?.color ?? theme.marker?.color,
         width: g.markerConfig?.style?.width ?? theme.marker?.width,
         height: g.markerConfig?.style?.height ?? theme.marker?.height,
@@ -361,7 +402,7 @@ export class NXMapBuilderService {
       allowDeepClustering: inline?.allowDeepClustering,
       allowClusterExpand: inline?.allowClusterExpand,
       imageUrl: inline?.imageUrl,
-      shape: inline?.shape ?? themeCluster?.shape,
+      shape: this.capitalizeShape(inline?.shape ?? themeCluster?.shape),
       color: inline?.color ?? themeCluster?.color,
       width: inline?.width ?? themeCluster?.width,
       height: inline?.height ?? themeCluster?.height,
@@ -672,13 +713,39 @@ export class NXMapBuilderService {
     // Syncfusion's own flag pinned to true keeps layersCollection's length
     // and numbering stable; getLayerVisible() below is the real (indexable)
     // source of truth syncLayerDomVisibility() should use instead.
-    mapOptions.layers = mapOptions.layers.map((existing, layerIndex) => ({
-      ...existing,
-      visible: true,
-      markerSettings: this.buildMarkerPoints(layerIndex),
-      navigationLineSettings: this.buildNavigationLines(layerIndex),
-      polygonSettings: this.buildPolygon(layerIndex)
-    }));
+    mapOptions.layers = mapOptions.layers.map((existing, layerIndex) => {
+      const layer = this.layers[layerIndex];
+      const isMain = layerIndex === this.mainLayerIndex;
+      return {
+        ...existing,
+        visible: true,
+        // shapeSettings itself was only ever built once, in buildLayers() —
+        // a runtime theme change (e.g. the layer panel's theme <select>)
+        // otherwise never touched it at all, so layer.background/
+        // theme.layer.background changes silently had no visible effect
+        // until the NEXT full buildMap(). Only fill is recomputed here
+        // (via the same resolveLayerBackground() buildLayers() uses) —
+        // palette/border/autofill don't depend on anything themeable today.
+        // undefined for an OSM layer (shapeSettings itself is undefined
+        // there), so nothing to patch.
+        shapeSettings: existing.shapeSettings
+          ? { ...existing.shapeSettings, fill: this.resolveLayerBackground(layer, isMain) }
+          : existing.shapeSettings,
+        markerSettings: this.buildMarkerPoints(layerIndex),
+        navigationLineSettings: this.buildNavigationLines(layerIndex),
+        polygonSettings: this.buildPolygon(layerIndex)
+      };
+    });
+  }
+
+  // this layer's own shapeSettings.fill — the layer's config.background
+  // always wins, then the theme's layer.background, then the original
+  // hardcoded default (opaque grey for the main layer, translucent blue for
+  // any SubLayer). Shared by buildLayers() (initial build) and refresh()
+  // (so a runtime theme change actually repaints it, not just future
+  // rebuilds) so there's exactly one place this precedence is encoded.
+  private resolveLayerBackground(layer: LayerState, isMain: boolean): string {
+    return layer.config.background ?? layer.theme.layer?.background ?? (isMain ? "#dddddd" : "rgba(66, 133, 244, 0.25)");
   }
 
   // The real per-layer visibility flag — NOT mirrored onto Syncfusion's own
@@ -703,8 +770,7 @@ export class NXMapBuilderService {
     return {
       // titleSettings/zoomSettings/centerPosition are MapOptions-level in
       // Syncfusion (not per-layer), so only the MAIN config's title/zoom/
-      // center apply — not necessarily configs[0] if isMainLayer points
-      // elsewhere.
+      // center apply — configs[0], always (see MapConfig's own comment).
       titleSettings: this.buildTitle(mainConfig),
       zoomSettings: this.buildZoom(mainConfig),
       // Same as zoomFactor in buildZoom() — always taken from config
@@ -753,14 +819,14 @@ export class NXMapBuilderService {
           ? undefined
           : {
               autofill: false,
-              // Main layer gets the opaque grey; any SubLayer defaults to a
-              // semi-transparent fill instead — SubLayers commonly cover
-              // ground the main layer already occupies (a region within
-              // the country), and an opaque fill there would visually bury
-              // the main layer's own markers/polygons in that area even
-              // though they still exist underneath in the DOM. Override
-              // per-layer if you need a solid sub-region fill instead.
-              fill: isMain ? "#dddddd" : "rgba(66, 133, 244, 0.25)",
+              // See resolveLayerBackground() — main layer gets the opaque
+              // grey by default; any SubLayer defaults to a semi-transparent
+              // fill instead, since SubLayers commonly cover ground the main
+              // layer already occupies (a region within the country), and an
+              // opaque fill there would visually bury the main layer's own
+              // markers/polygons in that area even though they still exist
+              // underneath in the DOM.
+              fill: this.resolveLayerBackground(layer, isMain),
               palette: [
                 "#E2B247",
                 "#88DB46",

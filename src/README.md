@@ -95,7 +95,7 @@ Unchecking every leaf/group under a layer does **not** hide that layer's own sha
 
 ## Config-level features (`MapConfig`)
 
-- `isMainLayer` — marks the base/primary layer (defaults to the first entry if none set). The main layer can't be hidden from the layer panel or via `setLayerVisible()`.
+- No `isMainLayer` flag — which config is "main" is purely positional: `NXMapBuilderService.initialize()` always treats `configs[0]` as the base/main layer, whichever the caller puts first (`nx-map-demo.component.ts`'s `rebuildMap()` always puts the merged base config first; `parent-config-transform.ts`'s `buildAppConfig()` always treats its `root` node as the base). The main layer can't be hidden from the layer panel or via `setLayerVisible()`.
 - `baseMapType: "shape" | "osm"` — renders a layer from `shapeData` (default) or OpenStreetMap tiles. **OSM is only honored on the main layer** — a SubLayer requesting OSM falls back to shape rendering with a console warning. Combining an OSM main layer with a marker-bearing SubLayer has also been observed to cause the two layers' markers to fight over visibility — prefer `"shape"` on the main layer when SubLayers have markers.
 - `mapCenter` / `zoomFactor` — initial center/zoom, mainly needed when the main layer is `"osm"` (no shapeData bounding box to auto-fit against).
 - `visible` (default `true`) — set to `false` to exclude a layer entirely at build time: it won't render on the map **and** won't appear in the layer panel's filter tree. Ignored (with a warning) on the main layer. Distinct from `participateInFilter` (map yes, filter no) and the runtime `setLayerVisible()` toggle (keeps a layer in the tree but hidden).

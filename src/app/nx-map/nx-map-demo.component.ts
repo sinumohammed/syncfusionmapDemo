@@ -817,10 +817,13 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
     }
     const mergedBase: MapConfig = {
       ...this.baseConfig,
-      isMainLayer: true,
       groups: [...(this.baseConfig.groups ?? []), ...this.subLayerGroups]
     };
 
+    // mergedBase MUST be first — NXMapBuilderService.initialize() always
+    // treats configs[0] as the main/base layer, purely positionally (see
+    // MapConfig's own comment); there's no isMainLayer flag to set here
+    // anymore.
     this.configs = [mergedBase, ...this.staticLayerResults.map(s => s.config)];
 
     const shapeDataByLayer: Record<string, any> = {

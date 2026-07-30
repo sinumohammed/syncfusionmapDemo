@@ -173,6 +173,16 @@ export interface MapThemeDataLabel {
   opacity?: number;
 }
 
+// The layer's OWN shape/region fill (shapeSettings.fill — the color
+// filling the country/region boundary itself, distinct from any
+// marker/polygon/circle drawn on top of it). Applies uniformly to every
+// layer using this theme, main or sub — MapConfig.background overrides it
+// per-layer for the (common) case where main vs. sub-layers need visibly
+// different fills.
+export interface MapThemeLayer {
+  background?: string;
+}
+
 export interface MapTheme {
   marker?: MapThemeMarker;
   cluster?: MapThemeCluster;
@@ -181,12 +191,24 @@ export interface MapTheme {
   circle?: MapThemeFill;
   tooltip?: MapThemeTooltip;
   dataLabel?: MapThemeDataLabel;
+  layer?: MapThemeLayer;
 }
 
 // nx-map-themes.json's shape — a flat registry keyed by theme name.
 export type MapThemeRegistry = Record<string, MapTheme>;
 
 export interface MapConfig {
+  // No isMainLayer flag — which config is "main" is purely positional:
+  // NXMapBuilderService.initialize() always treats configs[0] as the base/
+  // main layer (see its own comment), so it's whichever config the caller
+  // puts first, never a value baked into the config itself. A caller
+  // constructing configs[] (e.g. parent-config-transform.ts's
+  // buildAppConfig(), or nx-map-demo.component.ts's rebuildMap()) is
+  // responsible for putting the intended main/parent layer first and every
+  // other (child/static) layer after it — if more than one candidate ever
+  // looked like a "parent", only the first one in that array actually
+  // becomes main; the rest are simply treated as static/child layers, with
+  // no separate flag to search for or disagree with.
   layerName: string;
   title?: TitleConfig;
   zoom?: ZoomConfig;
@@ -200,12 +222,14 @@ export interface MapConfig {
   // option in this deployment at all. Ignored (with a console.warn) on the
   // main layer, since every other layer renders relative to it.
   visible?: boolean;
-  // Marks this entry as the app's primary/base layer. At most one config
-  // should set this; if none do, the builder/UI treat configs[0] as main.
-  // The main layer's visibility can't be turned off from the layer panel —
-  // hiding it would leave nothing for every other layer's groups/markers
-  // to render against.
-  isMainLayer?: boolean;
+  // This layer's own shape/region fill (shapeSettings.fill) — the color
+  // filling the country/region boundary itself, not any marker/polygon/
+  // circle drawn on top of it. Overrides the theme's layer.background
+  // (nx-map-themes.json) when set; omit to use the theme's value, or the
+  // builder's own hardcoded default (opaque grey for the main layer,
+  // translucent blue for a SubLayer) if neither sets one — see buildLayers()
+  // in nx-map-builder.service.ts.
+  background?: string;
   // "shape" (default) renders this layer from `shapeData` (a GeoJSON
   // boundary, bound to markers/polygons via shapePropertyPath/name). "osm"
   // renders free OpenStreetMap street tiles instead — no shapeData, no

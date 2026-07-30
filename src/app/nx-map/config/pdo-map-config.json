@@ -4,7 +4,6 @@
     "source": "inline",
     "value": {
       "layerName": "omanv1",
-      "isMainLayer": true,
       "baseMapType": "shape",
       "mapCenter": {
         "latitude": 21.8,

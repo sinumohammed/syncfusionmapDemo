@@ -6,13 +6,15 @@ Angular + Syncfusion Maps (`@syncfusion/ej2-angular-maps`) demo that renders one
 
 - `app/nx-map/model/nx-map-model.ts` — shared config/model interfaces (`MapConfig`, `MapGroup`, `MapPoint`, `MapLine`, `MapPolygon`, `MapCircle`, `MapOptions`, `DataSource<T>`, `MapTheme` + friends, ...).
 - `app/nx-map/model/nx-map-app-config.ts` — `NXMapAppConfig`, `StaticLayerRef`, `SubLayerApiConfig`: the app-level "where does each piece of data come from" config.
+- `app/nx-map/model/form-element.model.ts` — minimal stand-in for the host application's shared form-element contract (see the file's own comment — swap for the real one when integrating).
 - `app/nx-map/services/nx-map-config.service.ts` — resolves a `DataSource<T>` (inline/file/api) into data, resolves a layer's shapeData with the bundled registry as fallback, and fetches+normalizes sub-layer API groups.
 - `app/nx-map/services/nx-map-builder.service.ts` — converts resolved `MapConfig[]` + per-layer GeoJSON shape data into Syncfusion's `LayerSettingsModel[]`. Owns per-layer state, theme resolution, marker/polygon click-resolution lookups, the id-based line-waypoint lookup, and the layer-tree used by the UI panel.
+- `app/nx-map/services/shape-data-registry.ts` — `SHAPE_DATA_BY_LAYER_NAME`, a compile-time-bundled fallback shapeData source keyed by `layerName` (see "Shape data fallback" below).
+- `app/nx-map/services/parent-config-transform.ts` — `buildAppConfig()`, converting an arbitrary upstream "parent object" shape (`RawLayerNode`) into a valid `NXMapAppConfig` (see "Parent-object transform" below).
 - `app/nx-map/nx-map-demo.component.ts` — demo component: resolves `NXMapAppConfig` into map data, renders `<ejs-maps>`, a custom layer-list panel (layer → group/heading → item checkboxes, plus a per-layer theme test `<select>`), and wires up map interactions.
-- `app/nx-map/data/pdo-map-config.json` — an `NXMapAppConfig`: base layer, static layers, and sub-layer API config. This is the demo's normal/default config.
-- `app/nx-map/data/nx-map-themes.json` — the theme registry (see "Themes" below), keyed by theme name. Bundled via a direct compile-time import (`resolveJsonModule`), not fetched.
-- `app/nx-map/data/shape-data-registry.ts` — `SHAPE_DATA_BY_LAYER_NAME`, a compile-time-bundled fallback shapeData source keyed by `layerName` (see "Shape data fallback" below).
-- `app/nx-map/data/parent-config-transform.ts` — `buildAppConfig()`, converting an arbitrary upstream "parent object" shape (`RawLayerNode`) into a valid `NXMapAppConfig` (see "Parent-object transform" below). `sample-parent-config.json`/`real-parent-config.json` are example inputs for it; `nx-map-demo.component.ts` can be pointed at either one in place of `pdo-map-config.json` for testing.
+- `app/nx-map/config/pdo-map-config.json` — an `NXMapAppConfig`: base layer, static layers, and sub-layer API config. This is the demo's normal/default config.
+- `app/nx-map/config/nx-map-themes.json` — the theme registry (see "Themes" below), keyed by theme name. Bundled via a direct compile-time import (`resolveJsonModule`), not fetched.
+- `app/nx-map/testing/sample-parent-config.json` / `real-parent-config.json` — example inputs for `parent-config-transform.ts`'s `buildAppConfig()` (a small synthetic one and an actual captured payload); `nx-map-demo.component.ts` can be pointed at either one (via `buildAppConfig(...)`) in place of `pdo-map-config.json` for testing against non-`NXMapAppConfig`-shaped upstream data.
 - `assets/nx-map/` — shape/boundary GeoJSON and static-layer `MapConfig` JSON, served as static HTTP assets (fetched via `HttpClient`) for layers that don't rely on the bundled shape-data registry.
 - `assets/mock-api/` — stand-in JSON responses for the sub-layer API until a real backend exists: `sublayer-groups.json` (full response — Main Oil Line + Surface groups) and `sublayer-groups-partial.json` (Main Oil Line only, used to demo that a reload *replaces* rather than merges groups).
 

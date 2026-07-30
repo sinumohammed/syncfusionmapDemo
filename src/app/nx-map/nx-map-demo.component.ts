@@ -16,13 +16,13 @@ import { MapConfig, MapGroup, MapOptions } from "./model/nx-map-model";
 import { NXMapAppConfig } from "./model/nx-map-app-config";
 import { GroupEntry, HeadingNode, LayerTreeNode, NXMapBuilderService } from "./services/nx-map-builder.service";
 import { NXMapConfigService } from "./services/nx-map-config.service";
-import * as pdoMapConfig from "./data/pdo-map-config.json";
+import * as pdoMapConfig from "./config/pdo-map-config.json";
 // TEMP TEST ONLY — driving the demo off your real parent-component payload
 // (real-parent-config.json) via buildAppConfig(), in place of
 // pdo-map-config.json, so it can be tested live in the browser. Revert this
 // import (and the appConfig field below) once you're done testing.
-import * as realParentConfigJson from "./data/real-parent-config.json";
-import { buildAppConfig, RawLayerNode } from "./data/parent-config-transform";
+import * as realParentConfigJson from "./testing/real-parent-config.json";
+import { buildAppConfig, RawLayerNode } from "./services/parent-config-transform";
 
 // Marker clustering needs no separate module — it's part of Marker, driven
 // entirely by each marker group's `clusterSettings` (see the builder
@@ -1087,9 +1087,24 @@ export class NxMapDemoComponent implements OnInit, AfterViewInit {
     }, 2500);
   }
 
+  // Two rapid successive toggles (e.g. unchecking two layers back to back,
+  // faster than this 200ms delay) used to each schedule their own
+  // independent setTimeout -> mapInstance.refresh() call here — two
+  // overlapping Syncfusion refreshes firing close together were confirmed
+  // live to corrupt which rendered DOM group ends up matching which
+  // "_LayerIndex_<n>" mid-rebuild, so syncLayerDomVisibility() (keyed off
+  // that same id) could end up hiding the WRONG layer — one that was never
+  // toggled at all. Same class of issue onZoomComplete() below already
+  // guards against for continuous scroll-zooming; clearing any pending
+  // timer before scheduling a new one here means only the LATEST toggle's
+  // refresh ever actually fires, once things have settled, instead of two
+  // stacking up.
+  private renderTimer: ReturnType<typeof setTimeout> | undefined;
+
   private render(): void {
     if (this.mapInstance) {
-      setTimeout(() => {
+      clearTimeout(this.renderTimer);
+      this.renderTimer = setTimeout(() => {
         this.mapInstance.refresh();
         // Lines are redrawn (new <path> elements) on every refresh — the
         // draw-in animation needs re-applying each time, not just on the

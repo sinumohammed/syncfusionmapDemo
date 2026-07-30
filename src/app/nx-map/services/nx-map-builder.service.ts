@@ -1,6 +1,6 @@
 import { Injectable } from "@angular/core";
 import { MarkerSettingsModel } from "@syncfusion/ej2-angular-maps";
-import * as nxMapThemesJson from "../data/nx-map-themes.json";
+import * as nxMapThemesJson from "../config/nx-map-themes.json";
 import {
   ClusterConfig,
   GeoLocation,

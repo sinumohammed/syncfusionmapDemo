@@ -3,7 +3,7 @@ import {
   TitleSettingsModel,
   ZoomSettingsModel,
 } from "@syncfusion/ej2-angular-maps";
-import { FormElementConfig } from "../form-element.model";
+import { FormElementConfig } from "./form-element.model";
 
 export type MapObject = MapPoint | MapLine | MapPolygon | MapCircle;
 

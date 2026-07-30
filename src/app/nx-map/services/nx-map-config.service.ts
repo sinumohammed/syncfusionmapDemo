@@ -2,7 +2,7 @@ import { Injectable } from "@angular/core";
 import { HttpClient, HttpParams } from "@angular/common/http";
 import { forkJoin, Observable, of } from "rxjs";
 import { map } from "rxjs/operators";
-import { SHAPE_DATA_BY_LAYER_NAME } from "../data/shape-data-registry";
+import { SHAPE_DATA_BY_LAYER_NAME } from "./shape-data-registry";
 import { DataSource, MapGroup } from "../model/nx-map-model";
 import { SubLayerApiConfig } from "../model/nx-map-app-config";
 

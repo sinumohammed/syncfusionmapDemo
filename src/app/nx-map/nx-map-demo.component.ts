@@ -719,14 +719,32 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
                           map(({ shape, subGroups }) => ({
                             config: {
                               ...config,
-                              // Overrides the config's own theme (if any) only
-                              // when ref.theme is actually set — same
-                              // precedence as parentLayerName/
-                              // participateInFilter below.
+                              // theme: ref (StaticLayerRef) is the OVERRIDE —
+                              // it wins over whatever the config itself set,
+                              // falling back to the config's own theme only
+                              // when ref.theme is unset (see StaticLayerRef's
+                              // own comment).
                               theme: ref.theme ?? config.theme,
                               groups: [...(config.groups ?? []), ...subGroups],
-                              parentLayerName: ref.parentLayerName ?? baseConfig.layerName,
-                              participateInFilter: ref.participateInFilter ?? true
+                              // parentLayerName/participateInFilter: the
+                              // OPPOSITE precedence from theme — the config's
+                              // OWN value (e.g. set directly inside a real
+                              // host's LayerConfigJSON) wins first, since
+                              // these describe a property of the layer
+                              // itself, not something a caller should be able
+                              // to silently override out from under it. ref's
+                              // value only applies when the config didn't set
+                              // one at all — this matters for
+                              // parent-config-transform.ts's buildAppConfig(),
+                              // which has no raw field for either and so
+                              // always produces a ref with
+                              // participateInFilter: true — without config's
+                              // own value winning first, a layer's own
+                              // "participateInFilter": false (set directly in
+                              // its LayerConfigJSON) would get silently
+                              // stomped back to true here every time.
+                              parentLayerName: config.parentLayerName ?? ref.parentLayerName ?? baseConfig.layerName,
+                              participateInFilter: config.participateInFilter ?? ref.participateInFilter ?? true
                             },
                             shape
                           }))

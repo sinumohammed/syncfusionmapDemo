@@ -1,4 +1,13 @@
-import { AfterViewInit, Component, ElementRef, HostListener, OnInit, ViewChild } from "@angular/core";
+import {
+  AfterViewInit,
+  Component,
+  ElementRef,
+  HostListener,
+  Input,
+  OnChanges,
+  SimpleChanges,
+  ViewChild
+} from "@angular/core";
 import { forkJoin, of } from "rxjs";
 import { map, switchMap } from "rxjs/operators";
 import {
@@ -16,12 +25,6 @@ import { MapConfig, MapGroup, MapOptions } from "./model/nx-map-model";
 import { NXMapAppConfig } from "./model/nx-map-app-config";
 import { GroupEntry, HeadingNode, LayerTreeNode, NXMapBuilderService } from "./services/nx-map-builder.service";
 import { NXMapConfigService } from "./services/nx-map-config.service";
-import * as pdoMapConfig from "./config/pdo-map-config.json";
-// TEMP TEST ONLY — driving the demo off your real parent-component payload
-// (real-parent-config.json) via buildAppConfig(), in place of
-// pdo-map-config.json, so it can be tested live in the browser. Revert this
-// import (and the appConfig field below) once you're done testing.
-import * as realParentConfigJson from "./testing/real-parent-config.json";
 import { buildAppConfig, RawLayerNode } from "./services/parent-config-transform";
 
 // Marker clustering needs no separate module — it's part of Marker, driven
@@ -577,10 +580,18 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
     `
   ]
 })
-export class NxMapDemoComponent implements OnInit, AfterViewInit {
+export class NxMapDemoComponent implements OnChanges, AfterViewInit {
+  // The host's own payload — one node per layer (root = base layer, each
+  // Configuration[] entry = a static layer), matching parent-config-
+  // transform.ts's RawLayerNode shape. Everything else on this component
+  // stays dormant until this actually arrives; there's no bundled default
+  // config to fall back on, since a real host always supplies this via
+  // ngOnChanges (see below), never at construction time.
+  @Input() parentConfig?: RawLayerNode;
+
   // Both assigned outside the constructor (mapInstance by Angular's
   // @ViewChild after view init, mapOptions asynchronously by rebuildMap()
-  // once ngOnInit's forkJoin resolves) — every read of either is already
+  // once ngOnChanges' forkJoin resolves) — every read of either is already
   // guarded (template uses `?.` throughout, TS-side callers check
   // `if (!this.mapOptions)` / `if (this.mapInstance)` before use), so `!`
   // just tells the compiler what's already true at runtime.
@@ -618,20 +629,15 @@ export class NxMapDemoComponent implements OnInit, AfterViewInit {
   // appending to them. Not part of the real reload mechanism itself.
   subLayerDemoAlt = false;
 
-  // pdo-map-config.json is an NXMapAppConfig — a description of WHERE each
-  // piece of data comes from (inline/file/api), not the map data itself.
-  // See ngOnInit() for how it's resolved into the MapConfig[] the builder
-  // service expects.
-  // TEMP TEST ONLY — swapped from pdoMapConfig to drive the demo off your
-  // real payload via buildAppConfig(). Original line commented below;
-  // revert to it once you're done testing.
-  // private appConfig: NXMapAppConfig = (pdoMapConfig as any).default ?? pdoMapConfig;
-  private appConfig: NXMapAppConfig = buildAppConfig(
-    ((realParentConfigJson as any).default ?? realParentConfigJson) as RawLayerNode
-  );
+  // buildAppConfig(parentConfig) — a description of WHERE each piece of
+  // data comes from (inline/file/api), not the map data itself. See
+  // ngOnChanges()/loadMap() for how it's resolved into the MapConfig[] the
+  // builder service expects. Definite-assignment: only ever set once
+  // parentConfig actually arrives (ngOnChanges), never at construction.
+  private appConfig!: NXMapAppConfig;
   private configs: MapConfig[] = [];
 
-  // Kept as fields (rather than only local variables inside ngOnInit) so
+  // Kept as fields (rather than only local variables inside loadMap()) so
   // reloadSubLayerGroups() can rebuild the map later without re-fetching
   // the base layer/static layers all over again — only subLayerGroups
   // actually changes on a reload.
@@ -648,9 +654,21 @@ export class NxMapDemoComponent implements OnInit, AfterViewInit {
     this.themeNames = this.builder.getThemeNames();
   }
 
-  ngOnInit(): void {
-    const appConfig = this.appConfig;
+  // The host drives this component purely through the parentConfig @Input —
+  // there's no construction-time default to fall back on, so everything
+  // (buildAppConfig() + the whole resolve/rebuild pipeline) starts here
+  // rather than in ngOnInit(), and re-runs in full on every subsequent
+  // change too (e.g. the host swapping in a different widget's config),
+  // not just the first one.
+  ngOnChanges(changes: SimpleChanges): void {
+    if (!changes["parentConfig"] || !this.parentConfig) {
+      return;
+    }
+    this.appConfig = buildAppConfig(this.parentConfig);
+    this.loadMap(this.appConfig);
+  }
 
+  private loadMap(appConfig: NXMapAppConfig): void {
     // Resolved SEQUENTIALLY (not inside the forkJoin below) specifically so
     // baseConfig.layerName — the one and only source of truth for the base
     // layer's name — is already known before anything that needs it
@@ -791,7 +809,7 @@ export class NxMapDemoComponent implements OnInit, AfterViewInit {
   // (toggleGroup/toggleHeading/toggleLayer/toggleLeaf) already calls
   // render() for exactly this reason — rebuildMap() was the one path that
   // didn't. render() itself already guards on `this.mapInstance` being set,
-  // so this is a safe no-op on the very first call from ngOnInit (before
+  // so this is a safe no-op on the very first call from ngOnChanges (before
   // ngAfterViewInit has run).
   private rebuildMap(): void {
     if (!this.baseConfig) {

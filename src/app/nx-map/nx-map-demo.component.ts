@@ -983,6 +983,18 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
   // Shape/Map/Satellite option click handler (from the base-map dropdown) —
   // swaps the main layer's base map style at runtime, then closes the
   // dropdown the same way picking an option from a native <select> would.
+  setMapStyle(style: "shape" | "osm" | "satellite"): void {
+    this.basemapPanelOpen = false;
+    if (this.mapStyle === style || !this.baseConfig) {
+      return;
+    }
+    this.applyBaseMapStyle(style);
+  }
+
+  // Shared by setMapStyle() and resetToConfiguredView() (the toolbar Reset
+  // button) — both ultimately need the main layer rebuilt with a correct
+  // centerPosition/zoomFactor for `style`, whether that's a genuine style
+  // CHANGE or just re-applying the CURRENT one (Reset).
   //
   // Fully destroys and recreates the <ejs-maps> element (via the mapVisible
   // toggle below) rather than just feeding a rebuilt mapOptions into the
@@ -1001,19 +1013,21 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
   //
   // Trade-off: like any other rebuildMap() call (e.g. reloadSubLayerGroups()),
   // this resets every layer/group/item back to fully checked — any filter
-  // toggles the user made before switching style are not preserved.
-  setMapStyle(style: "shape" | "osm" | "satellite"): void {
-    this.basemapPanelOpen = false;
-    if (this.mapStyle === style || !this.baseConfig) {
+  // toggles the user made before switching style (or hitting Reset) are not
+  // preserved.
+  private applyBaseMapStyle(style: "shape" | "osm" | "satellite"): void {
+    if (!this.baseConfig) {
       return;
     }
     this.baseConfig.baseMapType = style;
     // NXMapBuilderService.buildZoom() always forces zoomFactor 1 for a
     // "shape" main layer regardless of config, so nothing to do for that
     // case here — only restoring the config's own configuredZoomFactor
-    // (tuned for raster tiles) when swapping BACK to a tile style needs
-    // this explicit mutation, since buildZoom() takes a tile layer's
-    // zoomFactor directly from config.
+    // (tuned for raster tiles) for a tile style needs this explicit
+    // mutation, since buildZoom() takes a tile layer's zoomFactor directly
+    // from config. Applied unconditionally (not just on an actual style
+    // CHANGE) so Reset also corrects any drift — e.g. a manual zoom/pan
+    // done since the style was last (re)applied.
     if (style !== "shape") {
       this.baseConfig.zoomFactor = this.configuredZoomFactor;
     }
@@ -1442,22 +1456,15 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
     });
   }
 
+  // Re-applies the CURRENT base-map style via applyBaseMapStyle() — same
+  // centerPosition (mainConfig.mapCenter, handled by the normal
+  // rebuildMap()/buildMap() pipeline) and same zoomFactor rule as a genuine
+  // style switch (1 for shape, this.configuredZoomFactor for a tile style),
+  // so Reset lands on exactly what buildZoom()/buildMap() would compute
+  // fresh — not just whatever Syncfusion's own zoomSettings @Input happens
+  // to hold after however much manual zooming/panning happened since.
   private resetToConfiguredView(): void {
-    if (!this.mapOptions) {
-      return;
-    }
-    const mainConfig = this.configs[this.builder.getMainLayerIndex()];
-    if (!mainConfig) {
-      return;
-    }
-    this.mapOptions.centerPosition = mainConfig.mapCenter;
-    this.mapOptions.zoomSettings = {
-      ...this.mapOptions.zoomSettings,
-      zoomFactor: mainConfig.zoomFactor
-    };
-    if (this.mapInstance) {
-      setTimeout(() => this.mapInstance.refresh(), 50);
-    }
+    this.applyBaseMapStyle(this.mapStyle);
   }
 
   // Draws each navigation line's path from start to end instead of having

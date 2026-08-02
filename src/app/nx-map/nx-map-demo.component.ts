@@ -360,6 +360,7 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
       <div class="click-toast" *ngIf="toastMessage">
         {{ toastMessage }}
       </div>
+
     </div>
   `,
   styles: [
@@ -587,6 +588,124 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
 
       .nx-map-demo .layer-panel-body {
         padding: 0 8px 8px;
+      }
+
+      /* Custom marker hover-tooltip card, injected via
+         injectMarkerTooltipTemplate() (see that method's own comment for why
+         it's built with plain DOM APIs rather than declared inline in this
+         component's template) — referenced by
+         nx-map-builder.service.ts's markerSettings.tooltipSettings.template.
+         ::ng-deep because Syncfusion's tooltip module positions/clones this
+         content into its own overlay div rather than this component's normal
+         DOM position, which isn't guaranteed to preserve Angular's
+         view-encapsulation scoping attributes — same reasoning as ::ng-deep
+         ejs-maps above.
+         Confirmed live: Syncfusion's tooltip overlay itself has NO
+         background/border/shadow of its own for a templated marker tooltip
+         (unlike the plain-text tooltip it replaces) — the card chrome below
+         is entirely ours, not a Syncfusion default being restyled. */
+      ::ng-deep .marker-tooltip {
+        min-width: 240px;
+        padding: 14px 16px;
+        background: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
+      }
+
+      ::ng-deep .marker-tooltip .mtt-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      ::ng-deep .marker-tooltip .mtt-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: #1a1a1a;
+      }
+
+      ::ng-deep .marker-tooltip .mtt-badge {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        padding: 3px 10px;
+        border-radius: 999px;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      ::ng-deep .marker-tooltip .mtt-badge--warning {
+        background: #fff1e0;
+        color: #d97706;
+      }
+
+      ::ng-deep .marker-tooltip .mtt-subtitle {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.4px;
+        color: #9aa0a6;
+        text-transform: uppercase;
+        margin-top: 2px;
+      }
+
+      ::ng-deep .marker-tooltip .mtt-row {
+        display: flex;
+        gap: 16px;
+        margin-top: 12px;
+      }
+
+      ::ng-deep .marker-tooltip .mtt-row--boxed {
+        background: #f4f5f7;
+        border-radius: 8px;
+        padding: 8px 10px;
+      }
+
+      ::ng-deep .marker-tooltip .mtt-stat {
+        flex: 1;
+      }
+
+      ::ng-deep .marker-tooltip .mtt-label {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        color: #9aa0a6;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      ::ng-deep .marker-tooltip .mtt-value {
+        font-size: 18px;
+        font-weight: 700;
+        color: #1a1a1a;
+        margin-top: 2px;
+        white-space: nowrap;
+      }
+
+      ::ng-deep .marker-tooltip .mtt-value--warning {
+        color: #d97706;
+      }
+
+      ::ng-deep .marker-tooltip .mtt-value--danger {
+        color: #d92626;
+      }
+
+      ::ng-deep .marker-tooltip .mtt-value--plain {
+        font-size: 14px;
+        color: #1a1a1a;
+      }
+
+      ::ng-deep .marker-tooltip .mtt-unit {
+        font-size: 12px;
+        font-weight: 500;
+        color: inherit;
+        margin-left: 3px;
+      }
+
+      ::ng-deep .marker-tooltip .mtt-timestamp {
+        font-size: 12px;
+        color: #9aa0a6;
+        margin-top: 10px;
       }
 
       .nx-map-demo .layer-panel summary {
@@ -1370,12 +1489,84 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
   }
 
   ngAfterViewInit(): void {
+    this.injectMarkerTooltipTemplate();
     // Syncfusion renders the zoom toolbar asynchronously after the
     // component initializes — give it a moment before measuring.
     setTimeout(() => {
       this.alignLayerControl();
       this.wireResetButton();
     }, 300);
+  }
+
+  // Builds the #marker-tooltip-template element that
+  // nx-map-builder.service.ts's markerSettings.tooltipSettings.template
+  // looks up by id, via plain DOM APIs rather than declaring it inline in
+  // this component's own Angular template — Angular's template compiler
+  // parses EVERY element in that template string, even one never meant to
+  // be rendered by Angular itself, and chokes on the bare ${...}
+  // placeholders Syncfusion's OWN templating engine needs there (NG5002
+  // "Invalid ICU message" — Angular reads a lone `{`/`}` as ICU/
+  // interpolation syntax, confirmed live). Building it here as a plain
+  // string sidesteps Angular's parser entirely; Syncfusion only ever reads
+  // this element's innerHTML as text on hover, so how it got into the DOM
+  // doesn't matter to it. Appended to document.body (not this component's
+  // own element) since Syncfusion's template lookup is a plain
+  // document.querySelector(selector) — global scope either way, and this
+  // element is never meant to be visible or positioned relative to
+  // anything.
+  //
+  // ${name} is the marker's own name (bound from toMarker()'s dataSource
+  // object) — every OTHER stat on this card is a HARDCODED placeholder, no
+  // such fields exist on MapPoint yet; this is a visual-design pass, not a
+  // data-wiring one.
+  private injectMarkerTooltipTemplate(): void {
+    if (document.getElementById("marker-tooltip-template")) {
+      return;
+    }
+    const container = document.createElement("div");
+    container.id = "marker-tooltip-template";
+    container.style.display = "none";
+    container.innerHTML = `
+      <div class="marker-tooltip">
+        <div class="mtt-header">
+          <span class="mtt-title">\${name}</span>
+          <span class="mtt-badge mtt-badge--warning">WARNING</span>
+        </div>
+        <div class="mtt-subtitle">THIRD PARTY</div>
+        <div class="mtt-row">
+          <div class="mtt-stat">
+            <div class="mtt-label">TVP</div>
+            <div class="mtt-value mtt-value--warning">95<span class="mtt-unit">kPa</span></div>
+          </div>
+          <div class="mtt-stat">
+            <div class="mtt-label">FLOWRATE</div>
+            <div class="mtt-value">N/A</div>
+          </div>
+        </div>
+        <div class="mtt-timestamp">2026-05-13 10:30</div>
+        <div class="mtt-row mtt-row--boxed">
+          <div class="mtt-stat mtt-stat--boxed">
+            <div class="mtt-label">WARNING</div>
+            <div class="mtt-value mtt-value--warning">86<span class="mtt-unit">kPa</span></div>
+          </div>
+          <div class="mtt-stat mtt-stat--boxed">
+            <div class="mtt-label">EMERGENCY</div>
+            <div class="mtt-value mtt-value--danger">110<span class="mtt-unit">kPa</span></div>
+          </div>
+        </div>
+        <div class="mtt-row">
+          <div class="mtt-stat">
+            <div class="mtt-label">DIST. TO MAF</div>
+            <div class="mtt-value mtt-value--plain">402.7 km</div>
+          </div>
+          <div class="mtt-stat">
+            <div class="mtt-label">ETA TO MAF</div>
+            <div class="mtt-value mtt-value--plain">3d 2h</div>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(container);
   }
 
   // Syncfusion's own `resize` event fires once ITS internal resize handling

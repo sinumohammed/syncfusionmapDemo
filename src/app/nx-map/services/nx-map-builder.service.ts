@@ -375,9 +375,14 @@ export class NXMapBuilderService {
           width: theme.marker?.border?.width ?? 1,
           color: theme.marker?.border?.color ?? "#285255"
         },
+        // template renders the rich hover card defined in
+        // nx-map-demo.component.ts's #marker-tooltip-template div (${name}
+        // is the only real per-marker field it uses — every other stat on
+        // that card is a hardcoded placeholder, see the template's own
+        // comment). Overrides valuePath entirely — no need to set both.
         tooltipSettings: {
           visible: true,
-          valuePath: "name"
+          template: "#marker-tooltip-template"
         },
         widthValuePath: "width",
         heightValuePath: "height",

@@ -34,7 +34,7 @@
   "ShapeDataURL": null,
   "ShapeDataSource": 1,
   "LayerConfigSource": 0,
-  "LayerConfigJSON": "{   \"layerName\": \"omanv1\",   \"isMainLayer\": true,   \"baseMapType\": \"shape\",   \"mapCenter\": {     \"latitude\": 21.8,     \"longitude\": 57   },   \"zoomFactor\": 1,   \"title\": {     \"text\": \"Oman\"   },   \"dataLabel\": {     \"visible\": false,     \"color\": \"beige\",     \"opacity\": 0.9   },   \"groups\": [] }",
+  "LayerConfigJSON": "{   \"layerName\": \"omanv1\",   \"isMainLayer\": true,   \"baseMapType\": \"shape\",   \"mapCenter\": {     \"latitude\": 21.8,     \"longitude\": 57   },   \"zoomFactor\": 7,   \"title\": {     \"text\": \"Oman\"   },   \"dataLabel\": {     \"visible\": false,     \"color\": \"beige\",     \"opacity\": 0.9   },   \"groups\": [] }",
   "LayerConfigURL": null,
   "ComponentType": 7118,
   "ElementType": 7118,

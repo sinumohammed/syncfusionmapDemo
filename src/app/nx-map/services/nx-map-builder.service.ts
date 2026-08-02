@@ -26,6 +26,16 @@ import {
 // synchronous.
 const nxMapThemes: MapThemeRegistry = ((nxMapThemesJson as any).default ?? nxMapThemesJson) as MapThemeRegistry;
 
+// Tile sources for the two raster baseMapType options. Both are free/no-key
+// services — "osm" streets from OpenStreetMap, "satellite" imagery from
+// Esri's World Imagery service — using Syncfusion's own level/tileX/tileY
+// placeholder tokens (Esri's REST tile scheme is {z}/{y}/{x}, so tileY comes
+// before tileX in the URL to match).
+const TILE_URL_TEMPLATES: Record<"osm" | "satellite", string> = {
+  osm: "https://a.tile.openstreetmap.org/level/tileX/tileY.png",
+  satellite: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/level/tileY/tileX"
+};
+
 interface LayerState {
   config: MapConfig;
   shapeData: any;
@@ -716,6 +726,22 @@ export class NXMapBuilderService {
     mapOptions.layers = mapOptions.layers.map((existing, layerIndex) => {
       const layer = this.layers[layerIndex];
       const isMain = layerIndex === this.mainLayerIndex;
+      // Only the main layer can ever change baseMapType at runtime (see
+      // setBaseMapType()) — recomputing the full shapeData/urlTemplate/
+      // shapeSettings/dataLabelSettings set for every OTHER layer here would
+      // just re-derive the same values buildLayers() already gave them.
+      // theme-driven fill changes for non-main layers are still patched
+      // below, same as before.
+      if (isMain) {
+        return {
+          ...existing,
+          ...this.buildBaseMapFields(layer, isMain),
+          visible: true,
+          markerSettings: this.buildMarkerPoints(layerIndex),
+          navigationLineSettings: this.buildNavigationLines(layerIndex),
+          polygonSettings: this.buildPolygon(layerIndex)
+        };
+      }
       return {
         ...existing,
         visible: true,
@@ -726,7 +752,7 @@ export class NXMapBuilderService {
         // until the NEXT full buildMap(). Only fill is recomputed here
         // (via the same resolveLayerBackground() buildLayers() uses) —
         // palette/border/autofill don't depend on anything themeable today.
-        // undefined for an OSM layer (shapeSettings itself is undefined
+        // undefined for a tile layer (shapeSettings itself is undefined
         // there), so nothing to patch.
         shapeSettings: existing.shapeSettings
           ? { ...existing.shapeSettings, fill: this.resolveLayerBackground(layer, isMain) }
@@ -736,6 +762,40 @@ export class NXMapBuilderService {
         polygonSettings: this.buildPolygon(layerIndex)
       };
     });
+  }
+
+  private isTileBaseMapType(type: MapConfig["baseMapType"]): type is "osm" | "satellite" {
+    return type === "osm" || type === "satellite";
+  }
+
+  private resolveTileUrl(type: MapConfig["baseMapType"]): string | undefined {
+    return this.isTileBaseMapType(type) ? TILE_URL_TEMPLATES[type] : undefined;
+  }
+
+  // Swaps the main layer's base map style at runtime (e.g. a "Shape" /
+  // "Map" / "Satellite" UI toggle) — "shape" falls back to whatever
+  // shapeData was already resolved for this layer at initialize() time
+  // (fetched regardless of the config's original baseMapType — see
+  // NXMapConfigService.resolveShapeData()), so switching TO "shape" needs no
+  // extra fetch even when the layer started tile-based. If that shapeData
+  // never resolved (no shapeDataSource and no SHAPE_DATA_BY_LAYER_NAME
+  // fallback — already warned about at load time), the layer just renders
+  // with no boundary, same as any other layer with no shapeData. Only
+  // updates this.layers' own config — call refresh() afterwards to push the
+  // change onto mapOptions and re-render.
+  setBaseMapType(type: "shape" | "osm" | "satellite"): void {
+    const layer = this.layers[this.mainLayerIndex];
+    if (!layer) {
+      return;
+    }
+    layer.config.baseMapType = type;
+  }
+
+  // The main layer's current baseMapType — "shape" (or undefined, its
+  // default) means it's shapeData-driven, "osm"/"satellite" mean it's
+  // tile-based.
+  getBaseMapType(): MapConfig["baseMapType"] {
+    return this.layers[this.mainLayerIndex]?.config.baseMapType;
   }
 
   // this layer's own shapeSettings.fill — the layer's config.background
@@ -787,25 +847,21 @@ export class NXMapBuilderService {
   buildLayers() {
     return this.layers.map((layer, layerIndex) => {
       const isMain = layerIndex === this.mainLayerIndex;
-      // OSM tiles only render reliably as the MAIN layer. Syncfusion's
+      // OSM/satellite tiles only render reliably as the MAIN layer. Syncfusion's
       // SubLayer type expects shapeData whose geometry aligns with the
       // base layer's coordinate system — a raster tile source (no
       // shapeData at all) doesn't fit that model, so a SubLayer configured
-      // with baseMapType: "osm" would simply not render. Any non-main
-      // layer always falls back to shape rendering regardless of what its
-      // config says.
-      const isOsm = layer.config.baseMapType === "osm" && isMain;
-      if (layer.config.baseMapType === "osm" && !isMain) {
+      // with baseMapType: "osm"/"satellite" would simply not render. Any
+      // non-main layer always falls back to shape rendering regardless of
+      // what its config says.
+      if (this.isTileBaseMapType(layer.config.baseMapType) && !isMain) {
         console.warn(
-          `[NXMap] Layer "${layer.config.layerName}" requested baseMapType: "osm" but isn't the main layer — falling back to shape rendering. OSM only works as the main/base layer.`
+          `[NXMap] Layer "${layer.config.layerName}" requested baseMapType: "${layer.config.baseMapType}" but isn't the main layer — falling back to shape rendering. Tile base maps (osm/satellite) only work as the main/base layer.`
         );
       }
 
       return {
-        // OSM tiles and shapeData are mutually exclusive per Syncfusion —
-        // urlTemplate only takes effect when shapeData is NOT set.
-        shapeData: isOsm ? undefined : layer.shapeData,
-        urlTemplate: isOsm ? "https://a.tile.openstreetmap.org/level/tileX/tileY.png" : undefined,
+        ...this.buildBaseMapFields(layer, isMain),
         shapePropertyPath: "name",
         visible: layer.visible,
         // The main layer renders as Syncfusion's base 'Layer' type; every
@@ -815,48 +871,65 @@ export class NXMapBuilderService {
         // opaque shape will visually cover the base layer's markers/
         // polygons even though they still exist underneath in the DOM.
         type: (isMain ? "Layer" : "SubLayer") as any,
-        shapeSettings: isOsm
-          ? undefined
-          : {
-              autofill: false,
-              // See resolveLayerBackground() — main layer gets the opaque
-              // grey by default; any SubLayer defaults to a semi-transparent
-              // fill instead, since SubLayers commonly cover ground the main
-              // layer already occupies (a region within the country), and an
-              // opaque fill there would visually bury the main layer's own
-              // markers/polygons in that area even though they still exist
-              // underneath in the DOM.
-              fill: this.resolveLayerBackground(layer, isMain),
-              palette: [
-                "#E2B247",
-                "#88DB46",
-                "#42C4E2",
-                "#C08AF8",
-                "#52BACC",
-                "#F4CE2F",
-                "#6986ED"
-              ],
-              border: {
-                width: 0.1,
-                color: "#A6A6A6"
-              }
-            },
-        // An OSM tile layer has no named shape features to label against.
-        dataLabelSettings: isOsm
-          ? undefined
-          : {
-              visible: layer.config.dataLabel?.visible ?? false,
-              labelPath: "name",
-              textStyle: {
-                color: layer.config.dataLabel?.color ?? layer.theme.dataLabel?.color
-              },
-              opacity: layer.config.dataLabel?.opacity ?? layer.theme.dataLabel?.opacity
-            },
         markerSettings: this.buildMarkerPoints(layerIndex),
         navigationLineSettings: this.buildNavigationLines(layerIndex),
         polygonSettings: this.buildPolygon(layerIndex)
       };
     });
+  }
+
+  // shapeData/urlTemplate/shapeSettings/dataLabelSettings all pivot on the
+  // same isTile flag, so buildLayers() (initial build, every layer) and
+  // refresh() (runtime base-map-style swap, main layer only) share this
+  // rather than re-deriving each field from scratch in two places that could
+  // drift apart. Non-main layers are never tile-based (see buildLayers()'s
+  // own warning), so isTile is always false for them regardless of what
+  // their config says.
+  private buildBaseMapFields(layer: LayerState, isMain: boolean) {
+    const isTile = this.isTileBaseMapType(layer.config.baseMapType) && isMain;
+    return {
+      // Raster tiles and shapeData are mutually exclusive per Syncfusion —
+      // urlTemplate only takes effect when shapeData is NOT set.
+      shapeData: isTile ? undefined : layer.shapeData,
+      urlTemplate: isTile ? this.resolveTileUrl(layer.config.baseMapType) : undefined,
+      shapeSettings: isTile
+        ? undefined
+        : {
+            autofill: false,
+            // See resolveLayerBackground() — main layer gets the opaque
+            // grey by default; any SubLayer defaults to a semi-transparent
+            // fill instead, since SubLayers commonly cover ground the main
+            // layer already occupies (a region within the country), and an
+            // opaque fill there would visually bury the main layer's own
+            // markers/polygons in that area even though they still exist
+            // underneath in the DOM.
+            fill: this.resolveLayerBackground(layer, isMain),
+            palette: [
+              "#E2B247",
+              "#88DB46",
+              "#42C4E2",
+              "#C08AF8",
+              "#52BACC",
+              "#F4CE2F",
+              "#6986ED"
+            ],
+            border: {
+              width: 0.1,
+              color: "#A6A6A6"
+            }
+          },
+      // A tile layer has no named shape features to label against.
+      dataLabelSettings: isTile
+        ? undefined
+        : {
+            visible: layer.config.dataLabel?.visible ?? false,
+            labelPath: "name",
+            textStyle: {
+              color: layer.config.dataLabel?.color ?? layer.theme.dataLabel?.color
+            },
+            opacity: layer.config.dataLabel?.opacity ?? layer.theme.dataLabel?.opacity
+          }
+    };
   }
 
   private buildTitle(config: MapConfig) {
@@ -874,11 +947,22 @@ export class NXMapBuilderService {
       mouseWheelZoom: true,
       enablePanning: true,
       showToolbar: true,
-      // Always taken directly from config, for both "shape" and "osm" —
-      // the config is expected to set the right value for whichever
-      // baseMapType it's using (a shape layer that wants its own auto-fit
-      // behavior instead should simply omit zoomFactor from its config).
-      zoomFactor: mainConfig.zoomFactor,
+      // Tile-based (osm/satellite) main layers take zoomFactor directly
+      // from config — the config is expected to set the right value to
+      // frame its region in raster tiles. A "shape" main layer (default,
+      // including when baseMapType is unset) always starts at zoomFactor 1
+      // regardless of what the config says — shape rendering auto-fits its
+      // own shapeData bounding box, and Syncfusion's "no extra zoom"
+      // baseline (1) is what lets that auto-fit actually take effect; any
+      // config zoomFactor left over from switching to/from a tile style
+      // (see setMapStyle()'s own comment) would otherwise start the shape
+      // view zoomed in past its own boundary.
+      zoomFactor: this.isTileBaseMapType(mainConfig.baseMapType) ? mainConfig.zoomFactor : 1,
+      // Matches the zoomFactor floor above — 1 is the least-zoomed-out view
+      // Syncfusion itself supports, so this just makes that floor explicit
+      // rather than relying on Syncfusion's own default (which mouse-wheel/
+      // toolbar zoom-out could otherwise undercut).
+      minZoom: 1,
       // The toolbar's Reset button restores whatever centerPosition/
       // zoomFactor the map rendered with initially (our configured
       // mapCenter/zoomFactor for an "osm" main layer, or the shape's

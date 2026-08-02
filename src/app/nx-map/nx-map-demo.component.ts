@@ -50,6 +50,43 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
                                    line, its group stays visible
            <details>/<summary> gives expand/collapse for free, no JS state
            needed to track which nodes are open. -->
+      <!-- Base-map style switcher — the "layer icon" spot itself now opens
+           this (the conventional map-app placement for a Map/Satellite
+           switch), positioned further from the zoom toolbar than the layer
+           LIST button below. "Shape" falls back to whatever shapeData was
+           already resolved for the main layer (see
+           NXMapBuilderService.setBaseMapType()'s own comment), "Map" is OSM
+           streets, "Satellite" is Esri World Imagery. -->
+      <div class="basemap-control" [style.top.px]="layerBtnTop" [style.right.px]="basemapBtnRight">
+        <button
+          type="button"
+          class="layer-btn"
+          title="Base map style"
+          (click)="toggleBasemapPanel()"
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
+            <path d="M12 3 2 8l10 5 10-5-10-5Z" fill="#5f6368" />
+            <path d="M2 12l10 5 10-5" stroke="#5f6368" stroke-width="1.6" fill="none" />
+            <path d="M2 16l10 5 10-5" stroke="#5f6368" stroke-width="1.6" fill="none" />
+          </svg>
+        </button>
+
+        <div class="basemap-panel" *ngIf="basemapPanelOpen">
+          <button type="button" [class.active]="mapStyle === 'shape'" (click)="setMapStyle('shape')">
+            Shape
+          </button>
+          <button type="button" [class.active]="mapStyle === 'osm'" (click)="setMapStyle('osm')">
+            Map
+          </button>
+          <button type="button" [class.active]="mapStyle === 'satellite'" (click)="setMapStyle('satellite')">
+            Satellite
+          </button>
+        </div>
+      </div>
+
+      <!-- Layer LIST button — sits between the base-map control above and
+           the zoom toolbar (i.e. closest to the toolbar), opening the same
+           filter-tree panel this used to be bound to directly. -->
       <div class="layer-control" [style.top.px]="layerBtnTop" [style.right.px]="layerBtnRight">
         <button
           type="button"
@@ -58,9 +95,9 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
           (click)="toggleLayerPanel()"
         >
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
-            <path d="M12 3 2 8l10 5 10-5-10-5Z" fill="#5f6368" />
-            <path d="M2 12l10 5 10-5" stroke="#5f6368" stroke-width="1.6" fill="none" />
-            <path d="M2 16l10 5 10-5" stroke="#5f6368" stroke-width="1.6" fill="none" />
+            <rect x="3" y="4" width="18" height="3" rx="1" fill="#5f6368" />
+            <rect x="3" y="10.5" width="18" height="3" rx="1" fill="#5f6368" />
+            <rect x="3" y="17" width="18" height="3" rx="1" fill="#5f6368" />
           </svg>
         </button>
       </div>
@@ -301,7 +338,7 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
            when they geographically overlap. -->
       <ejs-maps
         class="map-container"
-        *ngIf="mapOptions?.layers?.length"
+        *ngIf="mapVisible && mapOptions?.layers?.length"
         #mapInstance
         width="100%"
         height="100%"
@@ -389,6 +426,56 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
         border-radius: 4px;
         box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
         cursor: pointer;
+      }
+
+      /* Positioned the same way as .layer-control (top tracks the zoom
+         toolbar), just further left of it — see basemapBtnRight. Relative
+         positioning so .basemap-panel below (absolute) anchors off THIS
+         button rather than the map container. */
+      .nx-map-demo .basemap-control {
+        position: absolute;
+        z-index: 100;
+      }
+
+      /* Small dropdown under the base-map button — same visual language as
+         .layer-panel (white card, shadow, rounded corners) but far simpler:
+         just three stacked options, no header/search/tree. */
+      .nx-map-demo .basemap-panel {
+        position: absolute;
+        top: 42px;
+        right: 0;
+        width: 130px;
+        background: #fff;
+        border-radius: 6px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+        overflow: hidden;
+      }
+
+      .nx-map-demo .basemap-panel button {
+        display: block;
+        width: 100%;
+        text-align: left;
+        border: none;
+        border-top: 1px solid #eee;
+        background: #fff;
+        color: #3c4043;
+        font-size: 13px;
+        padding: 8px 12px;
+        cursor: pointer;
+      }
+
+      .nx-map-demo .basemap-panel button:first-child {
+        border-top: none;
+      }
+
+      .nx-map-demo .basemap-panel button:hover {
+        background: #f1f3f4;
+      }
+
+      .nx-map-demo .basemap-panel button.active {
+        background: #eef3fc;
+        color: #1a73e8;
+        font-weight: 600;
       }
 
       /* Pinned to the map's own right edge (not the button's position,
@@ -598,7 +685,13 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
   @ViewChild("mapInstance") mapInstance!: MapsComponent;
 
   mapOptions!: MapOptions;
+  // Gates the *ngIf on <ejs-maps> ALONGSIDE mapOptions — see setMapStyle()'s
+  // own comment on why a base-map style swap needs to fully destroy and
+  // recreate the Syncfusion component instance rather than just feed it new
+  // @Input values.
+  mapVisible = true;
   layerPanelOpen = false;
+  basemapPanelOpen = false;
   layerTree: LayerTreeNode[] = [];
 
   // Every theme name in the registry, for the layer panel's per-layer theme
@@ -613,6 +706,20 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
   layerBtnRight = 90;
   panelTop = 50;
   panelMaxHeight = 500;
+
+  // Mirrors the main layer's current baseMapType, purely for the
+  // Shape/Map/Satellite toggle's own active-button styling — the real
+  // source of truth is the builder's main layer config. Defaults to "shape"
+  // to match MapConfig.baseMapType's own documented default.
+  mapStyle: "shape" | "osm" | "satellite" = "shape";
+
+  // .basemap-control's own right offset — sits just left of .layer-control
+  // (the layer LIST button, itself pinned closest to the zoom toolbar),
+  // spaced by the layer button's width (36px) plus the same 8px gap
+  // alignLayerControl() uses elsewhere.
+  get basemapBtnRight(): number {
+    return this.layerBtnRight + 36 + 8;
+  }
 
   // Filter-tree search box — plain text, matched case-insensitively against
   // layer/heading/group names and leaf labels (see matchesSearch() and the
@@ -645,6 +752,11 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
   private baseShape: any;
   private staticLayerResults: { config: MapConfig; shape: any }[] = [];
   private subLayerGroups: MapGroup[] = [];
+  // See setMapStyle()'s own comment — the base layer's originally-configured
+  // zoomFactor, restored whenever swapping back to a tile (osm/satellite)
+  // style after baseConfig.zoomFactor was temporarily overwritten to 1 for
+  // "shape".
+  private configuredZoomFactor: number | undefined;
 
   constructor(
     private builder: NXMapBuilderService,
@@ -762,6 +874,14 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
         this.baseShape = baseShape;
         this.staticLayerResults = staticLayers;
         this.subLayerGroups = subGroups;
+        // The config's OWN zoomFactor — tuned for whatever raster tile view
+        // it was written for (e.g. 5, to frame Oman in OSM/satellite tiles).
+        // setMapStyle() below temporarily overwrites baseConfig.zoomFactor
+        // to 1 while "shape" is active (shape's own auto-fit needs
+        // Syncfusion's "no extra zoom" baseline to take effect — see
+        // NXMapBuilderService.buildBaseMapFields()'s own comment); this is
+        // what it restores when swapping back to a tile style.
+        this.configuredZoomFactor = baseConfig.zoomFactor;
         this.rebuildMap();
       });
   }
@@ -856,7 +976,57 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
     // toggled.
     this.mapOptions = this.builder.buildMap(this.configs, shapeDataByLayer, this.appConfig.theme);
     this.layerTree = this.builder.getLayerTree();
+    this.mapStyle = this.builder.getBaseMapType() ?? "shape";
     this.render();
+  }
+
+  // Shape/Map/Satellite option click handler (from the base-map dropdown) —
+  // swaps the main layer's base map style at runtime, then closes the
+  // dropdown the same way picking an option from a native <select> would.
+  //
+  // Fully destroys and recreates the <ejs-maps> element (via the mapVisible
+  // toggle below) rather than just feeding a rebuilt mapOptions into the
+  // EXISTING component instance — confirmed live (DOM/network inspection,
+  // not just visual) that Angular's own @Input diffing for a changed
+  // zoomSettings/centerPosition/layers combination does NOT reliably reset
+  // Syncfusion's internal tile zoom bookkeeping (tileZoomLevel etc.):
+  // switching to Map/Satellite after Shape kept loading OpenStreetMap tiles
+  // at zoom level 1 (Shape's own leftover baseline) instead of the config's
+  // zoomFactor: 5, even though mapOptions.zoomSettings.zoomFactor itself was
+  // correctly 5, and even calling Syncfusion's own refresh()
+  // (destroy+internal-render) on the SAME instance didn't fix it either.
+  // Recreating the element from scratch forces exactly the code path a
+  // first page load already takes — confirmed correct — with no leftover
+  // internal state from whatever style was active before.
+  //
+  // Trade-off: like any other rebuildMap() call (e.g. reloadSubLayerGroups()),
+  // this resets every layer/group/item back to fully checked — any filter
+  // toggles the user made before switching style are not preserved.
+  setMapStyle(style: "shape" | "osm" | "satellite"): void {
+    this.basemapPanelOpen = false;
+    if (this.mapStyle === style || !this.baseConfig) {
+      return;
+    }
+    this.baseConfig.baseMapType = style;
+    // NXMapBuilderService.buildZoom() always forces zoomFactor 1 for a
+    // "shape" main layer regardless of config, so nothing to do for that
+    // case here — only restoring the config's own configuredZoomFactor
+    // (tuned for raster tiles) when swapping BACK to a tile style needs
+    // this explicit mutation, since buildZoom() takes a tile layer's
+    // zoomFactor directly from config.
+    if (style !== "shape") {
+      this.baseConfig.zoomFactor = this.configuredZoomFactor;
+    }
+
+    this.mapVisible = false;
+    setTimeout(() => {
+      this.rebuildMap();
+      this.mapVisible = true;
+    });
+  }
+
+  toggleBasemapPanel(): void {
+    this.basemapPanelOpen = !this.basemapPanelOpen;
   }
 
   // Whether a group has anything to expand at all — drives groupEntryTpl's
@@ -1329,26 +1499,37 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
     setTimeout(() => this.alignLayerControl(), 150);
   }
 
-  // Closes the panel on any click outside .layer-control OR .layer-panel
-  // specifically — NOT the whole component host, which also wraps the map
-  // itself; using the host element here would make clicking the map a
-  // no-op instead of closing the panel. .layer-panel is checked separately
-  // because it's rendered as a SIBLING of .layer-control (pinned to the
-  // map's right edge independently of the button's position), not nested
-  // inside it — a click on a checkbox inside the panel would otherwise
-  // register as "outside" and close it immediately.
+  // Closes the layer-list panel on any click outside .layer-control OR
+  // .layer-panel specifically — NOT the whole component host, which also
+  // wraps the map itself; using the host element here would make clicking
+  // the map a no-op instead of closing the panel. .layer-panel is checked
+  // separately because it's rendered as a SIBLING of .layer-control (pinned
+  // to the map's right edge independently of the button's position), not
+  // nested inside it — a click on a checkbox inside the panel would
+  // otherwise register as "outside" and close it immediately.
+  //
+  // The base-map dropdown (.basemap-panel) needs no such sibling check — it
+  // IS nested inside .basemap-control, so containment on the control alone
+  // covers a click on any of its own options too.
   @HostListener("document:click", ["$event"])
   onDocumentClick(event: MouseEvent): void {
-    if (!this.layerPanelOpen) {
-      return;
-    }
     const target = event.target as Node;
-    const layerControl = this.elRef.nativeElement.querySelector(".layer-control");
-    const layerPanel = this.elRef.nativeElement.querySelector(".layer-panel");
-    const insideControl = layerControl?.contains(target) ?? false;
-    const insidePanel = layerPanel?.contains(target) ?? false;
-    if (!insideControl && !insidePanel) {
-      this.layerPanelOpen = false;
+
+    if (this.layerPanelOpen) {
+      const layerControl = this.elRef.nativeElement.querySelector(".layer-control");
+      const layerPanel = this.elRef.nativeElement.querySelector(".layer-panel");
+      const insideControl = layerControl?.contains(target) ?? false;
+      const insidePanel = layerPanel?.contains(target) ?? false;
+      if (!insideControl && !insidePanel) {
+        this.layerPanelOpen = false;
+      }
+    }
+
+    if (this.basemapPanelOpen) {
+      const basemapControl = this.elRef.nativeElement.querySelector(".basemap-control");
+      if (!(basemapControl?.contains(target) ?? false)) {
+        this.basemapPanelOpen = false;
+      }
     }
   }
 

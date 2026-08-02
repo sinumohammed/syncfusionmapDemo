@@ -232,10 +232,14 @@ export interface MapConfig {
   background?: string;
   // "shape" (default) renders this layer from `shapeData` (a GeoJSON
   // boundary, bound to markers/polygons via shapePropertyPath/name). "osm"
-  // renders free OpenStreetMap street tiles instead — no shapeData, no
-  // named-region binding for THIS layer, but groups/markers/polygons still
-  // overlay on top of it normally.
-  baseMapType?: "shape" | "osm";
+  // and "satellite" render free raster tiles instead (OpenStreetMap streets,
+  // or Esri World Imagery satellite photography respectively) — no
+  // shapeData, no named-region binding for THIS layer, but groups/markers/
+  // polygons still overlay on top of it normally. Only meaningful on the
+  // main layer (see NXMapBuilderService.buildLayers()); when the main layer
+  // starts as one of these two, NXMapBuilderService.setBaseMapType() can
+  // swap between them at runtime (e.g. a "Map" / "Satellite" UI toggle).
+  baseMapType?: "shape" | "osm" | "satellite";
   // Only meaningful on the MAIN layer (MapOptions.centerPosition/
   // zoomSettings.zoomFactor are root-level in Syncfusion, not per-layer).
   // Shape layers auto-fit zoom/center to their shapeData's bounding box, so

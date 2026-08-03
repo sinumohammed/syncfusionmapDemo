@@ -5,6 +5,7 @@ import {
   HostListener,
   Input,
   OnChanges,
+  OnDestroy,
   SimpleChanges,
   ViewChild
 } from "@angular/core";
@@ -604,29 +605,162 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
          background/border/shadow of its own for a templated marker tooltip
          (unlike the plain-text tooltip it replaces) — the card chrome below
          is entirely ours, not a Syncfusion default being restyled. */
+      /* Material Design 3 conventions, hand-rolled in CSS rather than via
+         @angular/material components: this markup is a raw HTML string
+         (see injectMarkerTooltipTemplate() below) that Syncfusion clones
+         into its own overlay div OUTSIDE Angular's component tree, so
+         <mat-*> components — which need Angular to instantiate them —
+         cannot run here. What IS reused: M3's elevation/shape/type-scale
+         rules, and tonal "container" colors (a saturated role color paired
+         with a soft background of the same hue) for the alert tiles, mixed
+         with the brand's navy/blue from the NIBRAS NX mark instead of
+         Material's default purple. */
+      /* Syncfusion sets pointer-events: none inline on its .EJ2-maps-Tooltip
+         wrapper whenever tooltipDisplayMode is "MouseMove" (the default) —
+         confirmed in ej2-maps' tooltip.js, which applies that regardless of
+         whether a template is in use. That makes the wrapper (and our card
+         inside it) invisible to the mouse, so the SAME module's own
+         "don't clear while the pointer is over the tooltip" check (it walks
+         up from the mousemove target looking for the tooltip's parent-
+         template element) always finds nothing and clears the tooltip the
+         instant the cursor reaches it. An !important CSS rule is required
+         to win over that inline style; once the wrapper is hoverable again,
+         Syncfusion's own stay-open behavior just works — no extra JS. */
+      ::ng-deep .EJ2-maps-Tooltip {
+        pointer-events: auto !important;
+      }
+
       ::ng-deep .marker-tooltip {
-        min-width: 240px;
-        padding: 14px 16px;
-        background: #ffffff;
-        border-radius: 12px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
+        --mtt-primary: #2f8fe0;
+        --mtt-primary-container: #dceafb;
+        --mtt-on-primary-container: #0a3a63;
+        --mtt-surface: #ffffff;
+        --mtt-surface-variant: #f3f6fa;
+        --mtt-on-surface: #1b2530;
+        --mtt-on-surface-variant: #5b6b7c;
+        --mtt-outline: #e1e7ee;
+        --mtt-warning-container: #fdead0;
+        --mtt-on-warning-container: #7a4a00;
+        --mtt-error-container: #fbdedc;
+        --mtt-on-error-container: #8c1d18;
+        position: relative;
+        min-width: 320px;
+        padding: 18px 20px 16px;
+        background: var(--mtt-surface);
+        border-radius: 16px;
+        box-shadow:
+          0 1px 2px rgba(27, 37, 48, 0.14),
+          0 8px 24px rgba(27, 37, 48, 0.16);
+        font-family: "Roboto", "Segoe UI", Arial, sans-serif;
+        color: var(--mtt-on-surface);
+      }
+
+      /* Points straight at the cursor. Syncfusion's own SVG-drawn tooltip
+         shape (with its own arrow) is skipped entirely in template mode
+         (see the header comment above), and its positioning logic for
+         templates doesn't reliably keep the card above the cursor either —
+         so wireTooltipPositioning() below fully takes over placement: it
+         pins the card above the pointer with position:fixed, and only
+         drops it below (adding .marker-tooltip--flip, which moves this
+         arrow to the top edge) when there isn't room above. --mtt-arrow-x
+         is set per-render to the pointer's X position within the card, so
+         the arrow tracks the cursor horizontally even when the card itself
+         gets clamped away from screen edges. */
+      ::ng-deep .marker-tooltip::after {
+        content: "";
+        position: absolute;
+        left: var(--mtt-arrow-x, 50%);
+        bottom: -8px;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 9px solid transparent;
+        border-right: 9px solid transparent;
+        border-top: 9px solid var(--mtt-surface);
+        filter: drop-shadow(0 3px 2px rgba(27, 37, 48, 0.12));
+      }
+
+      ::ng-deep .marker-tooltip.marker-tooltip--flip::after {
+        top: -8px;
+        bottom: auto;
+        border-top: none;
+        border-bottom: 9px solid var(--mtt-surface);
+        filter: drop-shadow(0 -3px 2px rgba(27, 37, 48, 0.12));
+      }
+
+      /* Confirmed live: the card is deliberately positioned with a gap
+         between it and the cursor (room for the arrow) — but Syncfusion
+         clears the tooltip the instant a mousemove target isn't the marker
+         AND isn't inside the tooltip's own template wrapper (see the
+         pointer-events comment above), so that gap was a dead zone: moving
+         the mouse from the marker up toward the card meant crossing plain
+         map first, clearing the tooltip before the cursor ever reached it.
+         This invisible spacer is part of the SAME template subtree Syncfusion
+         checks against, so it extends the hoverable area through the gap
+         instead of leaving it empty — positionTooltip() below sizes the
+         wrapper against the whole hitbox (spacer + card) so the spacer
+         edge, not the card edge, is what actually touches the cursor. */
+      ::ng-deep .marker-tooltip-hitbox {
+        display: flex;
+        flex-direction: column;
+        padding-bottom: 14px;
+      }
+
+      ::ng-deep .marker-tooltip-hitbox.marker-tooltip-hitbox--flip {
+        padding-bottom: 0;
+        padding-top: 14px;
       }
 
       ::ng-deep .marker-tooltip .mtt-header {
         display: flex;
-        align-items: center;
-        justify-content: space-between;
+        align-items: flex-start;
         gap: 12px;
+      }
+
+      ::ng-deep .marker-tooltip .mtt-avatar {
+        flex: none;
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        background: var(--mtt-primary-container);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      ::ng-deep .marker-tooltip .mtt-avatar svg {
+        width: 20px;
+        height: 20px;
+        fill: var(--mtt-on-primary-container);
+      }
+
+      ::ng-deep .marker-tooltip .mtt-heading {
+        flex: 1;
+        min-width: 0;
       }
 
       ::ng-deep .marker-tooltip .mtt-title {
         font-size: 16px;
-        font-weight: 700;
-        color: #1a1a1a;
+        font-weight: 600;
+        color: var(--mtt-on-surface);
+        letter-spacing: 0.1px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
-      ::ng-deep .marker-tooltip .mtt-badge {
-        font-size: 11px;
+      ::ng-deep .marker-tooltip .mtt-chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 6px;
+      }
+
+      ::ng-deep .marker-tooltip .mtt-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 10.5px;
         font-weight: 700;
         letter-spacing: 0.3px;
         padding: 3px 10px;
@@ -635,77 +769,115 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
         white-space: nowrap;
       }
 
-      ::ng-deep .marker-tooltip .mtt-badge--warning {
-        background: #fff1e0;
-        color: #d97706;
+      ::ng-deep .marker-tooltip .mtt-chip--warning {
+        background: var(--mtt-warning-container);
+        color: var(--mtt-on-warning-container);
       }
 
-      ::ng-deep .marker-tooltip .mtt-subtitle {
-        font-size: 11px;
-        font-weight: 600;
-        letter-spacing: 0.4px;
-        color: #9aa0a6;
-        text-transform: uppercase;
-        margin-top: 2px;
+      ::ng-deep .marker-tooltip .mtt-chip--third-party {
+        background: var(--mtt-warning-container);
+        color: var(--mtt-on-warning-container);
       }
 
-      ::ng-deep .marker-tooltip .mtt-row {
-        display: flex;
-        gap: 16px;
-        margin-top: 12px;
+      ::ng-deep .marker-tooltip .mtt-chip--pdo {
+        background: var(--mtt-primary-container);
+        color: var(--mtt-on-primary-container);
       }
 
-      ::ng-deep .marker-tooltip .mtt-row--boxed {
-        background: #f4f5f7;
-        border-radius: 8px;
-        padding: 8px 10px;
+      ::ng-deep .marker-tooltip .mtt-divider {
+        height: 1px;
+        background: var(--mtt-outline);
+        margin: 16px 0;
       }
 
-      ::ng-deep .marker-tooltip .mtt-stat {
-        flex: 1;
+      ::ng-deep .marker-tooltip .mtt-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      ::ng-deep .marker-tooltip .mtt-tile {
+        background: var(--mtt-surface-variant);
+        border-radius: 12px;
+        padding: 10px 12px;
+      }
+
+      ::ng-deep .marker-tooltip .mtt-tile--warning {
+        background: var(--mtt-warning-container);
+      }
+
+      ::ng-deep .marker-tooltip .mtt-tile--danger {
+        background: var(--mtt-error-container);
       }
 
       ::ng-deep .marker-tooltip .mtt-label {
+        display: flex;
+        align-items: center;
+        gap: 5px;
         font-size: 10px;
         font-weight: 700;
         letter-spacing: 0.3px;
-        color: #9aa0a6;
+        color: var(--mtt-on-surface-variant);
         text-transform: uppercase;
         white-space: nowrap;
+      }
+
+      ::ng-deep .marker-tooltip .mtt-tile--warning .mtt-label,
+      ::ng-deep .marker-tooltip .mtt-tile--danger .mtt-label {
+        color: inherit;
+        opacity: 0.85;
+      }
+
+      ::ng-deep .marker-tooltip .mtt-label svg {
+        width: 12px;
+        height: 12px;
+        flex: none;
       }
 
       ::ng-deep .marker-tooltip .mtt-value {
         font-size: 18px;
         font-weight: 700;
-        color: #1a1a1a;
-        margin-top: 2px;
+        color: var(--mtt-on-surface);
+        margin-top: 4px;
         white-space: nowrap;
       }
 
-      ::ng-deep .marker-tooltip .mtt-value--warning {
-        color: #d97706;
+      ::ng-deep .marker-tooltip .mtt-tile--warning .mtt-value {
+        color: var(--mtt-on-warning-container);
       }
 
-      ::ng-deep .marker-tooltip .mtt-value--danger {
-        color: #d92626;
+      ::ng-deep .marker-tooltip .mtt-tile--danger .mtt-value {
+        color: var(--mtt-on-error-container);
       }
 
       ::ng-deep .marker-tooltip .mtt-value--plain {
         font-size: 14px;
-        color: #1a1a1a;
+        font-weight: 600;
+        color: var(--mtt-primary);
       }
 
       ::ng-deep .marker-tooltip .mtt-unit {
         font-size: 12px;
         font-weight: 500;
         color: inherit;
+        opacity: 0.75;
         margin-left: 3px;
       }
 
-      ::ng-deep .marker-tooltip .mtt-timestamp {
-        font-size: 12px;
-        color: #9aa0a6;
-        margin-top: 10px;
+      ::ng-deep .marker-tooltip .mtt-footer {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        margin-top: 14px;
+        font-size: 11.5px;
+        color: var(--mtt-on-surface-variant);
+      }
+
+      ::ng-deep .marker-tooltip .mtt-footer svg {
+        width: 13px;
+        height: 13px;
+        fill: currentColor;
+        flex: none;
       }
 
       .nx-map-demo .layer-panel summary {
@@ -786,7 +958,7 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
     `
   ]
 })
-export class NxMapDemoComponent implements OnChanges, AfterViewInit {
+export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // The host's own payload — one node per layer (root = base layer, each
   // Configuration[] entry = a static layer), matching parent-config-
   // transform.ts's RawLayerNode shape. Everything else on this component
@@ -1490,12 +1662,93 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
 
   ngAfterViewInit(): void {
     this.injectMarkerTooltipTemplate();
+    this.wireTooltipPositioning();
     // Syncfusion renders the zoom toolbar asynchronously after the
     // component initializes — give it a moment before measuring.
     setTimeout(() => {
       this.alignLayerControl();
       this.wireResetButton();
     }, 300);
+  }
+
+  ngOnDestroy(): void {
+    this.tooltipObserver?.disconnect();
+  }
+
+  private lastPointerX = 0;
+  private lastPointerY = 0;
+  private tooltipObserver: MutationObserver | undefined;
+
+  // Takes over positioning the marker hover-tooltip entirely, rather than
+  // trusting Syncfusion's own placement: confirmed live that its
+  // above/below flip logic (in ej2-maps' tooltip.js / ej2-svg-base's
+  // tooltip.js) is built for its OWN SVG-drawn tooltip shape, and doesn't
+  // reliably keep a TEMPLATE tooltip (ours) pinned above the cursor the
+  // way product wants ("always above, unless there's no room, then
+  // below").
+  //
+  // A MutationObserver on the body catches every re-render — Syncfusion
+  // recreates the tooltip's DOM from the template on each mousemove-driven
+  // update rather than mutating one persistent node — and repositions the
+  // wrapper via position:fixed against the last known real pointer
+  // position (tracked separately since the mutation callback has no event
+  // of its own). position:fixed is used specifically so the math is always
+  // relative to the viewport, sidestepping whatever positioned ancestor
+  // (map pan/zoom container, secondary overlay layer) Syncfusion's own
+  // position:absolute math was relative to.
+  private wireTooltipPositioning(): void {
+    document.addEventListener(
+      "mousemove",
+      (e: MouseEvent) => {
+        this.lastPointerX = e.clientX;
+        this.lastPointerY = e.clientY;
+      },
+      true
+    );
+
+    this.tooltipObserver = new MutationObserver(() => {
+      const wrapper = document.querySelector(".EJ2-maps-Tooltip") as HTMLElement | null;
+      const hitbox = wrapper?.querySelector(".marker-tooltip-hitbox") as HTMLElement | null;
+      const card = hitbox?.querySelector(".marker-tooltip") as HTMLElement | null;
+      if (!wrapper || !hitbox || !card) {
+        return;
+      }
+      this.positionTooltip(wrapper, hitbox, card);
+    });
+    this.tooltipObserver.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  }
+
+  private readonly tooltipViewportMargin = 8;
+
+  private positionTooltip(wrapper: HTMLElement, hitbox: HTMLElement, card: HTMLElement): void {
+    // rect is measured on the WRAPPER, which now bounds the hitbox — the
+    // hitbox's own padding (its invisible bridge to the cursor, see that
+    // rule's own comment) is baked into this height, so no separate gap
+    // constant is added/subtracted here; getting fitsAbove/top right is
+    // just "does the whole hitbox, bridge included, fit above the cursor".
+    const rect = wrapper.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) {
+      return;
+    }
+
+    const fitsAbove = this.lastPointerY - rect.height >= this.tooltipViewportMargin;
+    const top = fitsAbove ? this.lastPointerY - rect.height : this.lastPointerY;
+    const maxLeft = window.innerWidth - rect.width - this.tooltipViewportMargin;
+    const left = Math.min(Math.max(this.lastPointerX - rect.width / 2, this.tooltipViewportMargin), Math.max(maxLeft, this.tooltipViewportMargin));
+
+    wrapper.style.position = "fixed";
+    wrapper.style.top = `${top}px`;
+    wrapper.style.left = `${left}px`;
+
+    card.classList.toggle("marker-tooltip--flip", !fitsAbove);
+    hitbox.classList.toggle("marker-tooltip-hitbox--flip", !fitsAbove);
+    // Keeps the arrow under the actual cursor even when the card itself is
+    // clamped away from the pointer horizontally near a screen edge.
+    const arrowX = Math.min(Math.max(this.lastPointerX - left, 16), rect.width - 16);
+    card.style.setProperty("--mtt-arrow-x", `${arrowX}px`);
   }
 
   // Builds the #marker-tooltip-template element that
@@ -1527,43 +1780,63 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
     container.id = "marker-tooltip-template";
     container.style.display = "none";
     container.innerHTML = `
+      <div class="marker-tooltip-hitbox">
       <div class="marker-tooltip">
         <div class="mtt-header">
-          <span class="mtt-title">\${name}</span>
-          <span class="mtt-badge mtt-badge--warning">WARNING</span>
-        </div>
-        <div class="mtt-subtitle">THIRD PARTY</div>
-        <div class="mtt-row">
-          <div class="mtt-stat">
-            <div class="mtt-label">TVP</div>
-            <div class="mtt-value mtt-value--warning">95<span class="mtt-unit">kPa</span></div>
+          <span class="mtt-avatar">
+            <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>
+          </span>
+          <div class="mtt-heading">
+            <div class="mtt-title">\${name}</div>
+            <div class="mtt-chip-row">
+              <span class="mtt-chip mtt-chip--warning">
+                <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+                Warning
+              </span>
+              <span class="mtt-chip mtt-chip--third-party">Third Party</span>
+            </div>
           </div>
-          <div class="mtt-stat">
-            <div class="mtt-label">FLOWRATE</div>
+        </div>
+
+        <div class="mtt-divider"></div>
+
+        <div class="mtt-grid">
+          <div class="mtt-tile">
+            <div class="mtt-label">TVP</div>
+            <div class="mtt-value">95<span class="mtt-unit">kPa</span></div>
+          </div>
+          <div class="mtt-tile">
+            <div class="mtt-label">Flowrate</div>
             <div class="mtt-value">N/A</div>
           </div>
-        </div>
-        <div class="mtt-timestamp">2026-05-13 10:30</div>
-        <div class="mtt-row mtt-row--boxed">
-          <div class="mtt-stat mtt-stat--boxed">
-            <div class="mtt-label">WARNING</div>
-            <div class="mtt-value mtt-value--warning">86<span class="mtt-unit">kPa</span></div>
+          <div class="mtt-tile">
+            <div class="mtt-label">Dist. to MAF</div>
+            <div class="mtt-value mtt-value--plain">402.7<span class="mtt-unit">km</span></div>
           </div>
-          <div class="mtt-stat mtt-stat--boxed">
-            <div class="mtt-label">EMERGENCY</div>
-            <div class="mtt-value mtt-value--danger">110<span class="mtt-unit">kPa</span></div>
-          </div>
-        </div>
-        <div class="mtt-row">
-          <div class="mtt-stat">
-            <div class="mtt-label">DIST. TO MAF</div>
-            <div class="mtt-value mtt-value--plain">402.7 km</div>
-          </div>
-          <div class="mtt-stat">
-            <div class="mtt-label">ETA TO MAF</div>
+          <div class="mtt-tile">
+            <div class="mtt-label">ETA to MAF</div>
             <div class="mtt-value mtt-value--plain">3d 2h</div>
           </div>
         </div>
+
+        <div class="mtt-divider"></div>
+
+        <div class="mtt-grid">
+          <div class="mtt-tile mtt-tile--warning">
+            <div class="mtt-label">Warning</div>
+            <div class="mtt-value">86<span class="mtt-unit">kPa</span></div>
+          </div>
+          <div class="mtt-tile mtt-tile--danger">
+            <div class="mtt-label">Emergency</div>
+            <div class="mtt-value">110<span class="mtt-unit">kPa</span></div>
+          </div>
+        </div>
+
+        <div class="mtt-footer">
+          <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm.5 5H11v6l5.2 3.1.8-1.3-4.5-2.7V7z"/></svg>
+          2026-05-13 10:30
+        </div>
+      </div>
       </div>
     `;
     document.body.appendChild(container);

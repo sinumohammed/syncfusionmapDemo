@@ -1,0 +1,137 @@
+{
+  "donuts": [
+    {
+      "source": "inline",
+      "value": {
+        "id": "tvp",
+        "label": "TVP",
+        "data": [
+          {
+            "x": "Customer impact",
+            "y": 3,
+            "color": "#1f4e79"
+          },
+          {
+            "x": "Non-customer impact",
+            "y": 2,
+            "color": "#e07b39"
+          }
+        ]
+      }
+    },
+    {
+      "source": "inline",
+      "value": {
+        "id": "salt",
+        "label": "Salt",
+        "data": [
+          {
+            "x": "Customer impact",
+            "y": 3,
+            "color": "#1f4e79"
+          },
+          {
+            "x": "Non-customer impact",
+            "y": 2,
+            "color": "#e07b39"
+          }
+        ]
+      }
+    },
+    {
+      "source": "inline",
+      "value": {
+        "id": "bsw",
+        "label": "BS&W",
+        "data": [
+          {
+            "x": "Customer impact",
+            "y": 3,
+            "color": "#1f4e79"
+          },
+          {
+            "x": "Non-customer impact",
+            "y": 3,
+            "color": "#e07b39"
+          }
+        ]
+      }
+    },
+    {
+      "source": "inline",
+      "value": {
+        "id": "h2s",
+        "label": "Dissolved H2S",
+        "data": [
+          {
+            "x": "Customer impact",
+            "y": 1,
+            "color": "#1f4e79"
+          },
+          {
+            "x": "Non-customer impact",
+            "y": 0,
+            "color": "#e07b39"
+          }
+        ]
+      }
+    },
+    {
+      "source": "inline",
+      "value": {
+        "id": "api",
+        "label": "API",
+        "data": [
+          {
+            "x": "Customer impact",
+            "y": 1,
+            "color": "#1f4e79"
+          },
+          {
+            "x": "Non-customer impact",
+            "y": 0,
+            "color": "#e07b39"
+          }
+        ]
+      }
+    },
+    {
+      "source": "inline",
+      "value": {
+        "id": "flow",
+        "label": "flow",
+        "data": [
+          {
+            "x": "Customer impact",
+            "y": 1,
+            "color": "#1f4e79"
+          },
+          {
+            "x": "Non-customer impact",
+            "y": 0,
+            "color": "#e07b39"
+          }
+        ]
+      }
+    },
+    {
+      "source": "inline",
+      "value": {
+        "id": "other",
+        "label": "Other",
+        "data": [
+          {
+            "x": "Customer impact",
+            "y": 1,
+            "color": "#1f4e79"
+          },
+          {
+            "x": "Non-customer impact",
+            "y": 0,
+            "color": "#e07b39"
+          }
+        ]
+      }
+    }
+  ]
+}

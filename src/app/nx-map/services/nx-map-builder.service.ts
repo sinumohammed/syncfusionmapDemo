@@ -18,6 +18,7 @@ import {
   MapThemeRegistry,
   MarkerShape,
   ParseTargetResult,
+  PointMetric,
   ShapeStyle
 } from "../model/nx-map-model";
 
@@ -34,6 +35,49 @@ const nxMapThemes: MapThemeRegistry = ((nxMapThemesJson as any).default ?? nxMap
 const TILE_URL_TEMPLATES: Record<"osm" | "satellite", string> = {
   osm: "https://a.tile.openstreetmap.org/level/tileX/tileY.png",
   satellite: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/level/tileY/tileX"
+};
+
+// One fixed highlight color per donut/metric id — used ONLY for a point
+// whose metrics[activeMetricId].status is "high" once that metric's donut
+// is clicked (see buildMarkerPoints()'s activeMetricId branch). Unrelated
+// to a point's own base marker color, which keeps rendering normally
+// underneath regardless of any donut selection.
+export const METRIC_COLORS: Record<string, string> = {
+  tvp: "#c94a3f",
+  salt: "#3fbfbf",
+  bsw: "#c9a63f",
+  h2s: "#3fae5a",
+  api: "#3f78c9",
+  flow: "#8e5ea2",
+  other: "#5f6368"
+};
+
+// Shared label color for a "normal"-status reading, regardless of which
+// metric is active — only "high" readings get their metric's own
+// METRIC_COLORS entry.
+const NORMAL_LABEL_COLOR = "#5f6368";
+
+// Tooltip-only text colors for a metric's own value — independent of
+// METRIC_COLORS (which only applies once a donut is actually clicked).
+const STATUS_TOOLTIP_COLORS: Record<"high" | "normal", string> = {
+  high: "#d92626",
+  normal: "#1a1a1a"
+};
+
+// Every metric id a MapPoint.metrics object can carry — drives both the
+// tooltip's m_<key>/c_<key> fields (toMarker()) and METRIC_COLORS above.
+const METRIC_KEYS = ["tvp", "salt", "bsw", "h2s", "api", "flow", "other"] as const;
+
+// Fallback icon shape per impact value when a group's own
+// MapGroup.impactMarkerStyle doesn't override it — see
+// toMetricOverlayMarker()'s own comment for the full resolution order.
+// Lowercase to match the CSS class suffix (.marker-label-icon--diamond
+// etc, see nx-map-demo.component.ts's injectMarkerLabelTemplate()) rather
+// than a MarkerShape enum value — this drives that template icon, not
+// Syncfusion's own shape rendering.
+export const DEFAULT_IMPACT_SHAPES: Record<"customer" | "non-customer", string> = {
+  customer: "diamond",
+  "non-customer": "triangle"
 };
 
 interface LayerState {
@@ -323,25 +367,89 @@ export class NXMapBuilderService {
   // same as it already visibly does for the group's own aggregate
   // MarkerSettingsModel in buildMarkerPoints() below.
   private toMarker(point: MapPoint, lookupKey: string, theme: MapTheme, groupStyle: ShapeStyle | undefined) {
-    return {
+    const marker: Record<string, unknown> = {
       latitude: point.latitude,
       longitude: point.longitude,
       name: point.name,
+      // Consumed by the #marker-label-template element (see
+      // buildMarkerPoints()'s activeMetricId overlay branch) — "name<br>value"
+      // when a reading is present, just the name otherwise. Syncfusion's
+      // marker rendering has no built-in always-visible label field (unlike
+      // the layer-level dataLabelSettings used for shape/region names —
+      // confirmed against MarkerSettingsModel's own .d.ts, it isn't there),
+      // so this only does anything for the overlay layer rendered via that
+      // template.
+      label: point.value === undefined ? point.name : `${point.name ?? ""}<br>${point.value}${point.unit ? " " + point.unit : ""}`,
       shape: this.capitalizeShape(point.shape ?? groupStyle?.shape ?? theme.marker?.shape ?? MarkerShape.Balloon),
       color: point.color ?? groupStyle?.color ?? theme.marker?.color,
       width: point.width ?? groupStyle?.width ?? theme.marker?.width ?? 20,
       height: point.height ?? groupStyle?.height ?? theme.marker?.height ?? 20,
       __lookupKey: lookupKey
     };
+
+    // Flat m_<key>/c_<key> fields for #marker-tooltip-template — Syncfusion's
+    // template is plain ${field} substitution with no loops/conditionals, so
+    // every metric needs its own pair of fields rather than iterating
+    // point.metrics directly in the template.
+    for (const key of METRIC_KEYS) {
+      const reading: PointMetric | undefined = point.metrics?.[key];
+      marker[`m_${key}`] = reading ? `${reading.value}${reading.unit ? " " + reading.unit : ""}` : "—";
+      marker[`c_${key}`] = reading ? STATUS_TOOLTIP_COLORS[reading.status] : "#9aa0a6";
+    }
+
+    return marker;
   }
 
-  // Creating marker points for Syncfusion — one MarkerSettingsModel entry
-  // per visible group in this layer, so each group's cluster/style config
-  // stays isolated.
+  // Overlay-only marker datum for a group's activeMetricId — same
+  // latitude/longitude/name as toMarker(), but label/color are computed
+  // from THIS metric's own reading rather than the point's generic
+  // value/color, per buildMarkerPoints()'s comment. `fetchedValues` is
+  // MapGroup.activeMetricValues — the freshly-fetched response from
+  // NXMapConfigService.loadMarkerValues(metricId), keyed by point id;
+  // point.metrics[metricId] (the tooltip's own, always-loaded copy) is only
+  // a fallback for the gap before that fetch resolves, per
+  // MapGroup.activeMetricValues's own comment.
+  private toMetricOverlayMarker(
+    point: MapPoint,
+    lookupKey: string,
+    metricId: string,
+    fetchedValues: Record<string, PointMetric> | null | undefined,
+    impactStyle: MapGroup["impactMarkerStyle"] | undefined
+  ) {
+    const reading = (point.id ? fetchedValues?.[point.id] : undefined) ?? point.metrics?.[metricId];
+    const isHigh = reading?.status === "high";
+    // Resolution order, most specific wins: this group's own
+    // impactMarkerStyle[reading.impact] entry -> DEFAULT_IMPACT_SHAPES for
+    // that impact -> plain circle (a "normal" reading, or a "high" one that
+    // somehow has no impact value, never differentiates by shape). Color
+    // follows the same per-impact override, falling back to
+    // METRIC_COLORS/NORMAL_LABEL_COLOR exactly as before impact styling
+    // existed.
+    const configuredStyle = isHigh && reading?.impact ? impactStyle?.[reading.impact] : undefined;
+    const iconShape = isHigh && reading?.impact ? configuredStyle?.shape ?? DEFAULT_IMPACT_SHAPES[reading.impact] : "circle";
+    const color = isHigh ? configuredStyle?.color ?? METRIC_COLORS[metricId] ?? NORMAL_LABEL_COLOR : NORMAL_LABEL_COLOR;
+
+    return {
+      latitude: point.latitude,
+      longitude: point.longitude,
+      label: reading ? `${point.name ?? ""}<br>${reading.value}${reading.unit ? " " + reading.unit : ""}` : point.name,
+      color,
+      iconShape,
+      __lookupKey: lookupKey
+    };
+  }
+
+  // Creating marker points for Syncfusion — one base MarkerSettingsModel
+  // entry per visible group in this layer (shape/color/cluster rendering,
+  // always present, unaffected by any donut selection), PLUS one extra
+  // overlay entry for a group whose activeMetricId is set (persistent
+  // value labels for that metric, colored per point — see
+  // toMetricOverlayMarker()). flatMap rather than map so a group can
+  // contribute either one or two MarkerSettingsModel entries.
   private buildMarkerPoints(layerIndex: number): MarkerSettingsModel[] {
     const layer = this.layers[layerIndex];
 
-    return this.visibleGroups(layer).map(g => {
+    return this.visibleGroups(layer).flatMap(g => {
       // Each group resolves its OWN theme (falling back to the layer's) —
       // not just the layer's theme directly — so a sub-layer API group
       // carrying its own `theme` field picks its own look independent of
@@ -364,7 +472,11 @@ export class NXMapBuilderService {
         return this.toMarker(point, lookupKey, theme, g.markerConfig?.style);
       });
 
-      return {
+      // #marker-tooltip-template (nx-map-demo.component.ts) — the hover card
+      // — always applies to the base layer below.
+      const tooltipSettings = { visible: true, template: "#marker-tooltip-template" };
+
+      const baseLayer: MarkerSettingsModel = {
         visible: g.visible ?? true,
         animationDuration: 0,
         shape: this.capitalizeShape(g.markerConfig?.style?.shape ?? theme.marker?.shape),
@@ -375,15 +487,7 @@ export class NXMapBuilderService {
           width: theme.marker?.border?.width ?? 1,
           color: theme.marker?.border?.color ?? "#285255"
         },
-        // template renders the rich hover card defined in
-        // nx-map-demo.component.ts's #marker-tooltip-template div (${name}
-        // is the only real per-marker field it uses — every other stat on
-        // that card is a hardcoded placeholder, see the template's own
-        // comment). Overrides valuePath entirely — no need to set both.
-        tooltipSettings: {
-          visible: true,
-          template: "#marker-tooltip-template"
-        },
+        tooltipSettings,
         widthValuePath: "width",
         heightValuePath: "height",
         latitudeValuePath: "latitude",
@@ -395,7 +499,36 @@ export class NXMapBuilderService {
         // exists on LayerSettingsModel, one per whole layer).
         clusterSettings: this.mergeClusterConfig(g.markerConfig?.clusterConfig, theme.cluster),
         dataSource
-      } as MarkerSettingsModel;
+      };
+
+      if (!g.activeMetricId) {
+        return [baseLayer];
+      }
+
+      // Overlay layer for the currently-selected donut metric — covers the
+      // SAME full point list (every mol point carries every metric), not a
+      // filtered subset, per applyDonutSelection()'s "no new markers, no
+      // markers dropped" design. `template` fully replaces Syncfusion's own
+      // shape/color/cluster rendering for THIS second layer only — the base
+      // layer above still renders normally underneath it. Clustering is
+      // intentionally left off: it isn't designed to combine with template
+      // markers.
+      const metricId = g.activeMetricId;
+      const overlayDataSource = points.map((point, index) =>
+        this.toMetricOverlayMarker(point, `${layerIndex}:${g.id}:metric:${index}`, metricId, g.activeMetricValues, g.impactMarkerStyle)
+      );
+
+      const overlayLayer: MarkerSettingsModel = {
+        visible: g.visible ?? true,
+        animationDuration: 0,
+        template: "#marker-label-template",
+        tooltipSettings,
+        latitudeValuePath: "latitude",
+        longitudeValuePath: "longitude",
+        dataSource: overlayDataSource
+      };
+
+      return [baseLayer, overlayLayer];
     });
   }
 
@@ -849,8 +982,29 @@ export class NXMapBuilderService {
     return this.mainLayerIndex;
   }
 
+  // Every OTHER computation keyed by layerIndex (buildMarkerPoints(),
+  // markerLookup's "${layerIndex}:${g.id}:..." keys, getLayerTree(), the
+  // toggle handlers in nx-map-demo.component.ts) stays anchored to
+  // this.layers' own index order — that order is exactly how the caller's
+  // config declared its static layers (see NxMapDemoComponent.rebuildMap()),
+  // and it's what the filter-tree panel displays them in, so it must NOT
+  // change here. What DOES need to change independently is PAINT order:
+  // Syncfusion stacks entries in this returned array's OWN order (later =
+  // on top — see the SubLayer fill comment below), which used to just be
+  // this.layers' order verbatim. Confirmed live: a non-main static layer
+  // with no markers of its own (e.g. a plain administrative-boundary
+  // SubLayer) declared AFTER a marker-bearing one silently ate every hover
+  // event over those markers — its own shape polygon painted on top and
+  // intercepted the pointer, even though the markers were still visibly
+  // there underneath. Reordering ONLY this returned array (built objects
+  // already carry no layerIndex-dependent state of their own past this
+  // point) — main layer first (unchanged), then every other layer stably
+  // partitioned so any layer with at least one marker point paints LAST,
+  // on top of every marker-less one — fixes that regardless of how a
+  // config's own Configuration[] happens to be ordered, without requiring
+  // every deployment's JSON to get the order "right" by hand.
   buildLayers() {
-    return this.layers.map((layer, layerIndex) => {
+    const built = this.layers.map((layer, layerIndex) => {
       const isMain = layerIndex === this.mainLayerIndex;
       // OSM/satellite tiles only render reliably as the MAIN layer. Syncfusion's
       // SubLayer type expects shapeData whose geometry aligns with the
@@ -866,21 +1020,33 @@ export class NXMapBuilderService {
       }
 
       return {
-        ...this.buildBaseMapFields(layer, isMain),
-        shapePropertyPath: "name",
-        visible: layer.visible,
-        // The main layer renders as Syncfusion's base 'Layer' type; every
-        // other config becomes a 'SubLayer' stacked on top of it. If your
-        // regions' shapeData geographically overlaps, keep the SubLayer's
-        // fill semi-transparent (e.g. "rgba(141,206,255,0.4)") or its
-        // opaque shape will visually cover the base layer's markers/
-        // polygons even though they still exist underneath in the DOM.
-        type: (isMain ? "Layer" : "SubLayer") as any,
-        markerSettings: this.buildMarkerPoints(layerIndex),
-        navigationLineSettings: this.buildNavigationLines(layerIndex),
-        polygonSettings: this.buildPolygon(layerIndex)
+        isMain,
+        hasMarkers: layer.groups.some(g => (g.markerConfig?.points ?? []).length > 0),
+        layer: {
+          ...this.buildBaseMapFields(layer, isMain),
+          shapePropertyPath: "name",
+          visible: layer.visible,
+          // The main layer renders as Syncfusion's base 'Layer' type; every
+          // other config becomes a 'SubLayer' stacked on top of it. If your
+          // regions' shapeData geographically overlaps, keep the SubLayer's
+          // fill semi-transparent (e.g. "rgba(141,206,255,0.4)") or its
+          // opaque shape will visually cover the base layer's markers/
+          // polygons even though they still exist underneath in the DOM.
+          type: (isMain ? "Layer" : "SubLayer") as any,
+          markerSettings: this.buildMarkerPoints(layerIndex),
+          navigationLineSettings: this.buildNavigationLines(layerIndex),
+          polygonSettings: this.buildPolygon(layerIndex)
+        }
       };
     });
+
+    const main = built.filter(b => b.isMain);
+    const rest = built.filter(b => !b.isMain);
+    // Array.prototype.sort is stable (guaranteed since ES2019, which every
+    // browser this app targets already implements) — layers within the
+    // same hasMarkers bucket keep their original relative order.
+    const orderedRest = [...rest].sort((a, b) => Number(a.hasMarkers) - Number(b.hasMarkers));
+    return [...main, ...orderedRest].map(b => b.layer);
   }
 
   // shapeData/urlTemplate/shapeSettings/dataLabelSettings all pivot on the

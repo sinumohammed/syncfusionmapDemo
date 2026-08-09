@@ -1,0 +1,98 @@
+{
+  "maf": {
+    "value": 2.16,
+    "unit": "%",
+    "status": "normal"
+  },
+  "Nizwa": {
+    "value": 2.44,
+    "unit": "%",
+    "status": "normal"
+  },
+  "ns": {
+    "value": 4.19,
+    "unit": "%",
+    "status": "high",
+    "impact": "customer"
+  },
+  "qa": {
+    "value": 4.01,
+    "unit": "%",
+    "status": "normal"
+  },
+  "mark": {
+    "value": 7.64,
+    "unit": "%",
+    "status": "normal"
+  },
+  "sb": {
+    "value": 5.23,
+    "unit": "%",
+    "status": "high",
+    "impact": "non-customer"
+  },
+  "kpSouth": {
+    "value": 5.41,
+    "unit": "%",
+    "status": "high",
+    "impact": "customer"
+  },
+  "hub": {
+    "value": 5.4,
+    "unit": "%",
+    "status": "normal"
+  },
+  "nim": {
+    "value": 5.45,
+    "unit": "%",
+    "status": "normal"
+  },
+  "mm": {
+    "value": 5.41,
+    "unit": "%",
+    "status": "high",
+    "impact": "non-customer"
+  },
+  "HW": {
+    "value": 4.27,
+    "unit": "%",
+    "status": "normal"
+  },
+  "cced": {
+    "value": 7.5,
+    "unit": "%",
+    "status": "normal"
+  },
+  "oxyMuradi": {
+    "value": 6.87,
+    "unit": "%",
+    "status": "normal"
+  },
+  "ALG": {
+    "value": 3.19,
+    "unit": "%",
+    "status": "high",
+    "impact": "customer"
+  },
+  "rhip": {
+    "value": 6.49,
+    "unit": "%",
+    "status": "normal"
+  },
+  "alnoor": {
+    "value": 5.99,
+    "unit": "%",
+    "status": "normal"
+  },
+  "TY_MS": {
+    "value": 7.74,
+    "unit": "%",
+    "status": "high",
+    "impact": "non-customer"
+  },
+  "rim": {
+    "value": 4.74,
+    "unit": "%",
+    "status": "normal"
+  }
+}

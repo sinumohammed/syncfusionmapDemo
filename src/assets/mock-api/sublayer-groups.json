@@ -31,77 +31,473 @@
           "latitude": 23.6139,
           "longitude": 58.5229,
           "name": "MAF",
-          "color": "green"
+          "color": "green",
+          "metrics": {
+            "tvp": {
+              "value": 60,
+              "unit": "kPa",
+              "status": "high"
+            },
+            "salt": {
+              "value": 454.87,
+              "unit": "mg/L",
+              "status": "normal"
+            },
+            "bsw": {
+              "value": 2.16,
+              "unit": "%",
+              "status": "normal"
+            },
+            "h2s": {
+              "value": 9.04,
+              "unit": "ppm",
+              "status": "normal"
+            },
+            "api": {
+              "value": 32.11,
+              "unit": "deg",
+              "status": "normal"
+            },
+            "flow": {
+              "value": 522.46,
+              "unit": "m3/d",
+              "status": "normal"
+            },
+            "other": {
+              "value": 14.87,
+              "status": "normal"
+            }
+          }
         },
         {
           "id": "ns",
           "latitude": 23.05,
           "longitude": 57.9,
           "name": "NS",
-          "color": "gray"
+          "color": "gray",
+          "metrics": {
+            "tvp": {
+              "value": 96.87,
+              "unit": "kPa",
+              "status": "normal"
+            },
+            "salt": {
+              "value": 622.03,
+              "unit": "mg/L",
+              "status": "high"
+            },
+            "bsw": {
+              "value": 2.44,
+              "unit": "%",
+              "status": "normal"
+            },
+            "h2s": {
+              "value": 11.3,
+              "unit": "ppm",
+              "status": "normal"
+            },
+            "api": {
+              "value": 38.25,
+              "unit": "deg",
+              "status": "normal"
+            },
+            "flow": {
+              "value": 562.28,
+              "unit": "m3/d",
+              "status": "normal"
+            },
+            "other": {
+              "value": 14.08,
+              "status": "normal"
+            }
+          }
         },
         {
           "id": "aq",
           "latitude": 22.55,
           "longitude": 57.6,
           "name": "AQ",
-          "color": "orange"
+          "color": "orange",
+          "metrics": {
+            "tvp": {
+              "value": 62.29,
+              "unit": "kPa",
+              "status": "normal"
+            },
+            "salt": {
+              "value": 569.32,
+              "unit": "mg/L",
+              "status": "normal"
+            },
+            "bsw": {
+              "value": 4.19,
+              "unit": "%",
+              "status": "high"
+            },
+            "h2s": {
+              "value": 9.45,
+              "unit": "ppm",
+              "status": "normal"
+            },
+            "api": {
+              "value": 35.39,
+              "unit": "deg",
+              "status": "normal"
+            },
+            "flow": {
+              "value": 544.61,
+              "unit": "m3/d",
+              "status": "normal"
+            },
+            "other": {
+              "value": 10.18,
+              "status": "normal"
+            }
+          }
         },
         {
           "id": "qa",
           "latitude": 22.25,
           "longitude": 57.45,
           "name": "QA",
-          "color": "orange"
+          "color": "orange",
+          "metrics": {
+            "tvp": {
+              "value": 82.33,
+              "unit": "kPa",
+              "status": "normal"
+            },
+            "salt": {
+              "value": 536.42,
+              "unit": "mg/L",
+              "status": "high"
+            },
+            "bsw": {
+              "value": 4.01,
+              "unit": "%",
+              "status": "normal"
+            },
+            "h2s": {
+              "value": 18.55,
+              "unit": "ppm",
+              "status": "normal"
+            },
+            "api": {
+              "value": 30.34,
+              "unit": "deg",
+              "status": "normal"
+            },
+            "flow": {
+              "value": 824.1,
+              "unit": "m3/d",
+              "status": "normal"
+            },
+            "other": {
+              "value": 10.11,
+              "status": "normal"
+            }
+          }
         },
         {
           "id": "ag",
           "latitude": 21.95,
           "longitude": 57.3,
           "name": "AG",
-          "color": "green"
+          "color": "green",
+          "metrics": {
+            "tvp": {
+              "value": 74.95,
+              "unit": "kPa",
+              "status": "normal"
+            },
+            "salt": {
+              "value": 481.72,
+              "unit": "mg/L",
+              "status": "normal"
+            },
+            "bsw": {
+              "value": 7.64,
+              "unit": "%",
+              "status": "high"
+            },
+            "h2s": {
+              "value": 14.27,
+              "unit": "ppm",
+              "status": "normal"
+            },
+            "api": {
+              "value": 31.07,
+              "unit": "deg",
+              "status": "normal"
+            },
+            "flow": {
+              "value": 579.56,
+              "unit": "m3/d",
+              "status": "normal"
+            },
+            "other": {
+              "value": 14.11,
+              "status": "normal"
+            }
+          }
         },
         {
           "id": "an-1",
           "latitude": 21.55,
           "longitude": 57.15,
           "name": "AN-1",
-          "color": "orange"
+          "color": "orange",
+          "metrics": {
+            "tvp": {
+              "value": 78.14,
+              "unit": "kPa",
+              "status": "high"
+            },
+            "salt": {
+              "value": 647.03,
+              "unit": "mg/L",
+              "status": "normal"
+            },
+            "bsw": {
+              "value": 5.23,
+              "unit": "%",
+              "status": "normal"
+            },
+            "h2s": {
+              "value": 18.6,
+              "unit": "ppm",
+              "status": "normal"
+            },
+            "api": {
+              "value": 32.67,
+              "unit": "deg",
+              "status": "normal"
+            },
+            "flow": {
+              "value": 575.14,
+              "unit": "m3/d",
+              "status": "normal"
+            },
+            "other": {
+              "value": 10.43,
+              "status": "normal"
+            }
+          }
         },
         {
           "id": "sa-1",
           "latitude": 21.15,
           "longitude": 57,
           "name": "SA-1",
-          "color": "orange"
+          "color": "orange",
+          "metrics": {
+            "tvp": {
+              "value": 85.04,
+              "unit": "kPa",
+              "status": "normal"
+            },
+            "salt": {
+              "value": 625.85,
+              "unit": "mg/L",
+              "status": "normal"
+            },
+            "bsw": {
+              "value": 5.41,
+              "unit": "%",
+              "status": "high"
+            },
+            "h2s": {
+              "value": 15.32,
+              "unit": "ppm",
+              "status": "normal"
+            },
+            "api": {
+              "value": 39.74,
+              "unit": "deg",
+              "status": "normal"
+            },
+            "flow": {
+              "value": 772.11,
+              "unit": "m3/d",
+              "status": "normal"
+            },
+            "other": {
+              "value": 11.3,
+              "status": "normal"
+            }
+          }
         },
         {
           "id": "su",
           "latitude": 20.8,
           "longitude": 56.9,
           "name": "SU",
-          "color": "orange"
+          "color": "orange",
+          "metrics": {
+            "tvp": {
+              "value": 66.62,
+              "unit": "kPa",
+              "status": "high"
+            },
+            "salt": {
+              "value": 551.13,
+              "unit": "mg/L",
+              "status": "normal"
+            },
+            "bsw": {
+              "value": 5.4,
+              "unit": "%",
+              "status": "normal"
+            },
+            "h2s": {
+              "value": 6.81,
+              "unit": "ppm",
+              "status": "normal"
+            },
+            "api": {
+              "value": 34.28,
+              "unit": "deg",
+              "status": "normal"
+            },
+            "flow": {
+              "value": 872.62,
+              "unit": "m3/d",
+              "status": "normal"
+            },
+            "other": {
+              "value": 10.71,
+              "status": "normal"
+            }
+          }
         },
         {
           "id": "hu",
           "latitude": 19.9,
           "longitude": 56.55,
           "name": "HU",
-          "color": "orange"
+          "color": "orange",
+          "metrics": {
+            "tvp": {
+              "value": 73.16,
+              "unit": "kPa",
+              "status": "normal"
+            },
+            "salt": {
+              "value": 557.03,
+              "unit": "mg/L",
+              "status": "high"
+            },
+            "bsw": {
+              "value": 5.45,
+              "unit": "%",
+              "status": "normal"
+            },
+            "h2s": {
+              "value": 17.67,
+              "unit": "ppm",
+              "status": "normal"
+            },
+            "api": {
+              "value": 30.03,
+              "unit": "deg",
+              "status": "normal"
+            },
+            "flow": {
+              "value": 768.74,
+              "unit": "m3/d",
+              "status": "normal"
+            },
+            "other": {
+              "value": 13.35,
+              "status": "normal"
+            }
+          }
         },
         {
           "id": "nm",
           "latitude": 19.45,
           "longitude": 56.4,
           "name": "NM",
-          "color": "green"
+          "color": "green",
+          "metrics": {
+            "tvp": {
+              "value": 81.58,
+              "unit": "kPa",
+              "status": "normal"
+            },
+            "salt": {
+              "value": 556.53,
+              "unit": "mg/L",
+              "status": "normal"
+            },
+            "bsw": {
+              "value": 5.41,
+              "unit": "%",
+              "status": "normal"
+            },
+            "h2s": {
+              "value": 5.88,
+              "unit": "ppm",
+              "status": "high"
+            },
+            "api": {
+              "value": 35,
+              "unit": "deg",
+              "status": "normal"
+            },
+            "flow": {
+              "value": 890.11,
+              "unit": "m3/d",
+              "status": "normal"
+            },
+            "other": {
+              "value": 12.09,
+              "status": "normal"
+            }
+          }
         },
         {
           "id": "mm",
           "latitude": 19.05,
           "longitude": 56.25,
           "name": "MM",
-          "color": "gray"
+          "color": "gray",
+          "metrics": {
+            "tvp": {
+              "value": 98.86,
+              "unit": "kPa",
+              "status": "normal"
+            },
+            "salt": {
+              "value": 405.97,
+              "unit": "mg/L",
+              "status": "high"
+            },
+            "bsw": {
+              "value": 4.27,
+              "unit": "%",
+              "status": "normal"
+            },
+            "h2s": {
+              "value": 9.29,
+              "unit": "ppm",
+              "status": "normal"
+            },
+            "api": {
+              "value": 35.77,
+              "unit": "deg",
+              "status": "normal"
+            },
+            "flow": {
+              "value": 848.69,
+              "unit": "m3/d",
+              "status": "normal"
+            },
+            "other": {
+              "value": 13.7,
+              "status": "normal"
+            }
+          }
         },
         {
           "id": "om-1",
@@ -109,105 +505,645 @@
           "longitude": 57.82,
           "name": "OM-1",
           "color": "red",
-          "shape": "Diamond"
+          "shape": "Diamond",
+          "metrics": {
+            "tvp": {
+              "value": 92.85,
+              "unit": "kPa",
+              "status": "normal"
+            },
+            "salt": {
+              "value": 577.7,
+              "unit": "mg/L",
+              "status": "normal"
+            },
+            "bsw": {
+              "value": 7.5,
+              "unit": "%",
+              "status": "high"
+            },
+            "h2s": {
+              "value": 16.12,
+              "unit": "ppm",
+              "status": "normal"
+            },
+            "api": {
+              "value": 37.37,
+              "unit": "deg",
+              "status": "normal"
+            },
+            "flow": {
+              "value": 711.09,
+              "unit": "m3/d",
+              "status": "normal"
+            },
+            "other": {
+              "value": 14.22,
+              "status": "normal"
+            }
+          }
         },
         {
           "id": "yk",
           "latitude": 23.15,
           "longitude": 58.05,
           "name": "YK",
-          "color": "red"
+          "color": "red",
+          "metrics": {
+            "tvp": {
+              "value": 67.16,
+              "unit": "kPa",
+              "status": "high"
+            },
+            "salt": {
+              "value": 583.34,
+              "unit": "mg/L",
+              "status": "normal"
+            },
+            "bsw": {
+              "value": 6.87,
+              "unit": "%",
+              "status": "normal"
+            },
+            "h2s": {
+              "value": 14.48,
+              "unit": "ppm",
+              "status": "normal"
+            },
+            "api": {
+              "value": 36.31,
+              "unit": "deg",
+              "status": "high"
+            },
+            "flow": {
+              "value": 868.54,
+              "unit": "m3/d",
+              "status": "normal"
+            },
+            "other": {
+              "value": 13.49,
+              "status": "normal"
+            }
+          }
         },
         {
           "id": "no",
           "latitude": 23.1,
           "longitude": 58,
           "name": "NO",
-          "color": "gray"
+          "color": "gray",
+          "metrics": {
+            "tvp": {
+              "value": 99.81,
+              "unit": "kPa",
+              "status": "normal"
+            },
+            "salt": {
+              "value": 520.4,
+              "unit": "mg/L",
+              "status": "normal"
+            },
+            "bsw": {
+              "value": 3.19,
+              "unit": "%",
+              "status": "high"
+            },
+            "h2s": {
+              "value": 7,
+              "unit": "ppm",
+              "status": "normal"
+            },
+            "api": {
+              "value": 30.2,
+              "unit": "deg",
+              "status": "normal"
+            },
+            "flow": {
+              "value": 710.23,
+              "unit": "m3/d",
+              "status": "normal"
+            },
+            "other": {
+              "value": 14.39,
+              "status": "normal"
+            }
+          }
         },
         {
           "id": "fh",
           "latitude": 23.08,
           "longitude": 57.95,
           "name": "FH",
-          "color": "orange"
+          "color": "orange",
+          "metrics": {
+            "tvp": {
+              "value": 92.64,
+              "unit": "kPa",
+              "status": "high"
+            },
+            "salt": {
+              "value": 654.72,
+              "unit": "mg/L",
+              "status": "normal"
+            },
+            "bsw": {
+              "value": 6.49,
+              "unit": "%",
+              "status": "normal"
+            },
+            "h2s": {
+              "value": 5.95,
+              "unit": "ppm",
+              "status": "normal"
+            },
+            "api": {
+              "value": 34.21,
+              "unit": "deg",
+              "status": "normal"
+            },
+            "flow": {
+              "value": 627.88,
+              "unit": "m3/d",
+              "status": "normal"
+            },
+            "other": {
+              "value": 12.46,
+              "status": "normal"
+            }
+          }
         },
         {
           "id": "da",
           "latitude": 23.35,
           "longitude": 58.15,
           "name": "DA",
-          "color": "red"
+          "color": "red",
+          "metrics": {
+            "tvp": {
+              "value": 77.67,
+              "unit": "kPa",
+              "status": "normal"
+            },
+            "salt": {
+              "value": 502.24,
+              "unit": "mg/L",
+              "status": "high"
+            },
+            "bsw": {
+              "value": 5.99,
+              "unit": "%",
+              "status": "normal"
+            },
+            "h2s": {
+              "value": 8.12,
+              "unit": "ppm",
+              "status": "normal"
+            },
+            "api": {
+              "value": 33.51,
+              "unit": "deg",
+              "status": "normal"
+            },
+            "flow": {
+              "value": 773.98,
+              "unit": "m3/d",
+              "status": "normal"
+            },
+            "other": {
+              "value": 14.18,
+              "status": "normal"
+            }
+          }
         },
         {
           "id": "ob-1",
           "latitude": 23.38,
           "longitude": 58.2,
           "name": "OB-1",
-          "color": "red"
+          "color": "red",
+          "metrics": {
+            "tvp": {
+              "value": 97.08,
+              "unit": "kPa",
+              "status": "normal"
+            },
+            "salt": {
+              "value": 526.72,
+              "unit": "mg/L",
+              "status": "normal"
+            },
+            "bsw": {
+              "value": 7.74,
+              "unit": "%",
+              "status": "normal"
+            },
+            "h2s": {
+              "value": 12.35,
+              "unit": "ppm",
+              "status": "normal"
+            },
+            "api": {
+              "value": 32.43,
+              "unit": "deg",
+              "status": "normal"
+            },
+            "flow": {
+              "value": 715.76,
+              "unit": "m3/d",
+              "status": "normal"
+            },
+            "other": {
+              "value": 11.59,
+              "status": "normal"
+            }
+          }
         },
         {
           "id": "as",
           "latitude": 23.55,
           "longitude": 58.3,
           "name": "AS",
-          "color": "red"
+          "color": "red",
+          "metrics": {
+            "tvp": {
+              "value": 77.37,
+              "unit": "kPa",
+              "status": "normal"
+            },
+            "salt": {
+              "value": 471.34,
+              "unit": "mg/L",
+              "status": "high"
+            },
+            "bsw": {
+              "value": 4.74,
+              "unit": "%",
+              "status": "normal"
+            },
+            "h2s": {
+              "value": 11.61,
+              "unit": "ppm",
+              "status": "normal"
+            },
+            "api": {
+              "value": 34.66,
+              "unit": "deg",
+              "status": "normal"
+            },
+            "flow": {
+              "value": 686.59,
+              "unit": "m3/d",
+              "status": "normal"
+            },
+            "other": {
+              "value": 14.43,
+              "status": "normal"
+            }
+          }
         },
         {
           "id": "bk",
           "latitude": 22.85,
           "longitude": 57.75,
           "name": "BK",
-          "color": "gray"
+          "color": "gray",
+          "metrics": {
+            "tvp": {
+              "value": 85.77,
+              "unit": "kPa",
+              "status": "normal"
+            },
+            "salt": {
+              "value": 696.19,
+              "unit": "mg/L",
+              "status": "normal"
+            },
+            "bsw": {
+              "value": 7.55,
+              "unit": "%",
+              "status": "high"
+            },
+            "h2s": {
+              "value": 7.38,
+              "unit": "ppm",
+              "status": "normal"
+            },
+            "api": {
+              "value": 33.32,
+              "unit": "deg",
+              "status": "normal"
+            },
+            "flow": {
+              "value": 515.66,
+              "unit": "m3/d",
+              "status": "normal"
+            },
+            "other": {
+              "value": 13.4,
+              "status": "high"
+            }
+          }
         },
         {
           "id": "ob-2",
           "latitude": 22.7,
           "longitude": 57.65,
           "name": "OB-2",
-          "color": "orange"
+          "color": "orange",
+          "metrics": {
+            "tvp": {
+              "value": 72.91,
+              "unit": "kPa",
+              "status": "high"
+            },
+            "salt": {
+              "value": 612.99,
+              "unit": "mg/L",
+              "status": "normal"
+            },
+            "bsw": {
+              "value": 5.01,
+              "unit": "%",
+              "status": "normal"
+            },
+            "h2s": {
+              "value": 5.4,
+              "unit": "ppm",
+              "status": "normal"
+            },
+            "api": {
+              "value": 38.96,
+              "unit": "deg",
+              "status": "normal"
+            },
+            "flow": {
+              "value": 860.06,
+              "unit": "m3/d",
+              "status": "normal"
+            },
+            "other": {
+              "value": 14.7,
+              "status": "normal"
+            }
+          }
         },
         {
           "id": "oa",
           "latitude": 22.5,
           "longitude": 57.5,
           "name": "OA",
-          "color": "green"
+          "color": "green",
+          "metrics": {
+            "tvp": {
+              "value": 90.42,
+              "unit": "kPa",
+              "status": "normal"
+            },
+            "salt": {
+              "value": 659.67,
+              "unit": "mg/L",
+              "status": "normal"
+            },
+            "bsw": {
+              "value": 5.15,
+              "unit": "%",
+              "status": "high"
+            },
+            "h2s": {
+              "value": 7.04,
+              "unit": "ppm",
+              "status": "normal"
+            },
+            "api": {
+              "value": 38.16,
+              "unit": "deg",
+              "status": "normal"
+            },
+            "flow": {
+              "value": 875.57,
+              "unit": "m3/d",
+              "status": "normal"
+            },
+            "other": {
+              "value": 12.91,
+              "status": "normal"
+            }
+          }
         },
         {
           "id": "sn",
           "latitude": 22.2,
           "longitude": 57.4,
           "name": "SN",
-          "color": "gray"
+          "color": "gray",
+          "metrics": {
+            "tvp": {
+              "value": 82.24,
+              "unit": "kPa",
+              "status": "high"
+            },
+            "salt": {
+              "value": 655.59,
+              "unit": "mg/L",
+              "status": "normal"
+            },
+            "bsw": {
+              "value": 4.99,
+              "unit": "%",
+              "status": "normal"
+            },
+            "h2s": {
+              "value": 14.32,
+              "unit": "ppm",
+              "status": "normal"
+            },
+            "api": {
+              "value": 34.28,
+              "unit": "deg",
+              "status": "normal"
+            },
+            "flow": {
+              "value": 747.27,
+              "unit": "m3/d",
+              "status": "normal"
+            },
+            "other": {
+              "value": 14.45,
+              "status": "normal"
+            }
+          }
         },
         {
           "id": "cc",
           "latitude": 22,
           "longitude": 57.55,
           "name": "CC",
-          "color": "orange"
+          "color": "orange",
+          "metrics": {
+            "tvp": {
+              "value": 86.44,
+              "unit": "kPa",
+              "status": "normal"
+            },
+            "salt": {
+              "value": 413.04,
+              "unit": "mg/L",
+              "status": "high"
+            },
+            "bsw": {
+              "value": 2.61,
+              "unit": "%",
+              "status": "normal"
+            },
+            "h2s": {
+              "value": 16.84,
+              "unit": "ppm",
+              "status": "normal"
+            },
+            "api": {
+              "value": 39.56,
+              "unit": "deg",
+              "status": "normal"
+            },
+            "flow": {
+              "value": 811.17,
+              "unit": "m3/d",
+              "status": "normal"
+            },
+            "other": {
+              "value": 11.03,
+              "status": "normal"
+            }
+          }
         },
         {
           "id": "pe",
           "latitude": 21.7,
           "longitude": 56.95,
           "name": "PE",
-          "color": "gray"
+          "color": "gray",
+          "metrics": {
+            "tvp": {
+              "value": 76.77,
+              "unit": "kPa",
+              "status": "normal"
+            },
+            "salt": {
+              "value": 588.42,
+              "unit": "mg/L",
+              "status": "normal"
+            },
+            "bsw": {
+              "value": 2.51,
+              "unit": "%",
+              "status": "normal"
+            },
+            "h2s": {
+              "value": 7.9,
+              "unit": "ppm",
+              "status": "normal"
+            },
+            "api": {
+              "value": 34.29,
+              "unit": "deg",
+              "status": "normal"
+            },
+            "flow": {
+              "value": 748.82,
+              "unit": "m3/d",
+              "status": "normal"
+            },
+            "other": {
+              "value": 11.01,
+              "status": "normal"
+            }
+          }
         },
         {
           "id": "za",
           "latitude": 21.5,
           "longitude": 57.05,
           "name": "ZA",
-          "color": "red"
+          "color": "red",
+          "metrics": {
+            "tvp": {
+              "value": 65.43,
+              "unit": "kPa",
+              "status": "normal"
+            },
+            "salt": {
+              "value": 680.06,
+              "unit": "mg/L",
+              "status": "high"
+            },
+            "bsw": {
+              "value": 4.47,
+              "unit": "%",
+              "status": "normal"
+            },
+            "h2s": {
+              "value": 7.63,
+              "unit": "ppm",
+              "status": "normal"
+            },
+            "api": {
+              "value": 37.9,
+              "unit": "deg",
+              "status": "normal"
+            },
+            "flow": {
+              "value": 809.03,
+              "unit": "m3/d",
+              "status": "normal"
+            },
+            "other": {
+              "value": 13.1,
+              "status": "normal"
+            }
+          }
         },
         {
           "id": "sa-2",
           "latitude": 20.35,
           "longitude": 56.75,
           "name": "SA-2",
-          "color": "orange"
+          "color": "orange",
+          "metrics": {
+            "tvp": {
+              "value": 73.22,
+              "unit": "kPa",
+              "status": "normal"
+            },
+            "salt": {
+              "value": 468.45,
+              "unit": "mg/L",
+              "status": "normal"
+            },
+            "bsw": {
+              "value": 7.27,
+              "unit": "%",
+              "status": "high"
+            },
+            "h2s": {
+              "value": 6.46,
+              "unit": "ppm",
+              "status": "normal"
+            },
+            "api": {
+              "value": 34.45,
+              "unit": "deg",
+              "status": "normal"
+            },
+            "flow": {
+              "value": 827.97,
+              "unit": "m3/d",
+              "status": "normal"
+            },
+            "other": {
+              "value": 10.36,
+              "status": "normal"
+            }
+          }
         },
         {
           "id": "om-2",
@@ -215,7 +1151,43 @@
           "longitude": 56.6,
           "name": "OM-2",
           "color": "gray",
-          "shape": "Diamond"
+          "shape": "Diamond",
+          "metrics": {
+            "tvp": {
+              "value": 79.81,
+              "unit": "kPa",
+              "status": "normal"
+            },
+            "salt": {
+              "value": 629.76,
+              "unit": "mg/L",
+              "status": "normal"
+            },
+            "bsw": {
+              "value": 5.45,
+              "unit": "%",
+              "status": "normal"
+            },
+            "h2s": {
+              "value": 19.89,
+              "unit": "ppm",
+              "status": "normal"
+            },
+            "api": {
+              "value": 39.73,
+              "unit": "deg",
+              "status": "normal"
+            },
+            "flow": {
+              "value": 627.06,
+              "unit": "m3/d",
+              "status": "normal"
+            },
+            "other": {
+              "value": 14.51,
+              "status": "normal"
+            }
+          }
         },
         {
           "id": "ri",
@@ -223,7 +1195,43 @@
           "longitude": 56.68,
           "name": "RI",
           "color": "gray",
-          "shape": "Diamond"
+          "shape": "Diamond",
+          "metrics": {
+            "tvp": {
+              "value": 60.01,
+              "unit": "kPa",
+              "status": "normal"
+            },
+            "salt": {
+              "value": 446.45,
+              "unit": "mg/L",
+              "status": "normal"
+            },
+            "bsw": {
+              "value": 2.89,
+              "unit": "%",
+              "status": "high"
+            },
+            "h2s": {
+              "value": 6.08,
+              "unit": "ppm",
+              "status": "normal"
+            },
+            "api": {
+              "value": 34.08,
+              "unit": "deg",
+              "status": "normal"
+            },
+            "flow": {
+              "value": 569.67,
+              "unit": "m3/d",
+              "status": "normal"
+            },
+            "other": {
+              "value": 14.03,
+              "status": "normal"
+            }
+          }
         },
         {
           "id": "ta",
@@ -231,7 +1239,43 @@
           "longitude": 56.3,
           "name": "TA",
           "color": "gray",
-          "shape": "Diamond"
+          "shape": "Diamond",
+          "metrics": {
+            "tvp": {
+              "value": 66.48,
+              "unit": "kPa",
+              "status": "high"
+            },
+            "salt": {
+              "value": 673.57,
+              "unit": "mg/L",
+              "status": "normal"
+            },
+            "bsw": {
+              "value": 5.27,
+              "unit": "%",
+              "status": "normal"
+            },
+            "h2s": {
+              "value": 17.03,
+              "unit": "ppm",
+              "status": "normal"
+            },
+            "api": {
+              "value": 35.49,
+              "unit": "deg",
+              "status": "normal"
+            },
+            "flow": {
+              "value": 877.39,
+              "unit": "m3/d",
+              "status": "normal"
+            },
+            "other": {
+              "value": 14.21,
+              "status": "normal"
+            }
+          }
         },
         {
           "id": "an-2",
@@ -239,7 +1283,43 @@
           "longitude": 56.35,
           "name": "AN-2",
           "color": "red",
-          "shape": "Diamond"
+          "shape": "Diamond",
+          "metrics": {
+            "tvp": {
+              "value": 76.81,
+              "unit": "kPa",
+              "status": "normal"
+            },
+            "salt": {
+              "value": 453.4,
+              "unit": "mg/L",
+              "status": "normal"
+            },
+            "bsw": {
+              "value": 6.61,
+              "unit": "%",
+              "status": "normal"
+            },
+            "h2s": {
+              "value": 10.8,
+              "unit": "ppm",
+              "status": "normal"
+            },
+            "api": {
+              "value": 35.59,
+              "unit": "deg",
+              "status": "normal"
+            },
+            "flow": {
+              "value": 896.34,
+              "unit": "m3/d",
+              "status": "normal"
+            },
+            "other": {
+              "value": 11.25,
+              "status": "normal"
+            }
+          }
         }
       ]
     },
@@ -248,97 +1328,158 @@
         "visible": true,
         "color": "blue",
         "width": 5,
-        "pointIds": ["maf", "ns", "aq", "qa", "ag", "an-1", "sa-1", "su", "hu", "nm", "mm"]
+        "pointIds": [
+          "maf",
+          "ns",
+          "aq",
+          "qa",
+          "ag",
+          "an-1",
+          "sa-1",
+          "su",
+          "hu",
+          "nm",
+          "mm"
+        ]
       },
       {
         "visible": true,
         "color": "blue",
         "width": 5,
-        "pointIds": ["da", "ob-1", "yk", "no", "fh", "ns"]
+        "pointIds": [
+          "da",
+          "ob-1",
+          "yk",
+          "no",
+          "fh",
+          "ns"
+        ]
       },
       {
         "visible": true,
         "color": "blue",
         "width": 5,
-        "pointIds": ["su", "sa-2"]
+        "pointIds": [
+          "su",
+          "sa-2"
+        ]
       },
       {
         "visible": true,
         "color": "green",
         "width": 1.5,
-        "pointIds": ["da", "as"]
+        "pointIds": [
+          "da",
+          "as"
+        ]
       },
       {
         "visible": true,
         "color": "green",
         "width": 1.5,
-        "pointIds": ["no", "bk"]
+        "pointIds": [
+          "no",
+          "bk"
+        ]
       },
       {
         "visible": true,
         "color": "green",
         "width": 1.5,
-        "pointIds": ["no", "ob-2"]
+        "pointIds": [
+          "no",
+          "ob-2"
+        ]
       },
       {
         "visible": true,
         "color": "green",
         "width": 1.5,
-        "pointIds": ["ob-2", "oa"]
+        "pointIds": [
+          "ob-2",
+          "oa"
+        ]
       },
       {
         "visible": true,
         "color": "green",
         "width": 1.5,
-        "pointIds": ["qa", "sn"]
+        "pointIds": [
+          "qa",
+          "sn"
+        ]
       },
       {
         "visible": true,
         "color": "green",
         "width": 1.5,
-        "pointIds": ["qa", "cc"]
+        "pointIds": [
+          "qa",
+          "cc"
+        ]
       },
       {
         "visible": true,
         "color": "green",
         "width": 1.5,
-        "pointIds": ["za", "pe"]
+        "pointIds": [
+          "za",
+          "pe"
+        ]
       },
       {
         "visible": true,
         "color": "green",
         "width": 1.5,
-        "pointIds": ["an-1", "za"]
+        "pointIds": [
+          "an-1",
+          "za"
+        ]
       },
       {
         "visible": true,
         "color": "green",
         "width": 1.5,
-        "pointIds": ["hu", "ri"]
+        "pointIds": [
+          "hu",
+          "ri"
+        ]
       },
       {
         "visible": true,
         "color": "green",
         "width": 1.5,
-        "pointIds": ["nm", "ta"]
+        "pointIds": [
+          "nm",
+          "ta"
+        ]
       },
       {
         "visible": true,
         "color": "green",
         "width": 1.5,
-        "pointIds": ["nm", "an-2"]
+        "pointIds": [
+          "nm",
+          "an-2"
+        ]
       },
       {
         "visible": true,
         "color": "green",
         "width": 1.5,
-        "pointIds": ["ns", "om-1"]
+        "pointIds": [
+          "ns",
+          "om-1"
+        ]
       },
       {
         "visible": true,
         "color": "green",
         "width": 1.5,
-        "pointIds": ["hu", "om-2"]
+        "pointIds": [
+          "hu",
+          "om-2"
+        ]
       }
     ],
     "polygons": [

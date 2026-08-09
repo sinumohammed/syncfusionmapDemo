@@ -1,16 +1,71 @@
-import { Component } from "@angular/core";
+import { Component, ViewChild } from "@angular/core";
 import * as realParentConfigJson from "./nx-map/testing/real-parent-config.json";
-import { RawLayerNode } from "./nx-map/services/parent-config-transform";
+import { RawLayerNode, buildMapCollectionConfig } from "./nx-map/services/parent-config-transform";
+import { NxMapCollectionComponent } from "./nx-map/nx-map-collection.component";
+import { MapCollectionConfig } from "./nx-map/model/nx-map-model";
+import * as donutCollectionJson from "./nx-donut/config/nx-donut-charts.json";
+import { DonutCollectionConfig, DonutSelectionEvent } from "./nx-donut/model/nx-donut-model";
 
 // Standalone-demo stand-in for a real host application binding its own
-// widget payload onto NxMapDemoComponent's parentConfig @Input — the
-// component itself has no bundled default to fall back on (see
-// nx-map-demo.component.ts's ngOnChanges()), so something has to supply
-// this for the demo to show anything when run on its own.
+// widget payloads onto NxDonutCollectionComponent's `config` @Input and
+// NxMapCollectionComponent's `config` @Input — neither component bundles a
+// default of its own, so something has to supply both for the demo to show
+// anything when run on its own. This is also the shared parent container the
+// two independent components sit side by side in: donut panel on the left,
+// map collection on the right.
 @Component({
   selector: "app-root",
-  template: `<app-nx-map-demo [parentConfig]="parentConfig"></app-nx-map-demo>`
+  template: `
+    <div class="app-shell">
+      <app-nx-donut-collection
+        class="donut-pane"
+        [config]="donutCollectionConfig"
+        (sublayersSelected)="onSublayersSelected($event)"
+      ></app-nx-donut-collection>
+      <app-nx-map-collection class="map-pane" [config]="mapCollectionConfig" #mapCollectionRef></app-nx-map-collection>
+    </div>
+  `,
+  styles: [
+    `
+      .app-shell {
+        display: flex;
+        height: 100%;
+        width: 100%;
+      }
+      .donut-pane {
+        flex: 0 0 320px;
+        height: 100%;
+        border-right: 1px solid #ddd;
+        overflow: hidden;
+      }
+      .map-pane {
+        flex: 1 1 auto;
+        height: 100%;
+        min-width: 0;
+      }
+    `
+  ]
 })
 export class AppComponent {
-  parentConfig = ((realParentConfigJson as any).default ?? realParentConfigJson) as RawLayerNode;
+  // real-parent-config.json's own top-level node IS the collection wrapper
+  // now (ComponentType 7119 / COMPONENT_NX_MAP_COLLECTION) — its
+  // Configuration[] is one RawLayerNode per map, so buildMapCollectionConfig()
+  // reads that directly rather than this component wrapping a single config
+  // itself. NxMapCollectionComponent renders one <app-nx-map-demo> per
+  // resolved entry, so the real payload growing/shrinking that array is
+  // reflected with zero template/component change here.
+  mapCollectionConfig: MapCollectionConfig<RawLayerNode> = buildMapCollectionConfig(
+    ((realParentConfigJson as any).default ?? realParentConfigJson) as RawLayerNode
+  );
+  donutCollectionConfig = ((donutCollectionJson as any).default ?? donutCollectionJson) as DonutCollectionConfig;
+
+  @ViewChild("mapCollectionRef") private mapCollectionRef?: NxMapCollectionComponent;
+
+  // Forwards a donut card's selection to every map in the collection — see
+  // NxMapCollectionComponent.applyDonutSelection(). This is the only point
+  // of contact between the donut side and the map side; neither imports the
+  // other.
+  onSublayersSelected(selection: DonutSelectionEvent): void {
+    this.mapCollectionRef?.applyDonutSelection(selection.selectedId, selection.allIds, selection.slices);
+  }
 }

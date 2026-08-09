@@ -21,7 +21,7 @@ import {
   Zoom,
   IMarkerClickEventArgs
 } from "@syncfusion/ej2-angular-maps";
-import { MapConfig, MapGroup, MapOptions } from "./model/nx-map-model";
+import { MapConfig, MapGroup, MapOptions, PointMetric } from "./model/nx-map-model";
 import { NXMapAppConfig } from "./model/nx-map-app-config";
 import { GroupEntry, HeadingNode, LayerTreeNode, NXMapBuilderService } from "./services/nx-map-builder.service";
 import { NXMapConfigService } from "./services/nx-map-config.service";
@@ -708,6 +708,132 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
         margin-top: 10px;
       }
 
+      /* #marker-label-template's rendered content (see
+         injectMarkerLabelTemplate()) — an always-visible icon + name/value
+         label, positioned by Syncfusion at each marker's lat/long. ::ng-deep
+         for the same reason as .marker-tooltip above: Syncfusion positions
+         template markers outside this component's normal DOM/encapsulation
+         scope. */
+      /* Syncfusion's own wrapper around this element (class name
+         "maps_controlN_marker_template_element", see the pointer-events
+         rule below) is ITSELF already centered on the marker's exact
+         lat/long via its own inline transform: translate(-50%, -50%),
+         sized to fit THIS element exactly (no padding/margin gap) —
+         confirmed live via getBoundingClientRect(). So this element's own
+         natural (untransformed, no-transform-here) box is what ends up
+         centered on the marker. Confirmed live that a SECOND -50%,-50%
+         transform here (an earlier version of this rule) double-counted
+         that centering — shifted everything an extra half-its-own-size
+         up-left — and that even with no transform, sizing this element to
+         the full icon+text block (a previous version, no position/height
+         override below) still centered the wrong thing: the BLOCK's
+         center landed on the marker, not the ICON's, so the icon itself
+         sat visibly off the point by roughly half the text's height.
+         Fixed by sizing .marker-label to height: 0 with overflow: visible
+         — the ICON (first flex child, before its own translateY(-50%) —
+         see .marker-label-icon--* below) starts from that zero-height
+         line rather than from the combined icon+text block's top, so
+         translateY(-50%) alone is enough to land the icon's own center
+         there; the text simply follows after it in normal flex flow.
+         pointer-events: none !important: confirmed live that Syncfusion
+         stamps THIS element (not just the outer wrapper matched below)
+         with its own inline style="pointer-events: auto;" — same class
+         of override as the wrapper rule below, just on a different
+         element — which silently re-enabled hover-blocking on this
+         element without !important here too, even after the wrapper fix
+         alone. */
+      ::ng-deep .marker-label {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        height: 0;
+        overflow: visible;
+        pointer-events: none !important;
+      }
+
+      /* Syncfusion wraps EVERY template marker (ours here, and the base
+         layer's own tooltip-only markers elsewhere) in its own absolutely-
+         positioned div — class name is control-instance-scoped
+         ("maps_controlN_marker_template_element"), hence the substring
+         match — and sets pointer-events: auto on it via an INLINE style
+         (confirmed live via getAttribute('style')), which is OUTSIDE this
+         component's own .marker-label rule above and beats any stylesheet
+         rule without !important. Confirmed live: with this wrapper left at
+         its default, hovering ANY marker underneath one of these overlay
+         divs (including a completely different layer's, e.g. a static
+         layer's own markers sharing the same screen position) never got
+         Syncfusion's mouseover far enough to open its tooltip — this
+         wrapper was eating the event first. Only meaningful once a donut
+         selection actually adds the overlay layer (buildMarkerPoints() in
+         nx-map-builder.service.ts); harmless no-op otherwise. */
+      ::ng-deep [class*="_marker_template_element"] {
+        pointer-events: none !important;
+      }
+
+      /* Base for every icon shape below — sets the color via a custom
+         property (\`--icon-color\`, set inline per marker by
+         toMetricOverlayMarker()'s own \`color\` field) rather than each shape
+         rule setting its own color property directly, since a triangle
+         needs border-bottom-color and a diamond/circle need background —
+         one shared color source, two different CSS properties reading it.
+         \`translateY(-50%)\` is what actually puts the icon's own CENTER on
+         the marker (not just this element's top edge) — .marker-label's
+         height: 0 above places every flex child's untransformed top edge
+         AT the marker's y-coordinate; shifting each icon up by half of
+         its OWN layout height (a percentage translate is always relative
+         to the element's own box, regardless of any rotation also applied
+         — confirmed live) lands its visual center there instead. Combined
+         with align-items: center on the flex parent for the x-axis, this
+         is what makes the icon sit exactly on the marker point. */
+      ::ng-deep .marker-label-icon--triangle {
+        width: 0;
+        height: 0;
+        border-left: 5px solid transparent;
+        border-right: 5px solid transparent;
+        border-bottom: 8px solid var(--icon-color);
+        transform: translateY(-50%);
+      }
+
+      /* Rotated square — NxMapBuilderService's DEFAULT_IMPACT_SHAPES uses
+         this for a "customer impact" high reading (configurable per group
+         via MapGroup.impactMarkerStyle, see its own comment). rotate(45deg)
+         is applied AFTER translateY(-50%) here (CSS transform functions
+         compose right-to-left) — translateY still reads this element's own
+         pre-rotation 8px height either way, so the composed order doesn't
+         change the centering math above. */
+      ::ng-deep .marker-label-icon--diamond {
+        width: 8px;
+        height: 8px;
+        background: var(--icon-color);
+        transform: translateY(-50%) rotate(45deg);
+      }
+
+      /* Fallback shape for a "normal"-status reading (no customer/
+         non-customer impact to differentiate) and for any impact value
+         that isn't "customer" or "non-customer". */
+      ::ng-deep .marker-label-icon--circle {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--icon-color);
+        transform: translateY(-50%);
+      }
+
+      /* Sits in normal flex flow right after the icon (which itself
+         renders starting at .marker-label's y: 0 line, per that rule's own
+         comment) — so the text naturally lands just below the icon without
+         needing its own transform, same visual position as before the
+         icon-centering fix above, just no longer entangled with it. */
+      ::ng-deep .marker-label-text {
+        font-size: 10px;
+        font-weight: 700;
+        white-space: nowrap;
+        text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff;
+        line-height: 1.15;
+        text-align: center;
+      }
+
       .nx-map-demo .layer-panel summary {
         cursor: pointer;
         list-style: revert;
@@ -871,11 +997,47 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
   private baseShape: any;
   private staticLayerResults: { config: MapConfig; shape: any }[] = [];
   private subLayerGroups: MapGroup[] = [];
+  // Snapshot of subLayerGroups exactly as last loaded/reloaded from the API
+  // (or the very first load) — kept separately because
+  // applyDonutSelection() below needs each group's ORIGINAL points as
+  // position/name/value anchors even after a prior selection has replaced
+  // this.subLayerGroups' points with synthetic ones. Updated everywhere
+  // this.subLayerGroups is assigned from a real fetch (never by
+  // applyDonutSelection() itself, which only ever derives FROM this).
+  private subLayerGroupsOriginal: MapGroup[] = [];
+  // Same idea as subLayerGroupsOriginal, but per static layer (index-aligned
+  // with staticLayerResults) — a static layer's own groups (e.g. the live
+  // MOL layer's "mol" group, embedded directly in its LayerConfigJSON, NOT
+  // fetched via subLayerApis) need the exact same "keep an original
+  // snapshot, derive every selection FROM it" treatment applyDonutSelection()
+  // already gives subLayerGroups, or a second click would derive from
+  // already-selection-mutated groups instead of the clean originals. Set
+  // once in loadMap()'s subscribe (static layers are never independently
+  // re-fetched the way reloadSubLayerGroups() re-fetches subLayerGroups).
+  private staticLayerGroupsOriginal: MapGroup[][] = [];
   // See setMapStyle()'s own comment — the base layer's originally-configured
   // zoomFactor, restored whenever swapping back to a tile (osm/satellite)
   // style after baseConfig.zoomFactor was temporarily overwritten to 1 for
   // "shape".
   private configuredZoomFactor: number | undefined;
+
+  // Set by applyBaseMapStyle() (a style switch OR the toolbar Reset button,
+  // both funnel through it) for the duration of its destroy/recreate cycle,
+  // cleared once the fresh <ejs-maps> element's own initial render actually
+  // finishes (onMapLoaded()). Reported live: clicking Reset on a tile
+  // (Map/Satellite) style zoomed all the way out instead of landing on the
+  // configured center/zoomFactor — the toolbar Reset button's OWN built-in
+  // zoom-to-"initial" behavior fires zoomComplete on the OLD (not yet
+  // destroyed) Syncfusion instance before applyBaseMapStyle()'s 50ms-later
+  // rebuild replaces it, and onZoomComplete()'s tile-center-preserving fix
+  // was capturing/reapplying THAT transitional state — Syncfusion's own
+  // "initial" zoom (already documented above as not matching our configured
+  // view) — moments before the correct rebuild would have overridden it
+  // anyway, but that reapply left a mark. Skipping the override entirely
+  // while this is true avoids the interaction; the plain refresh() call
+  // still runs regardless, same as always.
+  private suppressZoomCenterOverride = false;
+  private suppressZoomCenterOverrideTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(
     private builder: NXMapBuilderService,
@@ -992,7 +1154,9 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
         this.baseConfig = baseConfig;
         this.baseShape = baseShape;
         this.staticLayerResults = staticLayers;
+        this.staticLayerGroupsOriginal = staticLayers.map((s: { config: MapConfig; shape: any }) => s.config.groups ?? []);
         this.subLayerGroups = subGroups;
+        this.subLayerGroupsOriginal = subGroups;
         // The config's OWN zoomFactor — tuned for whatever raster tile view
         // it was written for (e.g. 5, to frame Oman in OSM/satellite tiles).
         // setMapStyle() below temporarily overwrites baseConfig.zoomFactor
@@ -1024,8 +1188,69 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
     const effectiveApi = urlOverride ? { ...api, url: urlOverride } : api;
     this.configService.loadSubLayerGroup(effectiveApi, payload).subscribe(groups => {
       this.subLayerGroups = groups;
+      this.subLayerGroupsOriginal = groups;
       this.rebuildMap();
     });
+  }
+
+  // Called by an external donut/category panel when it selects (or
+  // deselects) a metric card — this component has no idea what a "donut"
+  // is; the host wires the two together (see app.component.ts). Every
+  // marker stays visible on the map at all times, with its normal hover
+  // tooltip, whether or not anything is selected — nothing here ever
+  // creates a marker or hides one.
+  //
+  // `selectedId` is a metric id (tvp/salt/bsw/h2s/api/flow/other), not a
+  // group id — a point carries a reading for a metric via MapPoint.metrics
+  // (the always-loaded copy the hover tooltip reads), so this sets
+  // activeMetricId on whichever group(s) actually have points carrying that
+  // metric (in practice just the mol/MOL group, wherever it happens to
+  // live — see the sub-layer AND static-layer loop below), leaving every
+  // other group's activeMetricId cleared. `slices` is accepted here only
+  // for signature compatibility with NxDonutCollectionComponent's
+  // DonutSelectionEvent and otherwise unused (a click is a single click:
+  // the whole metric lights up at once, not customer/non-customer
+  // separately). `universeIds` is likewise unused — membership is decided
+  // per-point (metrics[selectedId] present or not), not by group id list.
+  //
+  // Every selection (except clearing) fetches this metric's OWN values
+  // fresh via NXMapConfigService.loadMarkerValues() — simulating a real
+  // "pass the donut's name, get its marker values back" endpoint — and
+  // stores the response on MapGroup.activeMetricValues, which
+  // toMetricOverlayMarker() (nx-map-builder.service.ts) prefers over the
+  // point's own already-loaded metrics[selectedId] for the overlay
+  // label/color. Pass `selectedId: null` to clear every group's
+  // activeMetricId/activeMetricValues (no fetch needed for that case).
+  applyDonutSelection(
+    selectedId: string | null,
+    universeIds: string[],
+    slices?: { x: string; y: number; color?: string }[]
+  ): void {
+    if (!selectedId) {
+      this.applyMetricSelection(null, null);
+      return;
+    }
+    this.configService.loadMarkerValues(selectedId).subscribe(values => this.applyMetricSelection(selectedId, values));
+  }
+
+  // Shared by applyDonutSelection()'s clear (selectedId: null, no fetch
+  // needed) and fetched-response paths — stamps activeMetricId/
+  // activeMetricValues onto whichever groups actually have a point carrying
+  // `selectedId`, deriving from each layer's own ORIGINAL groups snapshot
+  // (subLayerGroupsOriginal / staticLayerGroupsOriginal) so a second
+  // selection never builds on top of the previous one's stamped fields.
+  private applyMetricSelection(selectedId: string | null, fetchedValues: Record<string, PointMetric> | null): void {
+    const applyToGroup = (g: MapGroup): MapGroup => {
+      const hasMetric = !!selectedId && (g.markerConfig?.points ?? []).some(p => p.metrics?.[selectedId] !== undefined);
+      return { ...g, activeMetricId: hasMetric ? selectedId : null, activeMetricValues: hasMetric ? fetchedValues : null };
+    };
+
+    this.subLayerGroups = this.subLayerGroupsOriginal.map(applyToGroup);
+    this.staticLayerResults = this.staticLayerResults.map((s, i) => ({
+      ...s,
+      config: { ...s.config, groups: (this.staticLayerGroupsOriginal[i] ?? []).map(applyToGroup) }
+    }));
+    this.rebuildMap();
   }
 
   // The manual "Reload Sub-Layers" button's click handler — nothing else
@@ -1138,6 +1363,16 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
     if (!this.baseConfig) {
       return;
     }
+    // Set for the whole destroy/recreate cycle below, cleared a bit after
+    // the fresh <ejs-maps> element's own initial render completes
+    // (onMapLoaded()) — see its own comment for why onZoomComplete()'s
+    // tile-center-preserving fix needs to stay out of the way here.
+    // Cancelling any pending clear from a PREVIOUS cycle too, in case the
+    // user re-triggers this (another style switch, or Reset again) before
+    // that one's own delayed clear fired.
+    clearTimeout(this.suppressZoomCenterOverrideTimer);
+    this.suppressZoomCenterOverride = true;
+
     this.baseConfig.baseMapType = style;
     // NXMapBuilderService.buildZoom() always forces zoomFactor 1 for a
     // "shape" main layer regardless of config, so nothing to do for that
@@ -1490,11 +1725,12 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
 
   ngAfterViewInit(): void {
     this.injectMarkerTooltipTemplate();
+    this.injectMarkerLabelTemplate();
+    this.wireResetButton();
     // Syncfusion renders the zoom toolbar asynchronously after the
     // component initializes — give it a moment before measuring.
     setTimeout(() => {
       this.alignLayerControl();
-      this.wireResetButton();
     }, 300);
   }
 
@@ -1516,9 +1752,11 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
   // anything.
   //
   // ${name} is the marker's own name (bound from toMarker()'s dataSource
-  // object) — every OTHER stat on this card is a HARDCODED placeholder, no
-  // such fields exist on MapPoint yet; this is a visual-design pass, not a
-  // data-wiring one.
+  // object). Every metric stat below is real per-marker data — toMarker()
+  // in nx-map-builder.service.ts precomputes m_<key> (value+unit, or "—"
+  // when that point has no such reading) and c_<key> (a status-based
+  // color) for each of the 7 known metric ids, since Syncfusion's ${field}
+  // template substitution can't loop over MapPoint.metrics directly.
   private injectMarkerTooltipTemplate(): void {
     if (document.getElementById("marker-tooltip-template")) {
       return;
@@ -1530,38 +1768,41 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
       <div class="marker-tooltip">
         <div class="mtt-header">
           <span class="mtt-title">\${name}</span>
-          <span class="mtt-badge mtt-badge--warning">WARNING</span>
         </div>
-        <div class="mtt-subtitle">THIRD PARTY</div>
         <div class="mtt-row">
           <div class="mtt-stat">
             <div class="mtt-label">TVP</div>
-            <div class="mtt-value mtt-value--warning">95<span class="mtt-unit">kPa</span></div>
+            <div class="mtt-value" style="color: \${c_tvp};">\${m_tvp}</div>
           </div>
           <div class="mtt-stat">
-            <div class="mtt-label">FLOWRATE</div>
-            <div class="mtt-value">N/A</div>
-          </div>
-        </div>
-        <div class="mtt-timestamp">2026-05-13 10:30</div>
-        <div class="mtt-row mtt-row--boxed">
-          <div class="mtt-stat mtt-stat--boxed">
-            <div class="mtt-label">WARNING</div>
-            <div class="mtt-value mtt-value--warning">86<span class="mtt-unit">kPa</span></div>
-          </div>
-          <div class="mtt-stat mtt-stat--boxed">
-            <div class="mtt-label">EMERGENCY</div>
-            <div class="mtt-value mtt-value--danger">110<span class="mtt-unit">kPa</span></div>
+            <div class="mtt-label">Salt</div>
+            <div class="mtt-value" style="color: \${c_salt};">\${m_salt}</div>
           </div>
         </div>
         <div class="mtt-row">
           <div class="mtt-stat">
-            <div class="mtt-label">DIST. TO MAF</div>
-            <div class="mtt-value mtt-value--plain">402.7 km</div>
+            <div class="mtt-label">BS&amp;W</div>
+            <div class="mtt-value" style="color: \${c_bsw};">\${m_bsw}</div>
           </div>
           <div class="mtt-stat">
-            <div class="mtt-label">ETA TO MAF</div>
-            <div class="mtt-value mtt-value--plain">3d 2h</div>
+            <div class="mtt-label">Dissolved H2S</div>
+            <div class="mtt-value" style="color: \${c_h2s};">\${m_h2s}</div>
+          </div>
+        </div>
+        <div class="mtt-row">
+          <div class="mtt-stat">
+            <div class="mtt-label">API</div>
+            <div class="mtt-value" style="color: \${c_api};">\${m_api}</div>
+          </div>
+          <div class="mtt-stat">
+            <div class="mtt-label">Flow</div>
+            <div class="mtt-value" style="color: \${c_flow};">\${m_flow}</div>
+          </div>
+        </div>
+        <div class="mtt-row">
+          <div class="mtt-stat">
+            <div class="mtt-label">Other</div>
+            <div class="mtt-value" style="color: \${c_other};">\${m_other}</div>
           </div>
         </div>
       </div>
@@ -1569,26 +1810,127 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
     document.body.appendChild(container);
   }
 
+  // Builds the #marker-label-template element that
+  // nx-map-builder.service.ts's buildMarkerPoints() looks up (via
+  // markerSettings.template) for the overlay layer it adds when a group's
+  // activeMetricId is set — an always-visible icon + metric value/color
+  // label per point, as opposed to #marker-tooltip-template above
+  // (hover-only, always visible with the base layer). Same
+  // plain-DOM-string-building approach and same reasoning for it (Angular's
+  // template compiler chokes on bare ${...} placeholders — see
+  // injectMarkerTooltipTemplate()'s own comment).
+  //
+  // ${color}, ${label}, and ${iconShape} come straight from
+  // toMetricOverlayMarker()'s own dataSource object in
+  // nx-map-builder.service.ts — `label` is already "name<br>value" for the
+  // active metric, `color` is that reading's resolved color (impact-specific
+  // for a "high" customer/non-customer reading, a shared neutral color
+  // otherwise), and `iconShape` is "diamond"/"triangle"/"circle" selecting
+  // which .marker-label-icon--* CSS rule draws the icon — set once here as
+  // a CSS custom property (\`--icon-color\`) rather than a shape-specific
+  // inline style property, since different shapes need different CSS
+  // properties to carry the same color (border-bottom-color for a triangle,
+  // background for a diamond/circle).
+  private injectMarkerLabelTemplate(): void {
+    if (document.getElementById("marker-label-template")) {
+      return;
+    }
+    const container = document.createElement("div");
+    container.id = "marker-label-template";
+    container.style.display = "none";
+    container.innerHTML = `
+      <div class="marker-label">
+        <span class="marker-label-icon marker-label-icon--\${iconShape}" style="--icon-color: \${color};"></span>
+        <span class="marker-label-text" style="color: \${color};">\${label}</span>
+      </div>
+    `;
+    document.body.appendChild(container);
+  }
+
   // Syncfusion's own `resize` event fires once ITS internal resize handling
-  // (redrawing the SVG, repositioning the zoom toolbar) has actually
-  // finished — the reliable trigger to re-measure against, unlike a raw
-  // window resize which fires before Syncfusion has caught up (that gap is
-  // why the toolbar/layer button could go missing until a full refresh).
+  // (redrawing the SVG) has started, but NOT necessarily once the zoom
+  // toolbar has finished being repositioned within that redraw — a flat
+  // 50ms delay here used to just guess it was done by then. Reported live:
+  // during an actual window drag-resize, the layer button consistently
+  // ended up pinned to the far left (a stale/mid-move toolbarRect fed into
+  // alignLayerControl()'s right-edge math) and only self-corrected on the
+  // NEXT thing that happened to call alignLayerControl() again — e.g.
+  // toggleLayerPanel()'s own re-measure on open — never on the resize
+  // itself. Root cause: nothing guaranteed Syncfusion's toolbar element had
+  // actually stopped moving by the time we measured it.
+  //
+  // Confirmed live (dispatching a synthetic resize against a resized
+  // container) that the toolbar can still be mid-move well past a short
+  // poll window — an earlier version of this fix that gave up after ~8
+  // quick attempts (~320ms) locked in a stale position exactly like the
+  // original bug, just less often. Fixed with a longer, more forgiving
+  // poll (up to ~1.2s across 15 attempts, each a real animation frame
+  // apart) PLUS a guaranteed trailing re-measure ~700ms after the last
+  // resize event regardless of what the poll concluded — belt-and-suspenders,
+  // since no fixed poll count can be proven sufficient against a redraw
+  // whose exact timing isn't documented.
+  private resizeAlignAttempt = 0;
+  private resizeFinalCheckTimer: ReturnType<typeof setTimeout> | undefined;
+
   onMapResize(): void {
-    setTimeout(() => {
+    this.resizeAlignAttempt = 0;
+    this.scheduleAlignLayerControl();
+
+    clearTimeout(this.resizeFinalCheckTimer);
+    this.resizeFinalCheckTimer = setTimeout(() => {
       this.alignLayerControl();
-      this.wireResetButton();
-    }, 50);
+    }, 700);
+  }
+
+  private scheduleAlignLayerControl(): void {
+    setTimeout(() => {
+      const before = this.measureToolbarLeft();
+      requestAnimationFrame(() => {
+        const after = this.measureToolbarLeft();
+        this.resizeAlignAttempt++;
+        const stillMoving = before !== null && after !== null && before !== after;
+        if (stillMoving && this.resizeAlignAttempt < 15) {
+          this.scheduleAlignLayerControl();
+          return;
+        }
+        this.alignLayerControl();
+      });
+    }, 60);
+  }
+
+  // Shared by scheduleAlignLayerControl()'s own stability check and
+  // alignLayerControl() could use this too, but stays independent — this
+  // one intentionally does the bare minimum (no container lookup, no
+  // layerBtnRight math) so polling it repeatedly during a resize stays
+  // cheap.
+  private measureToolbarLeft(): number | null {
+    const toolbar = this.elRef.nativeElement.querySelector('[id*="Zooming_ToolBar"]') as Element | null;
+    return toolbar ? toolbar.getBoundingClientRect().left : null;
   }
 
   // Fires once Syncfusion's initial render (shapes, markers, navigation
   // lines) has actually completed — the reliable point to run the one-time
-  // "draw" animation on navigation lines and to wire the toolbar's Reset
-  // button, both of which need real DOM elements Syncfusion has finished
-  // creating.
+  // "draw" animation on navigation lines. Reset button wiring is delegated
+  // from the host element once in ngAfterViewInit() (see wireResetButton()'s
+  // own comment) and survives every rebuild, so it doesn't need re-running
+  // here.
   onMapLoaded(): void {
-    this.wireResetButton();
     this.animateNavigationLines();
+    // See suppressZoomCenterOverride's own comment. NOT cleared immediately
+    // here — confirmed live that a late zoomComplete can still fire (and
+    // onZoomComplete()'s own 250ms settle delay adds more room for one)
+    // after `loaded` but before Syncfusion's own center-position transition
+    // has actually finished landing on the fresh configured center — a
+    // reset left zoom LEVEL correctly at the configured value but center
+    // stuck on the pre-reset off-center position, meaning the guard had
+    // already cleared and let that late zoomComplete's override slip
+    // through and lock in the still-transitioning (old) center. A trailing
+    // delay past `loaded`, comfortably longer than onZoomComplete()'s own
+    // 250ms settle window, is the difference this time.
+    clearTimeout(this.suppressZoomCenterOverrideTimer);
+    this.suppressZoomCenterOverrideTimer = setTimeout(() => {
+      this.suppressZoomCenterOverride = false;
+    }, 800);
   }
 
   private zoomRefreshTimer: ReturnType<typeof setTimeout> | undefined;
@@ -1610,13 +1952,76 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
   // map go blank after enough steps. Clearing the previous timer before
   // scheduling a new one — so only ONE refresh ever fires, after zooming
   // has actually settled — is what's different this time.
+  //
+  // Open bug: after zooming toward some point other than the map's
+  // configured center, the view snaps back to that original center once
+  // zooming settles (zoom LEVEL stays correct, only the pan target is
+  // lost) — reported on "Map"/"Satellite" (tile) base-map types.
+  //
+  // A first attempt at fixing this here — capturing mapInstance.centerPosition
+  // before refresh() and re-applying it via zoomByPosition() afterward —
+  // made things WORSE (confirmed live: it broke "shape" base-map zooming
+  // too, previously unaffected) and was reverted. Root cause: centerPosition
+  // reads back correctly when a zoom was itself DRIVEN by zoomByPosition()
+  // (confirmed live), but apparently does NOT reflect the map's actual
+  // pan/center after a real interactive wheel/toolbar zoom — so capturing
+  // and reapplying it was forcing the view back to a stale (effectively
+  // default) center on every zoom, for every base-map type.
+  //
+  // This second attempt is narrower, specifically to avoid repeating that
+  // exact regression: it only runs for TILE maps (isTileMap — "shape" mode
+  // is never touched by this branch at all, structurally, not just by
+  // condition), and instead of trusting centerPosition, it derives the
+  // live center from the map's own getTileGeoLocation() (a public
+  // Syncfusion API converting a pixel coordinate back to lat/long) at the
+  // CENTER of the currently-visible map area (mapAreaRect) — reasoning
+  // being that whatever pixel-space state a real wheel zoom DOES update
+  // (translatePoint/tileTranslatePoint, confirmed live those change during
+  // interaction) should still be reflected there, unlike centerPosition.
+  //
+  // UNVERIFIED — could not confirm this live: two different well-formed
+  // synthetic WheelEvent dispatches (including setting the legacy
+  // wheelDelta property Syncfusion's handler reads) produced no zoom
+  // change at all against the running instance, so the actual interactive
+  // zoom code path couldn't be exercised through this automation
+  // environment. Needs real-browser confirmation; revert this block back
+  // to the plain refresh()-only version above if it makes things worse
+  // again, same as last time.
   onZoomComplete(): void {
     clearTimeout(this.zoomRefreshTimer);
     this.zoomRefreshTimer = setTimeout(() => {
       if (this.mapInstance) {
+        const inst = this.mapInstance as any;
+        // See suppressZoomCenterOverride's own comment — skipped entirely
+        // (not just the derivation, the whole override) while a style
+        // switch/Reset's destroy-recreate cycle is in flight, so this
+        // fix doesn't fight over the view with that correct rebuild.
+        const isTileMap = !this.suppressZoomCenterOverride && !!inst.isTileMap;
+        let liveCenter: { latitude: number; longitude: number } | null = null;
+        const liveZoomFactor = inst.zoomSettings?.zoomFactor;
+
+        if (isTileMap && typeof inst.getTileGeoLocation === "function" && inst.mapAreaRect) {
+          const centerX = inst.mapAreaRect.x + inst.mapAreaRect.width / 2;
+          const centerY = inst.mapAreaRect.y + inst.mapAreaRect.height / 2;
+          const geo = inst.getTileGeoLocation(centerX, centerY);
+          if (geo && geo.latitude != null && geo.longitude != null) {
+            liveCenter = { latitude: geo.latitude, longitude: geo.longitude };
+          }
+        }
+
         this.mapInstance.refresh();
         this.syncLayerDomVisibility();
         this.animateNavigationLines();
+        // refresh() regenerates Syncfusion's own toolbar SVG (Reset button
+        // included), which used to silently orphan a listener attached
+        // directly to that button — wireResetButton() now delegates from
+        // the host element instead (see its own comment), so no re-wiring
+        // is needed here regardless of how many times the toolbar DOM gets
+        // replaced.
+
+        if (isTileMap && liveCenter && typeof inst.zoomByPosition === "function") {
+          inst.zoomByPosition(liveCenter, liveZoomFactor);
+        }
       }
     }, 250);
   }
@@ -1631,19 +2036,24 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
   // internal Reset does on its own — this runs a moment AFTER Syncfusion's
   // own reset handler, as a correction, not a replacement.
   //
-  // `data-nx-wired` marks the button once found so repeated calls (resize,
-  // reload) don't stack duplicate listeners on the same element.
+  // Delegated from the component's own host element — which Syncfusion
+  // never destroys — rather than attached directly to the Reset button
+  // itself. refresh() (every zoomComplete, see onZoomComplete()) and the
+  // full destroy/recreate in applyBaseMapStyle() both regenerate the
+  // toolbar's SVG DOM wholesale; a listener attached to the OLD button
+  // node is silently orphaned by either, which is why Reset used to stop
+  // running our correction after the first zoom of a session and fall
+  // through to Syncfusion's own uncorrected "reset to initial" (scale 1,
+  // wrong center). Delegation means the listener never needs re-attaching
+  // no matter how many times the button underneath gets replaced — this
+  // only needs to run once, in ngAfterViewInit().
   private wireResetButton(): void {
     const host = this.elRef.nativeElement;
-    const resetBtn = host.querySelector(
-      '[id*="_Reset"], [title="Reset"]'
-    ) as HTMLElement | null;
-    if (!resetBtn || resetBtn.dataset["nxWired"]) {
-      return;
-    }
-    resetBtn.dataset["nxWired"] = "true";
-    resetBtn.addEventListener("click", () => {
-      setTimeout(() => this.resetToConfiguredView(), 50);
+    host.addEventListener("click", (event: Event) => {
+      const target = event.target as Element | null;
+      if (target?.closest('[id*="_Reset"], [title="Reset"]')) {
+        setTimeout(() => this.resetToConfiguredView(), 50);
+      }
     });
   }
 

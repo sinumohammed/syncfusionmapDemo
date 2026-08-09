@@ -26,7 +26,16 @@ function json<T>(mod: any): T {
 // logs a console.warn instead of silently rendering with no shape/boundary
 // at all.
 export const SHAPE_DATA_BY_LAYER_NAME: Record<string, any> = {
+  // Both keys point at the same bundled shape file — "omanv1" is what the
+  // original demo fixture named its base layer, "oman" is what the real
+  // upstream payload (real-parent-config.json, COMPONENT_NX_MAP_COLLECTION
+  // format) names its own base layer's layerName. Confirmed live: without
+  // the "oman" alias, a base layer configured with baseMapType: "shape" and
+  // no explicit shapeDataSource never resolves any shapeData at all here,
+  // and the whole map silently fails to render — only a console.warn, no
+  // thrown error.
   omanv1: json(omanShapeJson),
+  oman: json(omanShapeJson),
   alwusta: json(alwustaShapeJson),
   musandam: json(musandamShapeJson),
   "al-buraymi": json(alBuraymiShapeJson),

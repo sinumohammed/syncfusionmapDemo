@@ -1,5 +1,14 @@
 import { NXMapAppConfig, StaticLayerRef, SubLayerApiConfig } from "../model/nx-map-app-config";
-import { DataSource } from "../model/nx-map-model";
+import { DataSource, MapCollectionConfig } from "../model/nx-map-model";
+
+// The real upstream payload's own discriminant for "this node is a
+// collection of maps, not a map itself" — every node under a
+// COMPONENT_NX_MAP_COLLECTION's own Configuration[] is a ComponentType 7118
+// (COMPONENT_NX_MAP) RawLayerNode, i.e. exactly what buildAppConfig() below
+// already expects one of. See buildMapCollectionConfig()'s own comment for
+// how this decides root's Configuration is "one map's static layers" vs
+// "one map per entry".
+const MAP_COLLECTION_COMPONENT_TYPE = 7119;
 
 // Real upstream shape — one node per layer (the root = base layer, each
 // entry in `Configuration` = a static layer). Deliberately typed loosely
@@ -7,7 +16,12 @@ import { DataSource } from "../model/nx-map-model";
 // other unrelated properties (Columns, Icon, WidgetId, ...), all ignored
 // here. `Configuration` is only ever populated on the root in practice, but
 // typed as recursive/nullable to match what the raw payload allows.
+// `ComponentType` is optional/untyped-loosely here too — only
+// buildMapCollectionConfig() below actually reads it (to tell a
+// COMPONENT_NX_MAP_COLLECTION wrapper apart from an ordinary base-layer
+// node), buildAppConfig() itself never looks at it.
 export interface RawLayerNode {
+  ComponentType?: number;
   // 0 = inline (parse LayerConfigJSON), 1 = file, 2 = api (fetch
   // LayerConfigURL either way).
   LayerConfigSource: 0 | 1 | 2;
@@ -90,4 +104,22 @@ export function buildAppConfig(root: RawLayerNode): NXMapAppConfig {
     theme: root.Theme ?? undefined,
     staticLayers
   };
+}
+
+// Converts the real upstream payload's own top-level node into
+// NxMapCollectionComponent's MapCollectionConfig — one <app-nx-map-demo> per
+// entry in root.Configuration, each entry being its own ComponentType 7118
+// RawLayerNode (e.g. "OMAN_BASE_MAP" — a base layer plus its own nested
+// static layers under ITS Configuration[], exactly what buildAppConfig()
+// above already expects), NOT the base layer's own static-layer children
+// buildAppConfig() loops over — those live one level deeper, inside each
+// map's own Configuration.
+//
+// Falls back to treating `root` itself as a single map when it isn't
+// actually a ComponentType 7119 (COMPONENT_NX_MAP_COLLECTION) wrapper —
+// keeps an older, pre-collection payload (a bare base-layer RawLayerNode,
+// no wrapper at all) working unchanged with zero call-site branching.
+export function buildMapCollectionConfig(root: RawLayerNode): MapCollectionConfig<RawLayerNode> {
+  const items = root.ComponentType === MAP_COLLECTION_COMPONENT_TYPE ? root.Configuration ?? [] : [root];
+  return { maps: items.map(item => ({ source: "inline", value: item })) };
 }

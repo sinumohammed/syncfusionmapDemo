@@ -63,6 +63,36 @@ export interface MapPoint extends BaseMapObject, GeoLocation, ShapeStyle {
   // "AL GHUBAR - surface"). These are flattened into sibling markers by the
   // builder and never appear on the objects handed to Syncfusion.
   points?: MapPoint[];
+  // Optional reading (flow rate, pressure, etc.) shown as a second line
+  // under the marker's name label — see toMarker()/buildMarkerPoints() in
+  // nx-map-builder.service.ts. Omit to render just the name, same as before
+  // this field existed.
+  value?: number;
+  unit?: string;
+  // Donut-metric readings keyed by donut id (tvp/salt/bsw/h2s/api/flow/
+  // other) — shown in full on hover (see toMarker()'s m_<key>/c_<key>
+  // fields) and used by NxMapDemoComponent.applyDonutSelection() to decide
+  // which color a persistent label gets when that metric's donut is
+  // clicked (see MapGroup.activeMetricId).
+  metrics?: Record<string, PointMetric>;
+}
+
+export interface PointMetric {
+  value: number;
+  unit?: string;
+  // "high" gets the clicked metric's own highlight color on the map
+  // (NXMapBuilderService.METRIC_COLORS); "normal" gets a shared neutral
+  // label color. Map coloring only ever looks at THIS field — see
+  // impact's own comment for what actually drives a donut's two slices.
+  status: "high" | "normal";
+  // Only meaningful when status is "high" — which of a donut's two slices
+  // this reading counts toward ("Customer impact" vs "Non-customer
+  // impact" in nx-donut-charts.json). The donut's total is the count of
+  // "high" readings ONLY, split by this field — "normal" readings aren't
+  // counted on the donut at all, even though they still render on the map
+  // (labeled, in the neutral color) once that metric is selected. Unset on
+  // a "normal" reading — nothing reads it in that case.
+  impact?: "customer" | "non-customer";
 }
 
 export interface MapLine extends BaseMapObject, LineStyle {
@@ -124,6 +154,43 @@ export interface MapGroup {
   // layer's own theme when unset — inline point/polygon/circle/line fields
   // still win over both.
   theme?: string;
+  // Default unset/null. When set to a metric id (tvp/salt/bsw/h2s/api/
+  // flow/other), every marker in this group ADDITIONALLY renders a
+  // persistent label overlay (on top of its normal shape+color+cluster
+  // rendering, which is unaffected) showing that metric's own value — see
+  // buildMarkerPoints() in nx-map-builder.service.ts. Each point's label
+  // color is METRIC_COLORS[activeMetricId] when that point's reading's
+  // status is "high", NORMAL_LABEL_COLOR otherwise. Hover tooltip behavior
+  // is unaffected either way (always reads point.metrics, never this).
+  // Set by NxMapDemoComponent.applyDonutSelection() when an external panel
+  // (e.g. a donut/category chart) selects a metric — cleared (null) again
+  // once nothing is selected.
+  activeMetricId?: string | null;
+  // The freshly-fetched per-point values for activeMetricId — see
+  // NXMapConfigService.loadMarkerValues() and applyDonutSelection()'s own
+  // comment. Keyed by point id (MapPoint.id via BaseMapObject), same shape
+  // as one entry of MapPoint.metrics. toMetricOverlayMarker() in
+  // nx-map-builder.service.ts reads THIS (not point.metrics) for the
+  // overlay label/color whenever it's present — falling back to
+  // point.metrics[activeMetricId] only if a fetch hasn't populated this
+  // yet, so the overlay never has a blank flash while the "API" call for a
+  // freshly-clicked metric is in flight and point.metrics already has last
+  // load's data. Unset/null clears back to that fallback.
+  activeMetricValues?: Record<string, PointMetric> | null;
+  // Optional per-impact icon override for a "high" reading's donut-click
+  // overlay marker (see toMetricOverlayMarker() in
+  // nx-map-builder.service.ts) — lets a deployment's own config JSON
+  // differentiate "customer impact" from "non-customer impact" by SHAPE as
+  // well as color, e.g. `{ customer: { shape: "Diamond" }, "non-customer":
+  // { shape: "Triangle" } }`. Resolution per point, most specific wins:
+  // this group's own impactMarkerStyle[reading.impact] entry, then
+  // NXMapBuilderService.DEFAULT_IMPACT_SHAPES for that impact value, then a
+  // plain circle if impact itself is unset (a "normal"-status reading never
+  // has one). `color` here overrides METRIC_COLORS[activeMetricId] the same
+  // way; omit either field to keep that level's own default. Unset/absent
+  // on this group entirely (the common case today) falls through to
+  // defaults for every point.
+  impactMarkerStyle?: Partial<Record<"customer" | "non-customer", { shape?: string; color?: string }>>;
 }
 
 export interface DataLabel {
@@ -284,6 +351,18 @@ export interface DataSource<T> {
 
 export interface MapState {
   groups: MapGroup[];
+}
+
+// Top-level collection config for NxMapCollectionComponent — mirrors
+// DonutCollectionConfig (nx-donut-model.ts) in shape: each entry is its own
+// independently-resolvable DataSource (inline/file/api), one
+// <app-nx-map-demo> rendered per resolved entry, looping purely off this
+// array's length/content. `T` is left generic here (rather than importing
+// RawLayerNode, which lives in services/parent-config-transform.ts, a layer
+// below this model file) — NxMapCollectionComponent itself pins it to
+// RawLayerNode.
+export interface MapCollectionConfig<T = any> {
+  maps: DataSource<T>[];
 }
 
 export interface ClusterConfig extends ShapeStyle {

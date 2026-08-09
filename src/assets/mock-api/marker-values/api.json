@@ -1,0 +1,93 @@
+{
+  "maf": {
+    "value": 32.11,
+    "unit": "deg",
+    "status": "normal"
+  },
+  "Nizwa": {
+    "value": 38.25,
+    "unit": "deg",
+    "status": "normal"
+  },
+  "ns": {
+    "value": 35.39,
+    "unit": "deg",
+    "status": "normal"
+  },
+  "qa": {
+    "value": 30.34,
+    "unit": "deg",
+    "status": "normal"
+  },
+  "mark": {
+    "value": 31.07,
+    "unit": "deg",
+    "status": "normal"
+  },
+  "sb": {
+    "value": 32.67,
+    "unit": "deg",
+    "status": "normal"
+  },
+  "kpSouth": {
+    "value": 39.74,
+    "unit": "deg",
+    "status": "normal"
+  },
+  "hub": {
+    "value": 34.28,
+    "unit": "deg",
+    "status": "normal"
+  },
+  "nim": {
+    "value": 30.03,
+    "unit": "deg",
+    "status": "normal"
+  },
+  "mm": {
+    "value": 35,
+    "unit": "deg",
+    "status": "normal"
+  },
+  "HW": {
+    "value": 35.77,
+    "unit": "deg",
+    "status": "normal"
+  },
+  "cced": {
+    "value": 37.37,
+    "unit": "deg",
+    "status": "normal"
+  },
+  "oxyMuradi": {
+    "value": 36.31,
+    "unit": "deg",
+    "status": "high",
+    "impact": "customer"
+  },
+  "ALG": {
+    "value": 30.2,
+    "unit": "deg",
+    "status": "normal"
+  },
+  "rhip": {
+    "value": 34.21,
+    "unit": "deg",
+    "status": "normal"
+  },
+  "alnoor": {
+    "value": 33.51,
+    "unit": "deg",
+    "status": "normal"
+  },
+  "TY_MS": {
+    "value": 32.43,
+    "unit": "deg",
+    "status": "normal"
+  },
+  "rim": {
+    "value": 34.66,
+    "unit": "deg",
+    "status": "normal"
+  }
+}

@@ -155,7 +155,7 @@
           "ShapeDataURL": null,
           "ShapeDataSource": 1,
           "LayerConfigSource": 0,
-          "LayerConfigJSON": "{   \"layerName\": \"alwusta\",   \"visible\": true,   \"title\": {     \"text\": \"Al Wusta\"   },   \"dataLabel\": {     \"visible\": true,     \"color\": \"beige\",     \"opacity\": 0.9   } }",
+          "LayerConfigJSON": "{\"layerName\":\"alwusta\",\"visible\":true,\"title\":{\"text\":\"Al Wusta\"},\"dataLabel\":{\"visible\":true,\"color\":\"beige\",\"opacity\":0.9},\"background\":\"transparent\",\"borderColor\":\"red\",\"borderWidth\":1.5}",
           "LayerConfigURL": null,
           "ComponentType": 7118,
           "ElementType": 7118,

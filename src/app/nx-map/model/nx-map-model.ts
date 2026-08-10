@@ -282,6 +282,8 @@ export interface MapThemeDataLabel {
 // different fills.
 export interface MapThemeLayer {
   background?: string;
+  borderColor?: string;
+  borderWidth?: number;
 }
 
 export interface MapTheme {
@@ -329,8 +331,16 @@ export interface MapConfig {
   // (nx-map-themes.json) when set; omit to use the theme's value, or the
   // builder's own hardcoded default (opaque grey for the main layer,
   // translucent blue for a SubLayer) if neither sets one — see buildLayers()
-  // in nx-map-builder.service.ts.
+  // in nx-map-builder.service.ts. Set to "transparent" (or "none") for a
+  // border-only shape with no fill at all.
   background?: string;
+  // This layer's own shape/region border (shapeSettings.border) — same
+  // precedence as background above (this field, then the theme's
+  // layer.borderColor/borderWidth, then the builder's hardcoded default of
+  // a thin #A6A6A6 line). Independent of background, so a fully
+  // transparent fill can still keep a visible outline.
+  borderColor?: string;
+  borderWidth?: number;
   // "shape" (default) renders this layer from `shapeData` (a GeoJSON
   // boundary, bound to markers/polygons via shapePropertyPath/name). "osm"
   // and "satellite" render free raster tiles instead (OpenStreetMap streets,

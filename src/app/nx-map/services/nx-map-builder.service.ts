@@ -946,15 +946,16 @@ export class NXMapBuilderService {
         visible: true,
         // shapeSettings itself was only ever built once, in buildLayers() —
         // a runtime theme change (e.g. the layer panel's theme <select>)
-        // otherwise never touched it at all, so layer.background/
-        // theme.layer.background changes silently had no visible effect
-        // until the NEXT full buildMap(). Only fill is recomputed here
-        // (via the same resolveLayerBackground() buildLayers() uses) —
-        // palette/border/autofill don't depend on anything themeable today.
-        // undefined for a tile layer (shapeSettings itself is undefined
-        // there), so nothing to patch.
+        // otherwise never touched it at all, so layer.background/border/
+        // theme.layer.background/borderColor/borderWidth changes silently
+        // had no visible effect until the NEXT full buildMap(). Only
+        // fill/border are recomputed here (via the same
+        // resolveLayerBackground()/resolveLayerBorder() buildLayers()
+        // uses) — palette/autofill don't depend on anything themeable
+        // today. undefined for a tile layer (shapeSettings itself is
+        // undefined there), so nothing to patch.
         shapeSettings: existing.shapeSettings
-          ? { ...existing.shapeSettings, fill: this.resolveLayerBackground(layer, isMain) }
+          ? { ...existing.shapeSettings, fill: this.resolveLayerBackground(layer, isMain), border: this.resolveLayerBorder(layer) }
           : existing.shapeSettings,
         markerSettings: this.buildMarkerPoints(originalIndex),
         navigationLineSettings: this.buildNavigationLines(originalIndex),
@@ -1005,6 +1006,19 @@ export class NXMapBuilderService {
   // rebuilds) so there's exactly one place this precedence is encoded.
   private resolveLayerBackground(layer: LayerState, isMain: boolean): string {
     return layer.config.background ?? layer.theme.layer?.background ?? (isMain ? "#dddddd" : "rgba(66, 133, 244, 0.25)");
+  }
+
+  // Same precedence as resolveLayerBackground() above, for the layer's own
+  // shapeSettings.border — config.borderColor/borderWidth wins, then the
+  // theme's layer.borderColor/borderWidth, then the original hardcoded
+  // default (a thin #A6A6A6 line). Independent of fill/background, so a
+  // layer can go border-only (background: "transparent") without losing
+  // its outline.
+  private resolveLayerBorder(layer: LayerState): { width: number; color: string } {
+    return {
+      width: layer.config.borderWidth ?? layer.theme.layer?.borderWidth ?? 0.1,
+      color: layer.config.borderColor ?? layer.theme.layer?.borderColor ?? "#A6A6A6"
+    };
   }
 
   // The real per-layer visibility flag — NOT mirrored onto Syncfusion's own
@@ -1155,10 +1169,7 @@ export class NXMapBuilderService {
               "#F4CE2F",
               "#6986ED"
             ],
-            border: {
-              width: 0.1,
-              color: "#A6A6A6"
-            }
+            border: this.resolveLayerBorder(layer)
           },
       // A tile layer has no named shape features to label against.
       dataLabelSettings: isTile

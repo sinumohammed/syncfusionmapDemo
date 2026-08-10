@@ -19,7 +19,8 @@ import {
   MarkerShape,
   ParseTargetResult,
   PointMetric,
-  ShapeStyle
+  ShapeStyle,
+  TooltipTemplateConfig
 } from "../model/nx-map-model";
 
 // Bundled the same way pdo-map-config.json is in nx-map-demo.component.ts —
@@ -65,8 +66,27 @@ const STATUS_TOOLTIP_COLORS: Record<"high" | "normal", string> = {
 };
 
 // Every metric id a MapPoint.metrics object can carry — drives both the
-// tooltip's m_<key>/c_<key> fields (toMarker()) and METRIC_COLORS above.
+// tooltip's v_<key>/u_<key>/c_<key> fields (toMarker()) and METRIC_COLORS
+// above.
 const METRIC_KEYS = ["tvp", "salt", "bsw", "h2s", "api", "flow", "other"] as const;
+
+// Original 7-metric, 2-column tooltip layout — used whenever a MapConfig
+// doesn't set its own tooltipTemplate (see MapConfig.tooltipTemplate's own
+// comment). Kept here, not hardcoded into the template string, so a config
+// can override just the parts it cares about (a different column count,
+// a subset of metrics, custom titles) without losing this as the fallback.
+export const DEFAULT_TOOLTIP_TEMPLATE: TooltipTemplateConfig = {
+  columns: 2,
+  items: [
+    { metricId: "tvp", title: "TVP" },
+    { metricId: "salt", title: "Salt" },
+    { metricId: "bsw", title: "BS&W" },
+    { metricId: "h2s", title: "Dissolved H2S" },
+    { metricId: "api", title: "API" },
+    { metricId: "flow", title: "Flow" },
+    { metricId: "other", title: "Other" }
+  ]
+};
 
 // Fallback icon shape per impact value when a group's own
 // MapGroup.impactMarkerStyle doesn't override it — see
@@ -387,14 +407,25 @@ export class NXMapBuilderService {
       __lookupKey: lookupKey
     };
 
-    // Flat m_<key>/c_<key> fields for #marker-tooltip-template — Syncfusion's
-    // template is plain ${field} substitution with no loops/conditionals, so
-    // every metric needs its own pair of fields rather than iterating
-    // point.metrics directly in the template.
+    // Flat v_/u_/c_/v2_/u2_/d2_/v3_/u3_/d3_<key> fields for
+    // #marker-tooltip-template — Syncfusion's template is plain ${field}
+    // substitution with no loops/conditionals, so every metric needs its
+    // own set of fields rather than iterating point.metrics directly in the
+    // template. d2_<key>/d3_<key> are a CSS `display` value ("" or "none")
+    // used to hide a tile's second/third value line per-point when that
+    // reading has no value2/value3 — the only way a static ${field}
+    // template can express "hide this if absent" per marker.
     for (const key of METRIC_KEYS) {
       const reading: PointMetric | undefined = point.metrics?.[key];
-      marker[`m_${key}`] = reading ? `${reading.value}${reading.unit ? " " + reading.unit : ""}` : "—";
+      marker[`v_${key}`] = reading ? String(reading.value) : "—";
+      marker[`u_${key}`] = reading?.unit ?? "";
       marker[`c_${key}`] = reading ? STATUS_TOOLTIP_COLORS[reading.status] : "#9aa0a6";
+      marker[`v2_${key}`] = reading?.value2 !== undefined ? String(reading.value2) : "";
+      marker[`u2_${key}`] = reading?.unit2 ?? "";
+      marker[`d2_${key}`] = reading?.value2 !== undefined ? "" : "none";
+      marker[`v3_${key}`] = reading?.value3 !== undefined ? String(reading.value3) : "";
+      marker[`u3_${key}`] = reading?.unit3 ?? "";
+      marker[`d3_${key}`] = reading?.value3 !== undefined ? "" : "none";
     }
 
     return marker;

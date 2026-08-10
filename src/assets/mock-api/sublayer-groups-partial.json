@@ -37,7 +37,8 @@
             "tvp": {
               "value": 60,
               "unit": "kPa",
-              "status": "high"
+              "status": "high",
+              "impact": "customer"
             },
             "salt": {
               "value": 454.87,
@@ -86,7 +87,8 @@
             "salt": {
               "value": 622.03,
               "unit": "mg/L",
-              "status": "high"
+              "status": "high",
+              "impact": "non-customer"
             },
             "bsw": {
               "value": 2.44,
@@ -135,7 +137,8 @@
             "bsw": {
               "value": 4.19,
               "unit": "%",
-              "status": "high"
+              "status": "high",
+              "impact": "customer"
             },
             "h2s": {
               "value": 9.45,
@@ -174,7 +177,8 @@
             "salt": {
               "value": 536.42,
               "unit": "mg/L",
-              "status": "high"
+              "status": "high",
+              "impact": "non-customer"
             },
             "bsw": {
               "value": 4.01,
@@ -223,7 +227,8 @@
             "bsw": {
               "value": 7.64,
               "unit": "%",
-              "status": "high"
+              "status": "high",
+              "impact": "customer"
             },
             "h2s": {
               "value": 14.27,
@@ -257,7 +262,8 @@
             "tvp": {
               "value": 78.14,
               "unit": "kPa",
-              "status": "high"
+              "status": "high",
+              "impact": "non-customer"
             },
             "salt": {
               "value": 647.03,
@@ -311,7 +317,8 @@
             "bsw": {
               "value": 5.41,
               "unit": "%",
-              "status": "high"
+              "status": "high",
+              "impact": "customer"
             },
             "h2s": {
               "value": 15.32,
@@ -345,7 +352,8 @@
             "tvp": {
               "value": 66.62,
               "unit": "kPa",
-              "status": "high"
+              "status": "high",
+              "impact": "non-customer"
             },
             "salt": {
               "value": 551.13,
@@ -394,7 +402,8 @@
             "salt": {
               "value": 557.03,
               "unit": "mg/L",
-              "status": "high"
+              "status": "high",
+              "impact": "customer"
             },
             "bsw": {
               "value": 5.45,
@@ -448,7 +457,8 @@
             "h2s": {
               "value": 5.88,
               "unit": "ppm",
-              "status": "high"
+              "status": "high",
+              "impact": "non-customer"
             },
             "api": {
               "value": 35,
@@ -482,7 +492,8 @@
             "salt": {
               "value": 405.97,
               "unit": "mg/L",
-              "status": "high"
+              "status": "high",
+              "impact": "customer"
             },
             "bsw": {
               "value": 4.27,
@@ -531,7 +542,8 @@
             "bsw": {
               "value": 7.5,
               "unit": "%",
-              "status": "high"
+              "status": "high",
+              "impact": "non-customer"
             },
             "h2s": {
               "value": 16.12,
@@ -565,7 +577,8 @@
             "tvp": {
               "value": 67.16,
               "unit": "kPa",
-              "status": "high"
+              "status": "high",
+              "impact": "customer"
             },
             "salt": {
               "value": 583.34,
@@ -585,7 +598,8 @@
             "api": {
               "value": 36.31,
               "unit": "deg",
-              "status": "high"
+              "status": "high",
+              "impact": "non-customer"
             },
             "flow": {
               "value": 868.54,
@@ -619,7 +633,8 @@
             "bsw": {
               "value": 3.19,
               "unit": "%",
-              "status": "high"
+              "status": "high",
+              "impact": "customer"
             },
             "h2s": {
               "value": 7,
@@ -653,7 +668,8 @@
             "tvp": {
               "value": 92.64,
               "unit": "kPa",
-              "status": "high"
+              "status": "high",
+              "impact": "non-customer"
             },
             "salt": {
               "value": 654.72,
@@ -702,7 +718,8 @@
             "salt": {
               "value": 502.24,
               "unit": "mg/L",
-              "status": "high"
+              "status": "high",
+              "impact": "customer"
             },
             "bsw": {
               "value": 5.99,
@@ -790,7 +807,8 @@
             "salt": {
               "value": 471.34,
               "unit": "mg/L",
-              "status": "high"
+              "status": "high",
+              "impact": "non-customer"
             },
             "bsw": {
               "value": 4.74,
@@ -839,7 +857,8 @@
             "bsw": {
               "value": 7.55,
               "unit": "%",
-              "status": "high"
+              "status": "high",
+              "impact": "customer"
             },
             "h2s": {
               "value": 7.38,
@@ -858,7 +877,8 @@
             },
             "other": {
               "value": 13.4,
-              "status": "high"
+              "status": "high",
+              "impact": "non-customer"
             }
           }
         },
@@ -873,7 +893,8 @@
             "tvp": {
               "value": 72.91,
               "unit": "kPa",
-              "status": "high"
+              "status": "high",
+              "impact": "customer"
             },
             "salt": {
               "value": 612.99,
@@ -927,7 +948,8 @@
             "bsw": {
               "value": 5.15,
               "unit": "%",
-              "status": "high"
+              "status": "high",
+              "impact": "non-customer"
             },
             "h2s": {
               "value": 7.04,
@@ -961,7 +983,8 @@
             "tvp": {
               "value": 82.24,
               "unit": "kPa",
-              "status": "high"
+              "status": "high",
+              "impact": "customer"
             },
             "salt": {
               "value": 655.59,
@@ -1010,7 +1033,8 @@
             "salt": {
               "value": 413.04,
               "unit": "mg/L",
-              "status": "high"
+              "status": "high",
+              "impact": "non-customer"
             },
             "bsw": {
               "value": 2.61,
@@ -1098,7 +1122,8 @@
             "salt": {
               "value": 680.06,
               "unit": "mg/L",
-              "status": "high"
+              "status": "high",
+              "impact": "customer"
             },
             "bsw": {
               "value": 4.47,
@@ -1147,7 +1172,8 @@
             "bsw": {
               "value": 7.27,
               "unit": "%",
-              "status": "high"
+              "status": "high",
+              "impact": "non-customer"
             },
             "h2s": {
               "value": 6.46,
@@ -1235,7 +1261,8 @@
             "bsw": {
               "value": 2.89,
               "unit": "%",
-              "status": "high"
+              "status": "high",
+              "impact": "customer"
             },
             "h2s": {
               "value": 6.08,
@@ -1269,7 +1296,8 @@
             "tvp": {
               "value": 66.48,
               "unit": "kPa",
-              "status": "high"
+              "status": "high",
+              "impact": "non-customer"
             },
             "salt": {
               "value": 673.57,

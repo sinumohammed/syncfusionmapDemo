@@ -3,7 +3,7 @@ import { HttpClient, HttpParams } from "@angular/common/http";
 import { forkJoin, Observable, of } from "rxjs";
 import { map } from "rxjs/operators";
 import { SHAPE_DATA_BY_LAYER_NAME } from "./shape-data-registry";
-import { DataSource, MapGroup, PointMetric } from "../model/nx-map-model";
+import { DataSource, MapGroup } from "../model/nx-map-model";
 import { SubLayerApiConfig } from "../model/nx-map-app-config";
 
 @Injectable()
@@ -75,20 +75,5 @@ export class NXMapConfigService {
       return of([]);
     }
     return forkJoin(apis.map(api => this.loadSubLayerGroup(api))).pipe(map(results => results.flat()));
-  }
-
-  // Fetches ONE metric's own per-point values, keyed by point id — called
-  // fresh on every donut click (see NxMapDemoComponent.applyDonutSelection()),
-  // mirroring a real backend endpoint that takes only the donut's own name
-  // and returns that metric's values. Backed today by a static mock file
-  // per metric id (assets/mock-api/marker-values/<metricId>.json) — the
-  // filename standing in for whatever `metricId` a real endpoint would take
-  // as a query param/path segment; swapping this one line for
-  // `this.http.get(realEndpointUrl, { params: { metric: metricId } })` is
-  // the only change needed once a live backend exists, since the response
-  // shape (Record<pointId, PointMetric>) is already what a real "give me
-  // this metric's readings" call would return.
-  loadMarkerValues(metricId: string): Observable<Record<string, PointMetric>> {
-    return this.http.get<Record<string, PointMetric>>(`assets/mock-api/marker-values/${metricId}.json`);
   }
 }

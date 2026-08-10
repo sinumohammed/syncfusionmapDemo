@@ -93,6 +93,40 @@ export interface PointMetric {
   // (labeled, in the neutral color) once that metric is selected. Unset on
   // a "normal" reading — nothing reads it in that case.
   impact?: "customer" | "non-customer";
+  // Reserved for a tooltip tile's optional second/third line (see
+  // TooltipTemplateConfig) — undefined today for every point in every mock
+  // dataset, which is exactly what keeps that line hidden (see
+  // NXMapBuilderService.toMarker()'s d2_<key>/d3_<key> fields). Populate
+  // these once a real reading actually needs a second value under the
+  // first (e.g. a min/max pair) — no other code change needed, the tile
+  // shows up automatically.
+  value2?: number;
+  unit2?: string;
+  value3?: number;
+  unit3?: string;
+}
+
+// One tile in the hover tooltip's metric grid — `metricId` must be one of
+// NXMapBuilderService.METRIC_KEYS (tvp/salt/bsw/h2s/api/flow/other), the
+// only ids toMarker() actually computes template fields for. `title` is
+// the tile's own small label (e.g. "TVP", "BS&W") — defaults to
+// metricId.toUpperCase() if omitted.
+export interface TooltipTemplateItem {
+  metricId: string;
+  title?: string;
+}
+
+// Drives the hover tooltip's whole layout — `columns` tiles per row,
+// `items` in display order (wraps to a new row every `columns` items).
+// Set on the MAIN layer's MapConfig (MapConfig.tooltipTemplate); omit to
+// fall back to NXMapBuilderService.DEFAULT_TOOLTIP_TEMPLATE. There's
+// exactly one tooltip template live at a time app-wide (see
+// NxMapDemoComponent.injectMarkerTooltipTemplate()'s own comment) — with
+// NxMapCollectionComponent looping over several maps, whichever map's
+// config resolves first wins for all of them.
+export interface TooltipTemplateConfig {
+  columns: number;
+  items: TooltipTemplateItem[];
 }
 
 export interface MapLine extends BaseMapObject, LineStyle {
@@ -338,6 +372,14 @@ export interface MapConfig {
   // hardcoded fallbacks exactly — layers that don't set this see no visual
   // change.
   theme?: string;
+  // Settable on the main layer OR any static child layer (e.g. MOL, which
+  // is where marker metrics actually live) — NxMapDemoComponent.loadMap()
+  // checks the main layer first, then each static layer in order, using
+  // the first one it finds. See TooltipTemplateConfig's own comment for
+  // why there's only one live template app-wide. Omit everywhere to fall
+  // back to NXMapBuilderService.DEFAULT_TOOLTIP_TEMPLATE (the original
+  // 7-metric, 2-column layout).
+  tooltipTemplate?: TooltipTemplateConfig;
 }
 
 // A value that's either hardcoded inline, loaded from a static file, or

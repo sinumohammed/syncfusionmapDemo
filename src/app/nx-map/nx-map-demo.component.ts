@@ -21,9 +21,9 @@ import {
   Zoom,
   IMarkerClickEventArgs
 } from "@syncfusion/ej2-angular-maps";
-import { MapConfig, MapGroup, MapOptions, PointMetric } from "./model/nx-map-model";
+import { MapConfig, MapGroup, MapOptions, PointMetric, TooltipTemplateConfig, TooltipTemplateItem } from "./model/nx-map-model";
 import { NXMapAppConfig } from "./model/nx-map-app-config";
-import { GroupEntry, HeadingNode, LayerTreeNode, NXMapBuilderService } from "./services/nx-map-builder.service";
+import { DEFAULT_TOOLTIP_TEMPLATE, GroupEntry, HeadingNode, LayerTreeNode, NXMapBuilderService } from "./services/nx-map-builder.service";
 import { NXMapConfigService } from "./services/nx-map-config.service";
 import { buildAppConfig, RawLayerNode } from "./services/parent-config-transform";
 
@@ -697,6 +697,28 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
 
       ::ng-deep .marker-tooltip .mtt-unit {
         font-size: 12px;
+        font-weight: 600;
+        color: #9aa0a6;
+        margin-left: 2px;
+      }
+
+      /* value2/value3 lines are always in the DOM (a static template
+         placeholder can't add/remove elements per marker) but toggled to
+         display:none per-point via the d2_<key>/d3_<key> fields
+         (NXMapBuilderService.toMarker()) whenever that point has no
+         value2/value3 — which today is every point, until some reading
+         actually populates them. */
+      ::ng-deep .marker-tooltip .mtt-value2,
+      ::ng-deep .marker-tooltip .mtt-value3 {
+        font-size: 13px;
+        font-weight: 600;
+        color: #5f6368;
+        margin-top: 2px;
+        white-space: nowrap;
+      }
+
+      ::ng-deep .marker-tooltip .mtt-unit {
+        font-size: 12px;
         font-weight: 500;
         color: inherit;
         margin-left: 3px;
@@ -1165,6 +1187,16 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
         // NXMapBuilderService.buildBaseMapFields()'s own comment); this is
         // what it restores when swapping back to a tile style.
         this.configuredZoomFactor = baseConfig.zoomFactor;
+        // tooltipTemplate can be set on the main layer OR any static child
+        // layer (MOL is a static layer under "oman", not the main layer
+        // itself — see MapConfig.tooltipTemplate's own comment, now
+        // updated to reflect this) — first one found wins, main layer
+        // checked first.
+        const tooltipTemplate =
+          baseConfig.tooltipTemplate ??
+          staticLayers.map((s: { config: MapConfig }) => s.config.tooltipTemplate).find((t: any) => !!t) ??
+          DEFAULT_TOOLTIP_TEMPLATE;
+        this.injectMarkerTooltipTemplate(tooltipTemplate);
         this.rebuildMap();
       });
   }
@@ -1213,14 +1245,12 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
   // separately). `universeIds` is likewise unused — membership is decided
   // per-point (metrics[selectedId] present or not), not by group id list.
   //
-  // Every selection (except clearing) fetches this metric's OWN values
-  // fresh via NXMapConfigService.loadMarkerValues() — simulating a real
-  // "pass the donut's name, get its marker values back" endpoint — and
-  // stores the response on MapGroup.activeMetricValues, which
-  // toMetricOverlayMarker() (nx-map-builder.service.ts) prefers over the
-  // point's own already-loaded metrics[selectedId] for the overlay
-  // label/color. Pass `selectedId: null` to clear every group's
-  // activeMetricId/activeMetricValues (no fetch needed for that case).
+  // Every point already carries its own reading for every metric
+  // (MapPoint.metrics, loaded once as part of the normal group fetch) — a
+  // donut click just re-keys THIS metric's readings by point id from data
+  // already on hand, no separate per-metric endpoint/file needed. Pass
+  // `selectedId: null` to clear every group's activeMetricId/
+  // activeMetricValues.
   applyDonutSelection(
     selectedId: string | null,
     universeIds: string[],
@@ -1230,7 +1260,29 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
       this.applyMetricSelection(null, null);
       return;
     }
-    this.configService.loadMarkerValues(selectedId).subscribe(values => this.applyMetricSelection(selectedId, values));
+    this.applyMetricSelection(selectedId, this.extractMetricValues(selectedId));
+  }
+
+  // Walks every group's ORIGINAL points (both sub-layer and static-layer
+  // snapshots) and picks out this one metric's reading per point id —
+  // mirrors the shape a real "give me this metric's values" endpoint would
+  // return (Record<pointId, PointMetric>), just sourced from the points'
+  // own already-loaded metrics instead of a second round-trip.
+  private extractMetricValues(selectedId: string): Record<string, PointMetric> {
+    const values: Record<string, PointMetric> = {};
+    const collectFrom = (groups: MapGroup[]) => {
+      for (const g of groups) {
+        for (const p of g.markerConfig?.points ?? []) {
+          const metric = p.metrics?.[selectedId];
+          if (metric && p.id) {
+            values[p.id] = metric;
+          }
+        }
+      }
+    };
+    collectFrom(this.subLayerGroupsOriginal);
+    this.staticLayerGroupsOriginal.forEach(collectFrom);
+    return values;
   }
 
   // Shared by applyDonutSelection()'s clear (selectedId: null, no fetch
@@ -1724,7 +1776,17 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
   }
 
   ngAfterViewInit(): void {
-    this.injectMarkerTooltipTemplate();
+    // Only a fallback for a genuinely async config load (a real HTTP
+    // source) — loadMap() is kicked off in ngOnChanges, which fires BEFORE
+    // ngAfterViewInit, so for an inline/synchronous config (e.g. the
+    // bundled real-parent-config.json import) loadMap()'s own subscribe
+    // has already injected the CORRECT config-driven template by the time
+    // this runs; calling injectMarkerTooltipTemplate() unconditionally
+    // here would silently stomp that back to the default every time,
+    // which is exactly what was happening before this guard existed.
+    if (!document.getElementById("marker-tooltip-template")) {
+      this.injectMarkerTooltipTemplate(DEFAULT_TOOLTIP_TEMPLATE);
+    }
     this.injectMarkerLabelTemplate();
     this.wireResetButton();
     // Syncfusion renders the zoom toolbar asynchronously after the
@@ -1752,62 +1814,61 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
   // anything.
   //
   // ${name} is the marker's own name (bound from toMarker()'s dataSource
-  // object). Every metric stat below is real per-marker data — toMarker()
-  // in nx-map-builder.service.ts precomputes m_<key> (value+unit, or "—"
-  // when that point has no such reading) and c_<key> (a status-based
-  // color) for each of the 7 known metric ids, since Syncfusion's ${field}
-  // template substitution can't loop over MapPoint.metrics directly.
-  private injectMarkerTooltipTemplate(): void {
-    if (document.getElementById("marker-tooltip-template")) {
-      return;
+  // object). Every tile below is real per-marker data — toMarker() in
+  // nx-map-builder.service.ts precomputes v_/u_/c_/v2_/u2_/d2_/v3_/u3_/
+  // d3_<key> fields for each of the 7 known metric ids, since Syncfusion's
+  // ${field} template substitution can't loop over MapPoint.metrics
+  // directly. `config` (MapConfig.tooltipTemplate, or
+  // NXMapBuilderService.DEFAULT_TOOLTIP_TEMPLATE) decides which metrics
+  // appear, in what order, under what title, and how many tiles per row —
+  // rebuilding this element's innerHTML is enough to change the tooltip's
+  // whole layout, no other code path involved. Called again every time
+  // loadMap() resolves a fresh baseConfig (rebuildMap(), style switches,
+  // Reset...) — cheap (a handful of string concatenation) and keeps the
+  // template in sync if the config's tooltipTemplate ever changes.
+  private injectMarkerTooltipTemplate(config: TooltipTemplateConfig): void {
+    let container = document.getElementById("marker-tooltip-template");
+    if (!container) {
+      container = document.createElement("div");
+      container.id = "marker-tooltip-template";
+      container.style.display = "none";
+      document.body.appendChild(container);
     }
-    const container = document.createElement("div");
-    container.id = "marker-tooltip-template";
-    container.style.display = "none";
+
+    const columns = Math.max(1, config.columns);
+    const rows: string[] = [];
+    for (let i = 0; i < config.items.length; i += columns) {
+      const cells = config.items
+        .slice(i, i + columns)
+        .map(item => this.tooltipTileHtml(item))
+        .join("");
+      rows.push(`<div class="mtt-row">${cells}</div>`);
+    }
+
     container.innerHTML = `
       <div class="marker-tooltip">
         <div class="mtt-header">
           <span class="mtt-title">\${name}</span>
         </div>
-        <div class="mtt-row">
-          <div class="mtt-stat">
-            <div class="mtt-label">TVP</div>
-            <div class="mtt-value" style="color: \${c_tvp};">\${m_tvp}</div>
-          </div>
-          <div class="mtt-stat">
-            <div class="mtt-label">Salt</div>
-            <div class="mtt-value" style="color: \${c_salt};">\${m_salt}</div>
-          </div>
-        </div>
-        <div class="mtt-row">
-          <div class="mtt-stat">
-            <div class="mtt-label">BS&amp;W</div>
-            <div class="mtt-value" style="color: \${c_bsw};">\${m_bsw}</div>
-          </div>
-          <div class="mtt-stat">
-            <div class="mtt-label">Dissolved H2S</div>
-            <div class="mtt-value" style="color: \${c_h2s};">\${m_h2s}</div>
-          </div>
-        </div>
-        <div class="mtt-row">
-          <div class="mtt-stat">
-            <div class="mtt-label">API</div>
-            <div class="mtt-value" style="color: \${c_api};">\${m_api}</div>
-          </div>
-          <div class="mtt-stat">
-            <div class="mtt-label">Flow</div>
-            <div class="mtt-value" style="color: \${c_flow};">\${m_flow}</div>
-          </div>
-        </div>
-        <div class="mtt-row">
-          <div class="mtt-stat">
-            <div class="mtt-label">Other</div>
-            <div class="mtt-value" style="color: \${c_other};">\${m_other}</div>
-          </div>
-        </div>
+        ${rows.join("")}
       </div>
     `;
-    document.body.appendChild(container);
+  }
+
+  // One tooltip tile — title is config-level (same text for every marker,
+  // baked in now), value/unit/color are per-marker ${field} placeholders
+  // resolved by Syncfusion at hover time.
+  private tooltipTileHtml(item: TooltipTemplateItem): string {
+    const key = item.metricId;
+    const title = item.title ?? key.toUpperCase();
+    return `
+      <div class="mtt-stat">
+        <div class="mtt-label">${title}</div>
+        <div class="mtt-value" style="color: \${c_${key}};">\${v_${key}} <span class="mtt-unit">\${u_${key}}</span></div>
+        <div class="mtt-value2" style="display: \${d2_${key}};">\${v2_${key}} <span class="mtt-unit">\${u2_${key}}</span></div>
+        <div class="mtt-value3" style="display: \${d3_${key}};">\${v3_${key}} <span class="mtt-unit">\${u3_${key}}</span></div>
+      </div>
+    `;
   }
 
   // Builds the #marker-label-template element that

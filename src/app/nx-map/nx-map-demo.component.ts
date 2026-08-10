@@ -1761,6 +1761,14 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
       return;
     }
     const host = this.elRef.nativeElement;
+    // buildLayers() (nx-map-builder.service.ts) can paint layers in a
+    // different order than they were declared (see its own comment) — DOM
+    // position "_LayerIndex_<i>" always follows PAINT order, but
+    // getLayerVisible() is keyed by the ORIGINAL layerIndex. renderOrder[i]
+    // translates position i back to that original index — without it, this
+    // was toggling visibility on whichever layer happened to render at
+    // position i, not the one actually checked/unchecked in the panel.
+    const renderOrder = this.builder.getRenderOrder();
     this.mapOptions.layers.forEach((_layerSettings, i) => {
       const group = host.querySelector(`[id$="_LayerIndex_${i}"]`) as HTMLElement | null;
       if (group) {
@@ -1770,7 +1778,8 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
         // getLayerVisible() is the real per-layer flag that was never
         // handed to Syncfusion, specifically so its layersCollection never
         // drops/renumbers an entry and desyncs this index-based lookup.
-        group.style.display = this.builder.getLayerVisible(i) ? "" : "none";
+        const originalIndex = renderOrder[i] ?? i;
+        group.style.display = this.builder.getLayerVisible(originalIndex) ? "" : "none";
       }
     });
   }

@@ -170,6 +170,21 @@ export class NXMapBuilderService {
   // toggling a group in one layer never touches another layer's markers.
   private layers: LayerState[] = [];
 
+  // renderOrder[renderPosition] = original this.layers index — populated by
+  // buildLayers() whenever its paint-order reorder (see that method's own
+  // comment) actually moves a layer away from its declared position.
+  // Syncfusion numbers each rendered layer's DOM group ("_LayerIndex_<n>")
+  // by POSITION in the array buildLayers() returns, not by original
+  // layerIndex — nx-map-demo.component.ts's syncLayerDomVisibility() needs
+  // this to translate a DOM position back to the correct getLayerVisible()
+  // lookup. Without it, show/hide silently targets whichever layer
+  // happens to render at that position instead of the one actually
+  // toggled (confirmed live: unchecking a layer whose paint position got
+  // reordered hid a DIFFERENT layer's shape while leaving the intended
+  // one's background on screen, and re-checking it then appeared to do
+  // nothing).
+  private renderOrder: number[] = [];
+
   // Keyed by "<layerIndex>:<groupId>:<pointIndex>" — the same key stamped
   // onto each marker's dataSource object as `__lookupKey` in toMarker().
   // Resolves markerClick's `data` arg in O(1) without any DOM-id parsing,
@@ -892,9 +907,24 @@ export class NXMapBuilderService {
     // Syncfusion's own flag pinned to true keeps layersCollection's length
     // and numbering stable; getLayerVisible() below is the real (indexable)
     // source of truth syncLayerDomVisibility() should use instead.
+    // `layerIndex` (the .map() position) is where Syncfusion PAINTS this
+    // entry, which buildLayers() can reorder away from the original
+    // this.layers index (see its own comment, and renderOrder's) — every
+    // this.layers[...]/buildMarkerPoints()/buildNavigationLines()/
+    // buildPolygon() lookup below MUST go through renderOrder to land on
+    // the layer actually rendered at this position, not this.layers[layerIndex]
+    // directly. Confirmed live: without this translation, a toggle-
+    // triggered refresh() rebuilds each position's markers/lines/polygons
+    // from the WRONG layer whenever paint order and declared order
+    // diverge — e.g. unchecking a marker-less layer that got reordered
+    // ahead of a marker-bearing one silently wiped that marker-bearing
+    // layer's markers out of the map, only "fixed" by whatever next
+    // triggered a full buildMap() (which recomputes renderOrder AND
+    // markerSettings together, so they can't drift apart).
     mapOptions.layers = mapOptions.layers.map((existing, layerIndex) => {
-      const layer = this.layers[layerIndex];
-      const isMain = layerIndex === this.mainLayerIndex;
+      const originalIndex = this.renderOrder[layerIndex] ?? layerIndex;
+      const layer = this.layers[originalIndex];
+      const isMain = originalIndex === this.mainLayerIndex;
       // Only the main layer can ever change baseMapType at runtime (see
       // setBaseMapType()) — recomputing the full shapeData/urlTemplate/
       // shapeSettings/dataLabelSettings set for every OTHER layer here would
@@ -906,9 +936,9 @@ export class NXMapBuilderService {
           ...existing,
           ...this.buildBaseMapFields(layer, isMain),
           visible: true,
-          markerSettings: this.buildMarkerPoints(layerIndex),
-          navigationLineSettings: this.buildNavigationLines(layerIndex),
-          polygonSettings: this.buildPolygon(layerIndex)
+          markerSettings: this.buildMarkerPoints(originalIndex),
+          navigationLineSettings: this.buildNavigationLines(originalIndex),
+          polygonSettings: this.buildPolygon(originalIndex)
         };
       }
       return {
@@ -926,9 +956,9 @@ export class NXMapBuilderService {
         shapeSettings: existing.shapeSettings
           ? { ...existing.shapeSettings, fill: this.resolveLayerBackground(layer, isMain) }
           : existing.shapeSettings,
-        markerSettings: this.buildMarkerPoints(layerIndex),
-        navigationLineSettings: this.buildNavigationLines(layerIndex),
-        polygonSettings: this.buildPolygon(layerIndex)
+        markerSettings: this.buildMarkerPoints(originalIndex),
+        navigationLineSettings: this.buildNavigationLines(originalIndex),
+        polygonSettings: this.buildPolygon(originalIndex)
       };
     });
   }
@@ -1052,6 +1082,7 @@ export class NXMapBuilderService {
 
       return {
         isMain,
+        layerIndex,
         hasMarkers: layer.groups.some(g => (g.markerConfig?.points ?? []).length > 0),
         layer: {
           ...this.buildBaseMapFields(layer, isMain),
@@ -1077,7 +1108,16 @@ export class NXMapBuilderService {
     // browser this app targets already implements) — layers within the
     // same hasMarkers bucket keep their original relative order.
     const orderedRest = [...rest].sort((a, b) => Number(a.hasMarkers) - Number(b.hasMarkers));
-    return [...main, ...orderedRest].map(b => b.layer);
+    const ordered = [...main, ...orderedRest];
+    this.renderOrder = ordered.map(b => b.layerIndex);
+    return ordered.map(b => b.layer);
+  }
+
+  // See renderOrder's own comment — renderOrder[renderPosition] is the
+  // original layerIndex to use with getLayerVisible()/other layerIndex-keyed
+  // lookups for whatever DOM group Syncfusion rendered at that position.
+  getRenderOrder(): number[] {
+    return this.renderOrder;
   }
 
   // shapeData/urlTemplate/shapeSettings/dataLabelSettings all pivot on the

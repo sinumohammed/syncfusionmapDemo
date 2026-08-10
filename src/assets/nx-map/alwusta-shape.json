@@ -209,7 +209,8 @@
       "properties": {
         "source": "https://simplemaps.com",
         "id": "Lekhwair",
-        "name": "Lekhwair Cluster"
+        "name": "Lekhwair Cluster",
+        "region": "Al Wusta North"
       },
       "id": 1
     },
@@ -409,7 +410,8 @@
       "properties": {
         "source": "https://simplemaps.com",
         "id": "Qarn_Alam",
-        "name": "Qarn Alam Cluster"
+        "name": "Qarn Alam Cluster",
+        "region": "Al Wusta South"
       },
       "id": 2
     }

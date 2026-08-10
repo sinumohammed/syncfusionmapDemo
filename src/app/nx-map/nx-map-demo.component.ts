@@ -18,6 +18,7 @@ import {
   MapsTooltip,
   NavigationLine,
   Polygon,
+  Selection,
   Zoom,
   IMarkerClickEventArgs
 } from "@syncfusion/ej2-angular-maps";
@@ -29,7 +30,8 @@ import {
   HeadingNode,
   LayerTreeNode,
   NXMapBuilderService,
-  ShapeFeatureEntry
+  ShapeFeatureEntry,
+  ShapeFeatureGroupNode
 } from "./services/nx-map-builder.service";
 import { NXMapConfigService } from "./services/nx-map-config.service";
 import { buildAppConfig, RawLayerNode } from "./services/parent-config-transform";
@@ -37,7 +39,12 @@ import { buildAppConfig, RawLayerNode } from "./services/parent-config-transform
 // Marker clustering needs no separate module — it's part of Marker, driven
 // entirely by each marker group's `clusterSettings` (see the builder
 // service). Injecting Marker is enough.
-Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
+// Selection stays injected even though selectionSettings is no longer set
+// anywhere (see buildBaseMapFields()'s own comment) — the `shapeSelected`
+// event onShapeSelected() relies on for zoom-to-feature is part of this
+// module, confirmed live to still need it (its absence is what caused the
+// original "Module Selection is not available" warning and a dead click).
+Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon, Selection);
 
 @Component({
   selector: "app-nx-map-demo",
@@ -323,13 +330,39 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
 
           <!-- One row per shapeData feature (e.g. Al Wusta's two clusters) —
                lets a multi-polygon layer's individual shapes be shown/hidden
-               without touching the rest of the layer. -->
+               without touching the rest of the layer. Only features with no
+               "region" set land here — grouped ones render below instead. -->
           <div class="tree-indent" *ngFor="let feature of layer.shapeFeatures">
             <label *ngIf="matchesSearch(feature.name)">
               <input type="checkbox" [checked]="feature.visible" (click)="toggleShapeFeature(feature, layer)" />
               {{ feature.name }}
             </label>
           </div>
+
+          <!-- shapeData features bucketed by "properties.region" (e.g. "Al
+               Wusta North" containing "Lekhwair Cluster") — a toggleable
+               section, same pattern as the heading sections above. -->
+          <ng-container *ngFor="let g of layer.shapeFeatureGroups">
+            <details class="tree-indent" open>
+              <summary>
+                <label (click)="$event.stopPropagation()">
+                  <input
+                    type="checkbox"
+                    [checked]="shapeFeatureGroupState(g) === 'checked'"
+                    [indeterminate]="shapeFeatureGroupState(g) === 'indeterminate'"
+                    (click)="$event.stopPropagation(); toggleShapeFeatureGroup(g, layer)"
+                  />
+                  {{ g.region }}
+                </label>
+              </summary>
+              <div class="tree-indent" *ngFor="let feature of g.features">
+                <label *ngIf="matchesSearch(feature.name)">
+                  <input type="checkbox" [checked]="feature.visible" (click)="toggleShapeFeature(feature, layer)" />
+                  {{ feature.name }}
+                </label>
+              </div>
+            </details>
+          </ng-container>
 
           <ng-container *ngFor="let child of layer.children">
             <div class="tree-indent" *ngIf="layerMatchesSearch(child)">
@@ -365,6 +398,7 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
         [layers]="mapOptions?.layers"
         (markerClick)="onMarkerClick($event)"
         (click)="onMapClick($event)"
+        (shapeSelected)="onShapeSelected($event)"
         (resize)="onMapResize()"
         (loaded)="onMapLoaded()"
         (zoomComplete)="onZoomComplete()"
@@ -1511,7 +1545,8 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
       layer.groups.some(e => this.groupShown(e)) ||
       layer.headings.some(h => h.groups.some(e => this.groupShown(e))) ||
       layer.children.length > 0 ||
-      layer.shapeFeatures.length > 0
+      layer.shapeFeatures.length > 0 ||
+      layer.shapeFeatureGroups.length > 0
     );
   }
 
@@ -1573,7 +1608,8 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
       layer.groups.some(e => this.groupMatchesSearch(e)) ||
       layer.headings.some(h => this.headingMatchesSearch(h)) ||
       layer.children.some(c => this.layerMatchesSearch(c)) ||
-      layer.shapeFeatures.some(f => this.matchesSearch(f.name))
+      layer.shapeFeatures.some(f => this.matchesSearch(f.name)) ||
+      layer.shapeFeatureGroups.some(g => this.matchesSearch(g.region) || g.features.some(f => this.matchesSearch(f.name)))
     );
   }
 
@@ -1614,7 +1650,8 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
       ...layer.groups.map(e => this.groupState(e)),
       ...layer.headings.map(h => this.headingState(h)),
       ...layer.children.map(c => this.layerState(c)),
-      ...layer.shapeFeatures.map(f => (f.visible ? "checked" : "unchecked") as "checked" | "unchecked")
+      ...layer.shapeFeatures.map(f => (f.visible ? "checked" : "unchecked") as "checked" | "unchecked"),
+      ...layer.shapeFeatureGroups.map(g => this.shapeFeatureGroupState(g))
     ];
     return this.combineStates(states);
   }
@@ -1635,6 +1672,12 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
       feature.visible = visible;
       this.builder.setShapeFeatureVisible(layer.layerIndex, feature.index, visible);
     });
+    layer.shapeFeatureGroups.forEach(group =>
+      group.features.forEach(feature => {
+        feature.visible = visible;
+        this.builder.setShapeFeatureVisible(layer.layerIndex, feature.index, visible);
+      })
+    );
   }
 
   // Turns a layer's own master `visible` flag (the thing that actually
@@ -1658,7 +1701,8 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
       ...layer.groups.map(e => this.groupState(e)),
       ...layer.headings.map(h => this.headingState(h)),
       ...layer.children.map(c => this.layerState(c)),
-      ...layer.shapeFeatures.map(f => (f.visible ? "checked" : "unchecked") as "checked" | "unchecked")
+      ...layer.shapeFeatures.map(f => (f.visible ? "checked" : "unchecked") as "checked" | "unchecked"),
+      ...layer.shapeFeatureGroups.map(g => this.shapeFeatureGroupState(g))
     ].some(s => s !== "unchecked");
 
     if (anyVisible) {
@@ -1742,6 +1786,27 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
     this.render();
   }
 
+  // Tri-state checkbox for a ShapeFeatureGroupNode (e.g. "Al Wusta North"
+  // bucketing "Lekhwair Cluster") — same convention as groupState()/
+  // headingState() above.
+  shapeFeatureGroupState(group: ShapeFeatureGroupNode): "checked" | "unchecked" | "indeterminate" {
+    return this.combineStates(group.features.map(f => (f.visible ? "checked" : "unchecked")));
+  }
+
+  // Checking an indeterminate/unchecked region shows every feature under
+  // it; checking a fully-checked one hides them all — same convention as
+  // toggleGroup()/toggleHeading() above.
+  toggleShapeFeatureGroup(group: ShapeFeatureGroupNode, layer: LayerTreeNode): void {
+    const shouldShow = this.shapeFeatureGroupState(group) !== "checked";
+    group.features.forEach(feature => {
+      feature.visible = shouldShow;
+      this.builder.setShapeFeatureVisible(layer.layerIndex, feature.index, shouldShow);
+    });
+    this.syncLayerVisibility(layer);
+    this.builder.refresh(this.mapOptions);
+    this.render();
+  }
+
   toggleLeaf(item: { visible?: boolean }, group: MapGroup, layer: LayerTreeNode): void {
     const shouldShow = !(item.visible !== false);
     item.visible = shouldShow;
@@ -1769,6 +1834,23 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
     }
     console.log(`You selected ${graphic.groupName}`, graphic);
     this.showToast(`You clicked "${graphic.object.name || "Item"}" in "${graphic.groupName}"`);
+  }
+
+  // Fires on a click landing on ANY layer's raw shapeData feature (not
+  // gated by any per-layer setting — Syncfusion dispatches this for every
+  // shape click regardless), so scoping to just the intended features
+  // (e.g. Al Wusta's "Lekhwair"/"Qarn Alam" clusters) happens entirely in
+  // resolveSelectedShapeName()'s own matching — a click on, say, Oman's or
+  // MOL's shape just won't match anything there and this is a no-op.
+  // Toast only, deliberately no zoom or shape restyling — see
+  // resolveSelectedShapeName()'s own comment for why both were dropped
+  // (Syncfusion's native selectionSettings border proved unreliable, and a
+  // click-driven zoomByPosition() conflicted with interactive wheel-zoom).
+  onShapeSelected(args: any): void {
+    const featureName = this.builder.resolveSelectedShapeName(args?.shapeData);
+    if (featureName) {
+      this.showToast(`"${featureName}"`);
+    }
   }
 
   // On-screen equivalent of the console.log above — shows briefly near the

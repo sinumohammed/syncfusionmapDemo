@@ -145,6 +145,19 @@ export interface ShapeFeatureEntry {
   visible: boolean;
 }
 
+// Buckets shapeData features sharing the same GeoJSON `properties.region`
+// (e.g. Al Wusta's "Lekhwair Cluster" under "Al Wusta North", "Qarn Alam
+// Cluster" under "Al Wusta South") — a toggleable section in the filter
+// tree, same idea as HeadingNode for groups. Purely data-driven: set
+// `region` directly in the feature's own `properties` in the shapeData
+// file, no separate config flag — a feature with no `region` set just
+// stays in LayerTreeNode.shapeFeatures (ungrouped), same as before this
+// existed.
+export interface ShapeFeatureGroupNode {
+  region: string;
+  features: ShapeFeatureEntry[];
+}
+
 // Groups sharing the same MapGroup.heading (e.g. groups delivered by a
 // sub-layer API call, tagged with a heading at fetch time) are bucketed
 // together under one of these — a toggleable section in the filter popup,
@@ -175,10 +188,15 @@ export interface LayerTreeNode {
   // static layers nested under the base layer in the filter popup, even
   // though each still renders as its own independent Syncfusion SubLayer.
   children: LayerTreeNode[];
-  // This layer's individual shapeData features (e.g. Al Wusta's two
-  // clusters), one row each — empty for a layer whose shapeData is a single
-  // shape or has none at all. See ShapeFeatureEntry's own comment.
+  // This layer's individual shapeData features with no `region` set —
+  // rendered directly under the layer, same as before shapeFeatureGroups
+  // existed. Empty for a layer whose shapeData is a single shape, has none
+  // at all, or whose every feature is grouped. See ShapeFeatureEntry's own
+  // comment.
   shapeFeatures: ShapeFeatureEntry[];
+  // shapeData features bucketed by `properties.region`, in first-seen
+  // order. See ShapeFeatureGroupNode's own comment.
+  shapeFeatureGroups: ShapeFeatureGroupNode[];
   // This layer's own theme override (MapConfig.theme), or undefined when
   // it's inheriting from the app-wide/default theme instead. Drives the
   // layer panel's theme <select> — see setLayerTheme().
@@ -911,14 +929,28 @@ export class NXMapBuilderService {
     // duplicating its own label, when the layer's own checkbox already
     // covers that one feature completely.
     const rawFeatures = layer.shapeData?.features ?? [];
-    const shapeFeatures: ShapeFeatureEntry[] =
-      layer.config.shapeFeaturesSelectable && rawFeatures.length > 1
-        ? rawFeatures.map((feature: any, index: number) => ({
-            index,
-            name: feature?.properties?.name ?? feature?.properties?.id ?? `Shape ${index + 1}`,
-            visible: layer.shapeFeatureVisible[index] !== false
-          }))
-        : [];
+    const shapeFeatures: ShapeFeatureEntry[] = [];
+    const regionOrder: string[] = [];
+    const regionFeatures = new Map<string, ShapeFeatureEntry[]>();
+    if (layer.config.shapeFeaturesSelectable && rawFeatures.length > 1) {
+      rawFeatures.forEach((feature: any, index: number) => {
+        const entry: ShapeFeatureEntry = {
+          index,
+          name: feature?.properties?.name ?? feature?.properties?.id ?? `Shape ${index + 1}`,
+          visible: layer.shapeFeatureVisible[index] !== false
+        };
+        const region = feature?.properties?.region;
+        if (region) {
+          if (!regionFeatures.has(region)) {
+            regionOrder.push(region);
+            regionFeatures.set(region, []);
+          }
+          regionFeatures.get(region)!.push(entry);
+        } else {
+          shapeFeatures.push(entry);
+        }
+      });
+    }
 
     return {
       layerIndex,
@@ -930,6 +962,7 @@ export class NXMapBuilderService {
       headings: headingOrder.map(heading => ({ heading, groups: headingGroups.get(heading)! })),
       children: [],
       shapeFeatures,
+      shapeFeatureGroups: regionOrder.map(region => ({ region, features: regionFeatures.get(region)! })),
       themeName: layer.config.theme
     };
   }
@@ -1347,5 +1380,41 @@ export class NXMapBuilderService {
       index: Number(match[1]),
       layerIndex: layerMatch ? Number(layerMatch[1]) : 0
     };
+  }
+
+  // Called from NxMapDemoComponent.onShapeSelected() with the exact
+  // shapeData object Syncfusion's own `shapeSelected` event hands back
+  // (args.shapeData) — confirmed live that this is actually the clicked
+  // feature's `properties` object (not the whole Feature), passed through
+  // by REFERENCE from our own shapeData (Syncfusion never clones it), so
+  // matching against each feature's `.properties` is how the click is
+  // traced back to a specific feature without any id-parsing. Only matches
+  // layers explicitly opted into per-polygon selection
+  // (shapeFeaturesSelectable) — otherwise a click ANYWHERE on the main Oman
+  // shape (or any other layer's own single boundary feature) matches THAT
+  // layer's own feature.properties too (every shape layer's shapeData is a
+  // FeatureCollection with properties, not just the opted-in ones) —
+  // confirmed live this was why every map click was matching, not just
+  // clicks on Lekhwair/Qarn Alam.
+  //
+  // Deliberately name-only, no zoom-to-feature: an earlier version also
+  // returned a center/zoomFactor and called zoomByPosition() on click, but
+  // that conflicted with Syncfusion's OWN interactive wheel-zoom state in
+  // this version (confirmed live: scroll-zoom-out got stuck at the same
+  // factor afterward) — see onZoomComplete()'s own comment for the same
+  // class of zoomByPosition-vs-interactive-zoom desync already documented
+  // there. Dropped rather than risk breaking core zoom controls.
+  resolveSelectedShapeName(shapeData: any): string | undefined {
+    for (const layer of this.layers) {
+      if (!layer.config.shapeFeaturesSelectable) {
+        continue;
+      }
+      const features: any[] = layer.shapeData?.features ?? [];
+      const feature = features.find(f => f.properties === shapeData);
+      if (feature) {
+        return feature.properties?.name ?? feature.properties?.id ?? "Shape";
+      }
+    }
+    return undefined;
   }
 }

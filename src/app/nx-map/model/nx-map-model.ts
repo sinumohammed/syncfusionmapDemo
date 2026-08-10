@@ -225,6 +225,15 @@ export interface MapGroup {
   // on this group entirely (the common case today) falls through to
   // defaults for every point.
   impactMarkerStyle?: Partial<Record<"customer" | "non-customer", { shape?: string; color?: string }>>;
+  // Default false. Controls whether this group's own markers/polygons/
+  // circles/lines get their own checkbox rows in the filter tree, nested
+  // under this group's row — NOT whether they render on the map, which is
+  // unaffected either way. False (or unset) shows just this group's own
+  // summary row (still fully toggleable — unchecking it hides every leaf
+  // underneath exactly as before, see toggleGroup()), same as a group with
+  // no leaves at all; true expands it into the previous per-leaf checkbox
+  // list (one row per marker/polygon/circle/line).
+  childrenParticipateInFilter?: boolean;
 }
 
 export interface DataLabel {
@@ -374,6 +383,14 @@ export interface MapConfig {
   // toggle offered for it, so a deployment can bake in a layer without
   // exposing it as a user-facing option.
   participateInFilter?: boolean;
+  // Default false. When true AND this layer's shapeData is a multi-feature
+  // FeatureCollection (e.g. Al Wusta's "Lekhwair"/"Qarn Alam" clusters), the
+  // filter tree lists each feature as its own checkbox row (with a
+  // "(<count>)" suffix on the layer's own label) so one polygon can be
+  // shown/hidden independently of the rest of the layer. Left false (or a
+  // single-shape layer), the filter tree behaves exactly as before — just
+  // the one layer-level checkbox, no per-feature breakdown.
+  shapeFeaturesSelectable?: boolean;
   // Selects a named entry from nx-map-themes.json to supply fallback
   // style/color/dimension values for this layer's markers, clusters, lines,
   // polygons, circles, tooltip border, and dataLabel, for whichever of

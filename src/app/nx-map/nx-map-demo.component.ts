@@ -23,7 +23,14 @@ import {
 } from "@syncfusion/ej2-angular-maps";
 import { MapConfig, MapGroup, MapOptions, PointMetric, TooltipTemplateConfig, TooltipTemplateItem } from "./model/nx-map-model";
 import { NXMapAppConfig } from "./model/nx-map-app-config";
-import { DEFAULT_TOOLTIP_TEMPLATE, GroupEntry, HeadingNode, LayerTreeNode, NXMapBuilderService } from "./services/nx-map-builder.service";
+import {
+  DEFAULT_TOOLTIP_TEMPLATE,
+  GroupEntry,
+  HeadingNode,
+  LayerTreeNode,
+  NXMapBuilderService,
+  ShapeFeatureEntry
+} from "./services/nx-map-builder.service";
 import { NXMapConfigService } from "./services/nx-map-config.service";
 import { buildAppConfig, RawLayerNode } from "./services/parent-config-transform";
 
@@ -288,13 +295,13 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
           </summary>
 
           <ng-container *ngFor="let entry of layer.groups">
-            <ng-container *ngIf="groupMatchesSearch(entry)">
+            <ng-container *ngIf="groupShown(entry) && groupMatchesSearch(entry)">
               <ng-container *ngTemplateOutlet="groupEntryTpl; context: { entry: entry, layer: layer }"></ng-container>
             </ng-container>
           </ng-container>
 
           <ng-container *ngFor="let h of layer.headings">
-            <details class="tree-indent" *ngIf="headingMatchesSearch(h)" open>
+            <details class="tree-indent" *ngIf="headingHasShownGroup(h) && headingMatchesSearch(h)" open>
               <summary>
                 <label (click)="$event.stopPropagation()">
                   <input
@@ -307,12 +314,22 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon);
                 </label>
               </summary>
               <ng-container *ngFor="let entry of h.groups">
-                <ng-container *ngIf="groupMatchesSearch(entry)">
+                <ng-container *ngIf="groupShown(entry) && groupMatchesSearch(entry)">
                   <ng-container *ngTemplateOutlet="groupEntryTpl; context: { entry: entry, layer: layer }"></ng-container>
                 </ng-container>
               </ng-container>
             </details>
           </ng-container>
+
+          <!-- One row per shapeData feature (e.g. Al Wusta's two clusters) —
+               lets a multi-polygon layer's individual shapes be shown/hidden
+               without touching the rest of the layer. -->
+          <div class="tree-indent" *ngFor="let feature of layer.shapeFeatures">
+            <label *ngIf="matchesSearch(feature.name)">
+              <input type="checkbox" [checked]="feature.visible" (click)="toggleShapeFeature(feature, layer)" />
+              {{ feature.name }}
+            </label>
+          </div>
 
           <ng-container *ngFor="let child of layer.children">
             <div class="tree-indent" *ngIf="layerMatchesSearch(child)">
@@ -1008,7 +1025,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
   // ngOnChanges()/loadMap() for how it's resolved into the MapConfig[] the
   // builder service expects. Definite-assignment: only ever set once
   // parentConfig actually arrives (ngOnChanges), never at construction.
-  private appConfig!: NXMapAppConfig;
+  private nxAppConfig!: NXMapAppConfig;
   private configs: MapConfig[] = [];
 
   // Kept as fields (rather than only local variables inside loadMap()) so
@@ -1079,8 +1096,8 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
     if (!changes["parentConfig"] || !this.parentConfig) {
       return;
     }
-    this.appConfig = buildAppConfig(this.parentConfig);
-    this.loadMap(this.appConfig);
+    this.nxAppConfig = buildAppConfig(this.parentConfig);
+    this.loadMap(this.nxAppConfig);
   }
 
   private loadMap(appConfig: NXMapAppConfig): void {
@@ -1213,7 +1230,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
   // below) — a real integration should leave it unset and vary results via
   // `payload` against the one configured URL instead.
   reloadSubLayerGroups(payload?: Record<string, string | number | boolean>, apiIndex = 0, urlOverride?: string): void {
-    const api = this.appConfig.subLayerApis[apiIndex];
+    const api = this.nxAppConfig.subLayerApis[apiIndex];
     if (!api) {
       return;
     }
@@ -1370,7 +1387,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
     // Every layer/group comes back fully checked (buildMap()'s default) —
     // a reload is a full reset, not a merge with whatever was previously
     // toggled.
-    this.mapOptions = this.builder.buildMap(this.configs, shapeDataByLayer, this.appConfig.theme);
+    this.mapOptions = this.builder.buildMap(this.configs, shapeDataByLayer, this.nxAppConfig.theme);
     this.layerTree = this.builder.getLayerTree();
     this.mapStyle = this.builder.getBaseMapType() ?? "shape";
     this.render();
@@ -1453,16 +1470,49 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
   // choice between a <details> (with its disclosure arrow) and a plain
   // no-arrow row for a group whose markers/polygons/circles/lines are all
   // empty.
+  // groupEntryTpl is only ever instantiated for a group groupShown() already
+  // let through (see layerNodeTpl), so by the time this runs the group HAS
+  // opted into the filter tree — this purely decides expandable-with-leaves
+  // vs plain single row, same as before childrenParticipateInFilter existed.
   groupHasLeaves(entry: GroupEntry): boolean {
     return this.groupLeaves(entry).length > 0;
   }
 
-  // Whether a layer node has anything to expand at all (groups, headings,
-  // or nested child layers) — drives layerNodeTpl's choice between a
-  // <details> and a plain no-arrow row for a layer configured with no
-  // groups of its own (e.g. a static layer whose config has `groups: []`).
+  // Whether a group's own row appears in the filter tree AT ALL — governed
+  // by MapGroup.childrenParticipateInFilter (default false/unset). A group
+  // that doesn't opt in is already fully covered by its layer's own
+  // checkbox (toggleLayer()/setLayerTreeVisibility() cascade to it exactly
+  // the same either way — this is a pure display filter), so showing a
+  // redundant group-name row underneath just duplicates the layer's own
+  // label for no benefit — e.g. MOL's "mol" group ("Main Oil Line") nested
+  // under the already-named "MOL" layer. Only a group explicitly opted in
+  // gets its own row (and, per groupHasLeaves() above, its own leaves).
+  groupShown(entry: GroupEntry): boolean {
+    return entry.group.childrenParticipateInFilter === true;
+  }
+
+  // Angular template expressions can't contain an inline arrow function
+  // (`h.groups.some(e => groupShown(e))` in *ngIf throws NG5002: "Bindings
+  // cannot contain assignments" — its parser misreads `=>`), so this is
+  // factored out to a plain method call instead.
+  headingHasShownGroup(heading: HeadingNode): boolean {
+    return heading.groups.some(e => this.groupShown(e));
+  }
+
+  // Whether a layer node has anything to expand at all (a shown group,
+  // heading with at least one shown group, nested child layer, or shape
+  // feature) — drives layerNodeTpl's choice between a <details> and a plain
+  // no-arrow row. A layer whose only groups are all opted OUT of the filter
+  // tree (childrenParticipateInFilter false/unset) renders as a plain row
+  // too, same as one with no groups at all — there'd be nothing to expand
+  // into.
   layerHasContent(layer: LayerTreeNode): boolean {
-    return layer.groups.length > 0 || layer.headings.length > 0 || layer.children.length > 0;
+    return (
+      layer.groups.some(e => this.groupShown(e)) ||
+      layer.headings.some(h => h.groups.some(e => this.groupShown(e))) ||
+      layer.children.length > 0 ||
+      layer.shapeFeatures.length > 0
+    );
   }
 
   // Tri-state checkbox status shared by every parent level in the filter
@@ -1522,7 +1572,8 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
       this.matchesSearch(layer.displayName) ||
       layer.groups.some(e => this.groupMatchesSearch(e)) ||
       layer.headings.some(h => this.headingMatchesSearch(h)) ||
-      layer.children.some(c => this.layerMatchesSearch(c))
+      layer.children.some(c => this.layerMatchesSearch(c)) ||
+      layer.shapeFeatures.some(f => this.matchesSearch(f.name))
     );
   }
 
@@ -1562,7 +1613,8 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
     const states = [
       ...layer.groups.map(e => this.groupState(e)),
       ...layer.headings.map(h => this.headingState(h)),
-      ...layer.children.map(c => this.layerState(c))
+      ...layer.children.map(c => this.layerState(c)),
+      ...layer.shapeFeatures.map(f => (f.visible ? "checked" : "unchecked") as "checked" | "unchecked")
     ];
     return this.combineStates(states);
   }
@@ -1579,6 +1631,10 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
     layer.groups.forEach(entry => this.setGroupVisibility(entry, visible));
     layer.headings.forEach(heading => heading.groups.forEach(entry => this.setGroupVisibility(entry, visible)));
     layer.children.forEach(child => this.setLayerTreeVisibility(child, visible));
+    layer.shapeFeatures.forEach(feature => {
+      feature.visible = visible;
+      this.builder.setShapeFeatureVisible(layer.layerIndex, feature.index, visible);
+    });
   }
 
   // Turns a layer's own master `visible` flag (the thing that actually
@@ -1601,7 +1657,8 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
     const anyVisible = [
       ...layer.groups.map(e => this.groupState(e)),
       ...layer.headings.map(h => this.headingState(h)),
-      ...layer.children.map(c => this.layerState(c))
+      ...layer.children.map(c => this.layerState(c)),
+      ...layer.shapeFeatures.map(f => (f.visible ? "checked" : "unchecked") as "checked" | "unchecked")
     ].some(s => s !== "unchecked");
 
     if (anyVisible) {
@@ -1672,6 +1729,19 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
   // syncLayerVisibility() keeps the layer's own master flag matching
   // whatever's left checked either way (on when this was the first thing
   // checked back on, off when this was the last thing left visible).
+  // One row per shapeData feature (e.g. Al Wusta's "Lekhwair Cluster"),
+  // toggled independently of the rest of the layer — unchecking one filters
+  // just that feature out of what's sent to Syncfusion (see
+  // NXMapBuilderService.visibleShapeData()), same "gone, not just dimmed"
+  // behavior as unchecking a group leaf.
+  toggleShapeFeature(feature: ShapeFeatureEntry, layer: LayerTreeNode): void {
+    feature.visible = !feature.visible;
+    this.builder.setShapeFeatureVisible(layer.layerIndex, feature.index, feature.visible);
+    this.syncLayerVisibility(layer);
+    this.builder.refresh(this.mapOptions);
+    this.render();
+  }
+
   toggleLeaf(item: { visible?: boolean }, group: MapGroup, layer: LayerTreeNode): void {
     const shouldShow = !(item.visible !== false);
     item.visible = shouldShow;

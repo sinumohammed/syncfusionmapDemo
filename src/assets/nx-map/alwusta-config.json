@@ -3,6 +3,7 @@
   "title": {
     "text": "Al Wusta"
   },
+  "shapeFeaturesSelectable": true,
   "dataLabel": {
     "visible": true,
     "color": "beige",

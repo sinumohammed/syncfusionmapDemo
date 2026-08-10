@@ -109,6 +109,12 @@ interface LayerState {
   // own `visible` (which only hides that group's markers/lines/polygons
   // within a still-visible layer).
   visible: boolean;
+  // One entry per feature in shapeData.features (empty when shapeData isn't
+  // a multi-feature FeatureCollection) — lets the filter tree show/hide one
+  // shape polygon (e.g. Al Wusta's "Lekhwair Cluster"/"Qarn Alam Cluster")
+  // independently of the rest of the layer. Index-aligned with
+  // shapeData.features, NOT cloned per feature — see visibleShapeData().
+  shapeFeatureVisible: boolean[];
   // Resolved once in initialize() from config.theme — always a full
   // (possibly empty) MapTheme object, defaulting to the "default" entry for
   // an unset or unrecognized theme name. See resolveTheme().
@@ -125,6 +131,18 @@ export interface GroupEntry {
   polygons: MapPolygon[];
   circles: MapCircle[];
   lines: MapLine[];
+}
+
+// One entry per shape-data feature (e.g. Al Wusta's "Lekhwair Cluster") a
+// layer's boundary GeoJSON carries — only populated for layers whose
+// shapeData is a multi-feature FeatureCollection. Toggling `visible` off
+// filters that one feature out of what's sent to Syncfusion (see
+// NXMapBuilderService.visibleShapeData()), same "removed from the map, not
+// just dimmed" behavior as unchecking a group leaf.
+export interface ShapeFeatureEntry {
+  index: number;
+  name: string;
+  visible: boolean;
 }
 
 // Groups sharing the same MapGroup.heading (e.g. groups delivered by a
@@ -157,6 +175,10 @@ export interface LayerTreeNode {
   // static layers nested under the base layer in the filter popup, even
   // though each still renders as its own independent Syncfusion SubLayer.
   children: LayerTreeNode[];
+  // This layer's individual shapeData features (e.g. Al Wusta's two
+  // clusters), one row each — empty for a layer whose shapeData is a single
+  // shape or has none at all. See ShapeFeatureEntry's own comment.
+  shapeFeatures: ShapeFeatureEntry[];
   // This layer's own theme override (MapConfig.theme), or undefined when
   // it's inheriting from the app-wide/default theme instead. Drives the
   // layer panel's theme <select> — see setLayerTheme().
@@ -257,6 +279,10 @@ export class NXMapBuilderService {
       config,
       shapeData: shapeDataByLayer[config.layerName],
       visible: true,
+      // Every feature starts visible — a fresh initialize() (including a
+      // full rebuildMap() reload) resets any prior per-feature hide, same
+      // as every other visibility flag cloned below.
+      shapeFeatureVisible: (shapeDataByLayer[config.layerName]?.features ?? []).map(() => true),
       theme: this.resolveTheme(config.theme ?? baseTheme),
       // Every leaf-bearing field is freshly cloned here (not just the
       // group wrapper) — markerConfig.points already was, via
@@ -876,6 +902,24 @@ export class NXMapBuilderService {
       }
     });
 
+    // Opt-in per MapConfig.shapeFeaturesSelectable — a layer that doesn't set
+    // it keeps the pre-existing single-checkbox behavior, even when its
+    // shapeData happens to have multiple features. Also gated on more than
+    // one feature: a single-feature shape (e.g. MOL's own boundary, whose
+    // one feature is literally named "MOL" — the same as the layer's own
+    // title) would otherwise nest a redundant child row under the layer
+    // duplicating its own label, when the layer's own checkbox already
+    // covers that one feature completely.
+    const rawFeatures = layer.shapeData?.features ?? [];
+    const shapeFeatures: ShapeFeatureEntry[] =
+      layer.config.shapeFeaturesSelectable && rawFeatures.length > 1
+        ? rawFeatures.map((feature: any, index: number) => ({
+            index,
+            name: feature?.properties?.name ?? feature?.properties?.id ?? `Shape ${index + 1}`,
+            visible: layer.shapeFeatureVisible[index] !== false
+          }))
+        : [];
+
     return {
       layerIndex,
       layerName: layer.config.layerName,
@@ -885,8 +929,21 @@ export class NXMapBuilderService {
       groups,
       headings: headingOrder.map(heading => ({ heading, groups: headingGroups.get(heading)! })),
       children: [],
+      shapeFeatures,
       themeName: layer.config.theme
     };
+  }
+
+  // Runtime toggle for one shapeData feature (e.g. one of Al Wusta's
+  // clusters) — mirrors setLayerTheme()'s pattern: mutate this.layers state,
+  // then the caller follows up with refresh(mapOptions) + render() to
+  // actually repaint, same as every other toggle in this service.
+  setShapeFeatureVisible(layerIndex: number, featureIndex: number, visible: boolean): void {
+    const layer = this.layers[layerIndex];
+    if (!layer) {
+      return;
+    }
+    layer.shapeFeatureVisible[featureIndex] = visible;
   }
 
   refresh(mapOptions: MapOptions) {
@@ -944,6 +1001,13 @@ export class NXMapBuilderService {
       return {
         ...existing,
         visible: true,
+        // shapeData itself is otherwise only ever built once, in
+        // buildLayers() — re-derived here too (cheap: just an array filter)
+        // so a runtime per-feature toggle (toggleShapeFeature()) actually
+        // repaints a non-main layer's shape without needing a full
+        // buildMap(). undefined for a tile layer (shapeData itself is
+        // undefined there), so nothing to recompute.
+        shapeData: existing.shapeData ? this.visibleShapeData(layer) : existing.shapeData,
         // shapeSettings itself was only ever built once, in buildLayers() —
         // a runtime theme change (e.g. the layer panel's theme <select>)
         // otherwise never touched it at all, so layer.background/border/
@@ -1141,12 +1205,29 @@ export class NXMapBuilderService {
   // drift apart. Non-main layers are never tile-based (see buildLayers()'s
   // own warning), so isTile is always false for them regardless of what
   // their config says.
+  // Filters shapeData.features down to whichever ones shapeFeatureVisible
+  // still marks true — a feature toggled off in the layer tree is fully
+  // absent from what Syncfusion renders, not just dimmed. Returns
+  // layer.shapeData untouched (including undefined/non-FeatureCollection
+  // shapes) when there's nothing to filter, so this is safe to call
+  // unconditionally.
+  private visibleShapeData(layer: LayerState): any {
+    const features = layer.shapeData?.features;
+    if (!Array.isArray(features) || features.every((_f: any, i: number) => layer.shapeFeatureVisible[i] !== false)) {
+      return layer.shapeData;
+    }
+    return {
+      ...layer.shapeData,
+      features: features.filter((_f: any, i: number) => layer.shapeFeatureVisible[i] !== false)
+    };
+  }
+
   private buildBaseMapFields(layer: LayerState, isMain: boolean) {
     const isTile = this.isTileBaseMapType(layer.config.baseMapType) && isMain;
     return {
       // Raster tiles and shapeData are mutually exclusive per Syncfusion —
       // urlTemplate only takes effect when shapeData is NOT set.
-      shapeData: isTile ? undefined : layer.shapeData,
+      shapeData: isTile ? undefined : this.visibleShapeData(layer),
       urlTemplate: isTile ? this.resolveTileUrl(layer.config.baseMapType) : undefined,
       shapeSettings: isTile
         ? undefined

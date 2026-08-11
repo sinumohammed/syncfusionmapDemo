@@ -98,6 +98,37 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon, Selec
         </div>
       </div>
 
+      <!-- Fullscreen toggle — furthest left of the three, using the
+           standard Fullscreen API on .nx-map-demo itself (map + its
+           controls, not the surrounding page/donut panels). -->
+      <div class="maximize-control" [style.top.px]="layerBtnTop" [style.right.px]="maximizeBtnRight">
+        <button
+          type="button"
+          class="layer-btn"
+          [title]="isFullscreen ? 'Exit full screen' : 'Full screen'"
+          (click)="toggleFullscreen()"
+        >
+          <svg *ngIf="!isFullscreen" viewBox="0 0 24 24" width="18" height="18" fill="none">
+            <path
+              d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"
+              stroke="#5f6368"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <svg *ngIf="isFullscreen" viewBox="0 0 24 24" width="18" height="18" fill="none">
+            <path
+              d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"
+              stroke="#5f6368"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+      </div>
+
       <!-- Layer LIST button — sits between the base-map control above and
            the zoom toolbar (i.e. closest to the toolbar), opening the same
            filter-tree panel this used to be bound to directly. -->
@@ -457,12 +488,29 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon, Selec
         width: 100%;
       }
 
+      /* Browsers' own UA stylesheet already stretches the fullscreen
+         element to fill the viewport, but explicit vw/vh + an opaque
+         background is cheap insurance against that varying (and against
+         .nx-map-demo's own height:100% having nothing to resolve against
+         once it's promoted out of normal flow). */
+      .nx-map-demo:fullscreen {
+        width: 100vw;
+        height: 100vh;
+        background: #fff;
+      }
+
       /* top/right are set at runtime (see alignLayerControl()) to match
          wherever Syncfusion actually renders its zoom toolbar — that
          position depends on the map's rendered aspect ratio and isn't a
          fixed pixel offset from the container edge, so a hardcoded value
-         here drifts out of alignment depending on viewport size. */
+         here drifts out of alignment depending on viewport size. Same for
+         .maximize-control below (chained off it, see maximizeBtnRight). */
       .nx-map-demo .layer-control {
+        position: absolute;
+        z-index: 100;
+      }
+
+      .nx-map-demo .maximize-control {
         position: absolute;
         z-index: 100;
       }
@@ -1037,6 +1085,39 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
   // alignLayerControl() uses elsewhere.
   get basemapBtnRight(): number {
     return this.layerBtnRight + 36 + 8;
+  }
+
+  // Furthest-left of the three controls — same chained-offset pattern as
+  // basemapBtnRight above.
+  get maximizeBtnRight(): number {
+    return this.basemapBtnRight + 36 + 8;
+  }
+
+  // Real source of truth is document.fullscreenElement (kept in sync by
+  // onFullscreenChange() below) — this is just what the button's icon/title
+  // renders off. Two-way sync matters because fullscreen can also be
+  // exited without the button (Esc key, browser's own "Exit full screen"
+  // affordance), which fires the same fullscreenchange event.
+  isFullscreen = false;
+
+  toggleFullscreen(): void {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+      return;
+    }
+    // .nx-map-demo itself, not the whole page/host — this is the map plus
+    // its own layer/basemap controls, not any donut panel or other widget
+    // a parent component might be rendering alongside it.
+    this.elRef.nativeElement.querySelector(".nx-map-demo")?.requestFullscreen();
+  }
+
+  @HostListener("document:fullscreenchange")
+  onFullscreenChange(): void {
+    this.isFullscreen = !!document.fullscreenElement;
+    // The map's own container size just changed (viewport-filling now, or
+    // back to its normal in-page size) — same re-measure the toolbar
+    // position needs after any other resize (see onWindowResize()).
+    setTimeout(() => this.alignLayerControl(), 150);
   }
 
   // Filter-tree search box — plain text, matched case-insensitively against

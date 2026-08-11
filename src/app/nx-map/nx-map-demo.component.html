@@ -1,0 +1,432 @@
+<div class="nx-map">
+  <!-- Layer control, placed before ejs-maps in the DOM and positioned
+       just left of the Maps zoom toolbar. Fully custom (no Syncfusion
+       dropdown component) — a plain button + panel is far less fragile
+       than fighting a 3rd-party popup's own stacking/positioning.
+
+       Three toggle levels, each independent:
+         - layer checkbox   -> hides the whole region (shape + everything
+                               in it), via setLayerVisible()
+         - group checkbox   -> hides that group's markers/lines/polygons/
+                               circles, layer itself stays visible
+         - item checkbox    -> hides one specific marker/polygon/circle/
+                               line, its group stays visible
+       <details>/<summary> gives expand/collapse for free, no JS state
+       needed to track which nodes are open. -->
+  <!-- Base-map style switcher — the "layer icon" spot itself now opens
+       this (the conventional map-app placement for a Map/Satellite
+       switch), positioned further from the zoom toolbar than the layer
+       LIST button below. "Shape" falls back to whatever shapeData was
+       already resolved for the main layer (see
+       NXMapBuilderService.setBaseMapType()'s own comment), "Map" is OSM
+       streets, "Satellite" is Esri World Imagery. -->
+  <div class="basemap-control" [style.top.px]="layerBtnTop" [style.right.px]="basemapBtnRight">
+    <button
+      type="button"
+      class="layer-btn"
+      title="Base map style"
+      (click)="toggleBasemapPanel()"
+    >
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
+        <path d="M12 3 2 8l10 5 10-5-10-5Z" fill="#5f6368" />
+        <path d="M2 12l10 5 10-5" stroke="#5f6368" stroke-width="1.6" fill="none" />
+        <path d="M2 16l10 5 10-5" stroke="#5f6368" stroke-width="1.6" fill="none" />
+      </svg>
+    </button>
+
+    <div class="basemap-panel" *ngIf="basemapPanelOpen">
+      <button type="button" [class.active]="mapStyle === 'shape'" (click)="setMapStyle('shape')">
+        Shape
+      </button>
+      <button type="button" [class.active]="mapStyle === 'osm'" (click)="setMapStyle('osm')">
+        Map
+      </button>
+      <button type="button" [class.active]="mapStyle === 'satellite'" (click)="setMapStyle('satellite')">
+        Satellite
+      </button>
+    </div>
+  </div>
+
+  <!-- Fullscreen toggle — furthest left of the three, using the
+       standard Fullscreen API on .nx-map itself (map + its
+       controls, not the surrounding page/donut panels). -->
+  <div class="maximize-control" [style.top.px]="layerBtnTop" [style.right.px]="maximizeBtnRight">
+    <button
+      type="button"
+      class="layer-btn"
+      [title]="isFullscreen ? 'Exit full screen' : 'Full screen'"
+      (click)="toggleFullscreen()"
+    >
+      <svg *ngIf="!isFullscreen" viewBox="0 0 24 24" width="18" height="18" fill="none">
+        <path
+          d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"
+          stroke="#5f6368"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+      <svg *ngIf="isFullscreen" viewBox="0 0 24 24" width="18" height="18" fill="none">
+        <path
+          d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"
+          stroke="#5f6368"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+    </button>
+  </div>
+
+  <!-- Layer LIST button — sits between the base-map control above and
+       the zoom toolbar (i.e. closest to the toolbar), opening the same
+       filter-tree panel this used to be bound to directly. -->
+  <div class="layer-control" [style.top.px]="layerBtnTop" [style.right.px]="layerBtnRight">
+    <button
+      type="button"
+      class="layer-btn"
+      title="Map layers"
+      (click)="toggleLayerPanel()"
+    >
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
+        <rect x="3" y="4" width="18" height="3" rx="1" fill="#5f6368" />
+        <rect x="3" y="10.5" width="18" height="3" rx="1" fill="#5f6368" />
+        <rect x="3" y="17" width="18" height="3" rx="1" fill="#5f6368" />
+      </svg>
+    </button>
+  </div>
+
+  <!-- Positioned independently from .layer-control (not nested inside
+       it): the button's own left offset tracks Syncfusion's zoom
+       toolbar, but the panel itself is pinned to the map's actual right
+       edge and stretched down to the map's actual bottom edge — it
+       would otherwise inherit the button's (usually much larger)
+       inward offset and end up narrower / not flush with the edge. -->
+  <div
+    class="layer-panel"
+    *ngIf="layerPanelOpen"
+    [style.top.px]="panelTop"
+    [style.max-height.px]="panelMaxHeight"
+  >
+      <div class="layer-panel-header">
+        <span class="layer-panel-title">Layer List</span>
+        <button type="button" class="icon-btn" title="Close" (click)="layerPanelOpen = false">
+          ✕
+        </button>
+      </div>
+
+      <!-- Manual test trigger for reloadSubLayerGroups() — no auto-firing
+           anywhere; this is the only thing that calls it. Alternates
+           between the full 2-group mock response and a partial 1-group
+           one (Surface dropped) each click, purely so clicking it twice
+           visibly proves the reload REPLACES the previous sub-layer
+           groups (Surface disappears from this popup, not just stops
+           rendering on the map) rather than appending to them — wire a
+           real payload/endpoint here when a live backend exists. -->
+      <div class="layer-panel-testbar">
+        <button type="button" class="reload-btn" (click)="reloadSubLayerGroupsDemo()">
+          Reload Sub-Layers ({{ subLayerDemoAlt ? "partial" : "full" }} → click for {{ subLayerDemoAlt ? "full" : "partial" }})
+        </button>
+      </div>
+
+      <div class="layer-panel-subheader">Layers</div>
+
+      <div class="layer-panel-search">
+        <input
+          type="text"
+          placeholder="Search layers, groups, markers…"
+          [value]="filterText"
+          (input)="filterText = $any($event.target).value"
+        />
+      </div>
+
+      <div class="layer-panel-body">
+        <ng-container *ngFor="let item of layerTree">
+          <ng-container *ngIf="layerOrRegionMatchesSearch(item)">
+            <ng-container *ngIf="isRegionNode(item); else rootLayerTpl">
+              <ng-container *ngTemplateOutlet="layerRegionTpl; context: { region: item }"></ng-container>
+            </ng-container>
+            <ng-template #rootLayerTpl>
+              <ng-container *ngTemplateOutlet="layerNodeTpl; context: { layer: item }"></ng-container>
+            </ng-template>
+          </ng-container>
+        </ng-container>
+      </div>
+  </div>
+
+  <!-- One row per LayerRegionNode (layers grouped via MapConfig.region)
+       — same checkbox-folder pattern as a heading, but bucketing whole
+       layer nodes instead of groups. Reused at both the tree's root
+       list and inside a layer's own children list, since either can
+       contain a region bucket (see NXMapBuilderService.getLayerTree()).
+  -->
+  <ng-template #layerRegionTpl let-region="region">
+    <details open>
+      <summary>
+        <label (click)="$event.stopPropagation()">
+          <input
+            type="checkbox"
+            [checked]="layerRegionState(region) === 'checked'"
+            [indeterminate]="layerRegionState(region) === 'indeterminate'"
+            (click)="$event.stopPropagation(); toggleLayerRegion(region)"
+          />
+          {{ region.region }}
+        </label>
+      </summary>
+      <ng-container *ngFor="let layer of region.layers">
+        <div class="tree-indent" *ngIf="layerMatchesSearch(layer)">
+          <ng-container *ngTemplateOutlet="layerNodeTpl; context: { layer: layer }"></ng-container>
+        </div>
+      </ng-container>
+    </details>
+  </ng-template>
+
+  <!-- A group entry's own checkbox+label row — factored out so both
+       branches below (expandable vs leaf-only) render the exact same
+       markup instead of duplicating the checkbox bindings. -->
+  <ng-template #groupSummaryTpl let-entry="entry" let-layer="layer">
+    <label (click)="$event.stopPropagation()">
+      <input
+        type="checkbox"
+        [checked]="groupState(entry) === 'checked'"
+        [indeterminate]="groupState(entry) === 'indeterminate'"
+        (click)="$event.stopPropagation(); toggleGroup(entry, layer)"
+      />
+      {{ entry.group.name }}
+    </label>
+  </ng-template>
+
+  <!-- Reused for every group leaf, whether it's an ungrouped
+       layer.groups entry or nested inside a heading — a group's own
+       checkbox plus its flat marker/polygon/circle/line leaves. A group
+       with no markers/polygons/circles/lines at all (groupHasLeaves()
+       false) has nothing to expand, so it renders as a plain row
+       instead — a <details> here would otherwise still show its
+       disclosure arrow even though opening it reveals nothing. -->
+  <ng-template #groupEntryTpl let-entry="entry" let-layer="layer">
+    <details class="tree-indent" open *ngIf="groupHasLeaves(entry); else groupLeafRow">
+      <summary>
+        <ng-container *ngTemplateOutlet="groupSummaryTpl; context: { entry: entry, layer: layer }"></ng-container>
+      </summary>
+
+      <div class="tree-indent leaves">
+        <ng-container *ngFor="let m of entry.markers">
+          <label *ngIf="matchesSearch(m.name || 'Marker')">
+            <input
+              type="checkbox"
+              [checked]="m.visible !== false"
+              (click)="toggleLeaf(m, entry.group, layer)"
+            />
+            {{ m.name || "Marker" }}
+          </label>
+        </ng-container>
+        <ng-container *ngFor="let p of entry.polygons">
+          <label *ngIf="matchesSearch(p.name || 'Polygon')">
+            <input
+              type="checkbox"
+              [checked]="p.visible !== false"
+              (click)="toggleLeaf(p, entry.group, layer)"
+            />
+            {{ p.name || "Polygon" }}
+          </label>
+        </ng-container>
+        <ng-container *ngFor="let c of entry.circles">
+          <label *ngIf="matchesSearch(c.name || 'Circle')">
+            <input
+              type="checkbox"
+              [checked]="c.visible !== false"
+              (click)="toggleLeaf(c, entry.group, layer)"
+            />
+            {{ c.name || "Circle" }}
+          </label>
+        </ng-container>
+        <ng-container *ngFor="let l of entry.lines; let i = index">
+          <label *ngIf="matchesSearch('Line ' + (i + 1))">
+            <input
+              type="checkbox"
+              [checked]="l.visible !== false"
+              (click)="toggleLeaf(l, entry.group, layer)"
+            />
+            Line {{ i + 1 }}
+          </label>
+        </ng-container>
+      </div>
+    </details>
+    <ng-template #groupLeafRow>
+      <div class="tree-indent no-children">
+        <ng-container *ngTemplateOutlet="groupSummaryTpl; context: { entry: entry, layer: layer }"></ng-container>
+      </div>
+    </ng-template>
+  </ng-template>
+
+  <!-- A layer node's own checkbox+label row — factored out for the same
+       reason as groupSummaryTpl above. -->
+  <ng-template #layerSummaryTpl let-layer="layer">
+    <label
+      (click)="$event.stopPropagation()"
+      [title]="layer.isMainLayer ? 'Main layer — always visible' : ''"
+    >
+      <input
+        type="checkbox"
+        [checked]="layerState(layer) === 'checked'"
+        [indeterminate]="layerState(layer) === 'indeterminate'"
+        [disabled]="layer.isMainLayer"
+        (click)="$event.stopPropagation(); toggleLayer(layer)"
+      />
+      {{ layer.displayName }}{{ layer.isMainLayer ? " (main)" : "" }}
+    </label>
+
+    <!-- Test-only control: switches this layer's theme at runtime (no
+         config-file edit needed) so the cascade (group -> layer ->
+         app-wide -> "default") can be tried live. "Inherit" maps to
+         undefined, same as never setting MapConfig.theme at all. -->
+    <select
+      class="theme-select"
+      [title]="'Theme for ' + layer.displayName"
+      (click)="$event.stopPropagation()"
+      (change)="onLayerThemeChange(layer, $any($event.target).value)"
+    >
+      <!-- [selected] set explicitly on each option, rather than relying
+           on the <select>'s own [value] to match against options
+           rendered by *ngFor below — a plain [value] binding on the
+           select can desync here: once Angular sets it to a string
+           that's unchanged on a later check, it skips re-applying the
+           DOM property, even if that first attempt happened before the
+           *ngFor options existed yet to match against. -->
+      <option value="" [selected]="!layer.themeName">Inherit</option>
+      <option *ngFor="let name of themeNames" [value]="name" [selected]="layer.themeName === name">{{ name }}</option>
+    </select>
+  </ng-template>
+
+  <!-- One layer node: its own summary checkbox, its ungrouped groups,
+       its toggleable heading sections (each bucketing groups from a
+       sub-layer API call), and any nested child layers (e.g. static
+       layers nested under the base/Oman layer) — rendered by calling
+       this same template again, so nesting depth isn't hardcoded. A
+       layer with none of the above (layerHasContent() false — e.g. a
+       static layer configured with groups: []) has nothing to expand,
+       so it renders as a plain row instead of a <details> that would
+       still show a disclosure arrow over an empty panel. -->
+  <ng-template #layerNodeTpl let-layer="layer">
+    <details open *ngIf="layerHasContent(layer); else layerLeafRow">
+      <summary>
+        <ng-container *ngTemplateOutlet="layerSummaryTpl; context: { layer: layer }"></ng-container>
+      </summary>
+
+      <ng-container *ngFor="let entry of layer.groups">
+        <ng-container *ngIf="groupShown(entry) && groupMatchesSearch(entry)">
+          <ng-container *ngTemplateOutlet="groupEntryTpl; context: { entry: entry, layer: layer }"></ng-container>
+        </ng-container>
+      </ng-container>
+
+      <ng-container *ngFor="let h of layer.headings">
+        <details class="tree-indent" *ngIf="headingHasShownGroup(h) && headingMatchesSearch(h)" open>
+          <summary>
+            <label (click)="$event.stopPropagation()">
+              <input
+                type="checkbox"
+                [checked]="headingState(h) === 'checked'"
+                [indeterminate]="headingState(h) === 'indeterminate'"
+                (click)="$event.stopPropagation(); toggleHeading(h, layer)"
+              />
+              {{ h.heading }}
+            </label>
+          </summary>
+          <ng-container *ngFor="let entry of h.groups">
+            <ng-container *ngIf="groupShown(entry) && groupMatchesSearch(entry)">
+              <ng-container *ngTemplateOutlet="groupEntryTpl; context: { entry: entry, layer: layer }"></ng-container>
+            </ng-container>
+          </ng-container>
+        </details>
+      </ng-container>
+
+      <!-- One row per shapeData feature (e.g. Al Wusta's two clusters) —
+           lets a multi-polygon layer's individual shapes be shown/hidden
+           without touching the rest of the layer. Only features with no
+           "region" set land here — grouped ones render below instead. -->
+      <div class="tree-indent" *ngFor="let feature of layer.shapeFeatures">
+        <label *ngIf="matchesSearch(feature.name)">
+          <input type="checkbox" [checked]="feature.visible" (click)="toggleShapeFeature(feature, layer)" />
+          {{ feature.name }}
+        </label>
+      </div>
+
+      <!-- shapeData features bucketed by "properties.region" (e.g. "Al
+           Wusta North" containing "Lekhwair Cluster") — a toggleable
+           section, same pattern as the heading sections above. -->
+      <ng-container *ngFor="let g of layer.shapeFeatureGroups">
+        <details class="tree-indent" open>
+          <summary>
+            <label (click)="$event.stopPropagation()">
+              <input
+                type="checkbox"
+                [checked]="shapeFeatureGroupState(g) === 'checked'"
+                [indeterminate]="shapeFeatureGroupState(g) === 'indeterminate'"
+                (click)="$event.stopPropagation(); toggleShapeFeatureGroup(g, layer)"
+              />
+              {{ g.region }}
+            </label>
+          </summary>
+          <div class="tree-indent" *ngFor="let feature of g.features">
+            <label *ngIf="matchesSearch(feature.name)">
+              <input type="checkbox" [checked]="feature.visible" (click)="toggleShapeFeature(feature, layer)" />
+              {{ feature.name }}
+            </label>
+          </div>
+        </details>
+      </ng-container>
+
+      <ng-container *ngFor="let child of layer.children">
+        <div class="tree-indent" *ngIf="layerOrRegionMatchesSearch(child)">
+          <ng-container *ngIf="isRegionNode(child); else childLayerTpl">
+            <ng-container *ngTemplateOutlet="layerRegionTpl; context: { region: child }"></ng-container>
+          </ng-container>
+          <ng-template #childLayerTpl>
+            <ng-container *ngTemplateOutlet="layerNodeTpl; context: { layer: child }"></ng-container>
+          </ng-template>
+        </div>
+      </ng-container>
+    </details>
+    <ng-template #layerLeafRow>
+      <div class="no-children">
+        <ng-container *ngTemplateOutlet="layerSummaryTpl; context: { layer: layer }"></ng-container>
+      </div>
+    </ng-template>
+  </ng-template>
+
+  <!-- Binding the whole [layers] array (rather than one <e-layer> per
+       mapOptions.layers[i]) is what lets this render N Syncfusion
+       layers for N MapConfig entries — one per genuinely distinct
+       shapeData/region, e.g. Musandam + Dhofar + Al Wusta stacked on
+       the base Oman layer. Groups (Facilities/Surface/...) still live
+       WITHIN each layer's markerSettings/polygonSettings — they don't
+       need separate Syncfusion layers, so toggling them never has the
+       "one layer hides another" occlusion problem real layers can have
+       when they geographically overlap. -->
+  <ejs-maps
+    class="map-container"
+    *ngIf="mapVisible && mapOptions?.layers?.length"
+    #mapInstance
+    width="100%"
+    height="100%"
+    [titleSettings]="mapOptions?.titleSettings"
+    [zoomSettings]="mapOptions?.zoomSettings"
+    [centerPosition]="mapOptions?.centerPosition"
+    [layers]="mapOptions?.layers"
+    (markerClick)="onMarkerClick($event)"
+    (click)="onMapClick($event)"
+    (shapeSelected)="onShapeSelected($event)"
+    (resize)="onMapResize()"
+    (loaded)="onMapLoaded()"
+    (zoomComplete)="onZoomComplete()"
+  >
+  </ejs-maps>
+
+  <!-- On-screen equivalent of the console.log in onMarkerClick()/
+       onMapClick() — appears briefly over the map on a marker/polygon/
+       circle click, then clears itself (see showToast()). -->
+  <div class="click-toast" *ngIf="toastMessage">
+    {{ toastMessage }}
+  </div>
+
+</div>

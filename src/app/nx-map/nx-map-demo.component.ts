@@ -28,10 +28,12 @@ import {
   DEFAULT_TOOLTIP_TEMPLATE,
   GroupEntry,
   HeadingNode,
+  LayerRegionNode,
   LayerTreeNode,
   NXMapBuilderService,
   ShapeFeatureEntry,
-  ShapeFeatureGroupNode
+  ShapeFeatureGroupNode,
+  isLayerRegionNode
 } from "./services/nx-map-builder.service";
 import { NXMapConfigService } from "./services/nx-map-config.service";
 import { buildAppConfig, RawLayerNode } from "./services/parent-config-transform";
@@ -48,990 +50,8 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon, Selec
 
 @Component({
   selector: "app-nx-map-demo",
-  template: `
-    <div class="nx-map-demo">
-      <!-- Layer control, placed before ejs-maps in the DOM and positioned
-           just left of the Maps zoom toolbar. Fully custom (no Syncfusion
-           dropdown component) — a plain button + panel is far less fragile
-           than fighting a 3rd-party popup's own stacking/positioning.
-
-           Three toggle levels, each independent:
-             - layer checkbox   -> hides the whole region (shape + everything
-                                   in it), via setLayerVisible()
-             - group checkbox   -> hides that group's markers/lines/polygons/
-                                   circles, layer itself stays visible
-             - item checkbox    -> hides one specific marker/polygon/circle/
-                                   line, its group stays visible
-           <details>/<summary> gives expand/collapse for free, no JS state
-           needed to track which nodes are open. -->
-      <!-- Base-map style switcher — the "layer icon" spot itself now opens
-           this (the conventional map-app placement for a Map/Satellite
-           switch), positioned further from the zoom toolbar than the layer
-           LIST button below. "Shape" falls back to whatever shapeData was
-           already resolved for the main layer (see
-           NXMapBuilderService.setBaseMapType()'s own comment), "Map" is OSM
-           streets, "Satellite" is Esri World Imagery. -->
-      <div class="basemap-control" [style.top.px]="layerBtnTop" [style.right.px]="basemapBtnRight">
-        <button
-          type="button"
-          class="layer-btn"
-          title="Base map style"
-          (click)="toggleBasemapPanel()"
-        >
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
-            <path d="M12 3 2 8l10 5 10-5-10-5Z" fill="#5f6368" />
-            <path d="M2 12l10 5 10-5" stroke="#5f6368" stroke-width="1.6" fill="none" />
-            <path d="M2 16l10 5 10-5" stroke="#5f6368" stroke-width="1.6" fill="none" />
-          </svg>
-        </button>
-
-        <div class="basemap-panel" *ngIf="basemapPanelOpen">
-          <button type="button" [class.active]="mapStyle === 'shape'" (click)="setMapStyle('shape')">
-            Shape
-          </button>
-          <button type="button" [class.active]="mapStyle === 'osm'" (click)="setMapStyle('osm')">
-            Map
-          </button>
-          <button type="button" [class.active]="mapStyle === 'satellite'" (click)="setMapStyle('satellite')">
-            Satellite
-          </button>
-        </div>
-      </div>
-
-      <!-- Fullscreen toggle — furthest left of the three, using the
-           standard Fullscreen API on .nx-map-demo itself (map + its
-           controls, not the surrounding page/donut panels). -->
-      <div class="maximize-control" [style.top.px]="layerBtnTop" [style.right.px]="maximizeBtnRight">
-        <button
-          type="button"
-          class="layer-btn"
-          [title]="isFullscreen ? 'Exit full screen' : 'Full screen'"
-          (click)="toggleFullscreen()"
-        >
-          <svg *ngIf="!isFullscreen" viewBox="0 0 24 24" width="18" height="18" fill="none">
-            <path
-              d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"
-              stroke="#5f6368"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-          <svg *ngIf="isFullscreen" viewBox="0 0 24 24" width="18" height="18" fill="none">
-            <path
-              d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"
-              stroke="#5f6368"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </button>
-      </div>
-
-      <!-- Layer LIST button — sits between the base-map control above and
-           the zoom toolbar (i.e. closest to the toolbar), opening the same
-           filter-tree panel this used to be bound to directly. -->
-      <div class="layer-control" [style.top.px]="layerBtnTop" [style.right.px]="layerBtnRight">
-        <button
-          type="button"
-          class="layer-btn"
-          title="Map layers"
-          (click)="toggleLayerPanel()"
-        >
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
-            <rect x="3" y="4" width="18" height="3" rx="1" fill="#5f6368" />
-            <rect x="3" y="10.5" width="18" height="3" rx="1" fill="#5f6368" />
-            <rect x="3" y="17" width="18" height="3" rx="1" fill="#5f6368" />
-          </svg>
-        </button>
-      </div>
-
-      <!-- Positioned independently from .layer-control (not nested inside
-           it): the button's own left offset tracks Syncfusion's zoom
-           toolbar, but the panel itself is pinned to the map's actual right
-           edge and stretched down to the map's actual bottom edge — it
-           would otherwise inherit the button's (usually much larger)
-           inward offset and end up narrower / not flush with the edge. -->
-      <div
-        class="layer-panel"
-        *ngIf="layerPanelOpen"
-        [style.top.px]="panelTop"
-        [style.max-height.px]="panelMaxHeight"
-      >
-          <div class="layer-panel-header">
-            <span class="layer-panel-title">Layer List</span>
-            <button type="button" class="icon-btn" title="Close" (click)="layerPanelOpen = false">
-              ✕
-            </button>
-          </div>
-
-          <!-- Manual test trigger for reloadSubLayerGroups() — no auto-firing
-               anywhere; this is the only thing that calls it. Alternates
-               between the full 2-group mock response and a partial 1-group
-               one (Surface dropped) each click, purely so clicking it twice
-               visibly proves the reload REPLACES the previous sub-layer
-               groups (Surface disappears from this popup, not just stops
-               rendering on the map) rather than appending to them — wire a
-               real payload/endpoint here when a live backend exists. -->
-          <div class="layer-panel-testbar">
-            <button type="button" class="reload-btn" (click)="reloadSubLayerGroupsDemo()">
-              Reload Sub-Layers ({{ subLayerDemoAlt ? "partial" : "full" }} → click for {{ subLayerDemoAlt ? "full" : "partial" }})
-            </button>
-          </div>
-
-          <div class="layer-panel-subheader">Layers</div>
-
-          <div class="layer-panel-search">
-            <input
-              type="text"
-              placeholder="Search layers, groups, markers…"
-              [value]="filterText"
-              (input)="filterText = $any($event.target).value"
-            />
-          </div>
-
-          <div class="layer-panel-body">
-            <ng-container *ngFor="let layer of layerTree">
-              <ng-container *ngIf="layerMatchesSearch(layer)">
-                <ng-container *ngTemplateOutlet="layerNodeTpl; context: { layer: layer }"></ng-container>
-              </ng-container>
-            </ng-container>
-          </div>
-      </div>
-
-      <!-- A group entry's own checkbox+label row — factored out so both
-           branches below (expandable vs leaf-only) render the exact same
-           markup instead of duplicating the checkbox bindings. -->
-      <ng-template #groupSummaryTpl let-entry="entry" let-layer="layer">
-        <label (click)="$event.stopPropagation()">
-          <input
-            type="checkbox"
-            [checked]="groupState(entry) === 'checked'"
-            [indeterminate]="groupState(entry) === 'indeterminate'"
-            (click)="$event.stopPropagation(); toggleGroup(entry, layer)"
-          />
-          {{ entry.group.name }}
-        </label>
-      </ng-template>
-
-      <!-- Reused for every group leaf, whether it's an ungrouped
-           layer.groups entry or nested inside a heading — a group's own
-           checkbox plus its flat marker/polygon/circle/line leaves. A group
-           with no markers/polygons/circles/lines at all (groupHasLeaves()
-           false) has nothing to expand, so it renders as a plain row
-           instead — a <details> here would otherwise still show its
-           disclosure arrow even though opening it reveals nothing. -->
-      <ng-template #groupEntryTpl let-entry="entry" let-layer="layer">
-        <details class="tree-indent" open *ngIf="groupHasLeaves(entry); else groupLeafRow">
-          <summary>
-            <ng-container *ngTemplateOutlet="groupSummaryTpl; context: { entry: entry, layer: layer }"></ng-container>
-          </summary>
-
-          <div class="tree-indent leaves">
-            <ng-container *ngFor="let m of entry.markers">
-              <label *ngIf="matchesSearch(m.name || 'Marker')">
-                <input
-                  type="checkbox"
-                  [checked]="m.visible !== false"
-                  (click)="toggleLeaf(m, entry.group, layer)"
-                />
-                {{ m.name || "Marker" }}
-              </label>
-            </ng-container>
-            <ng-container *ngFor="let p of entry.polygons">
-              <label *ngIf="matchesSearch(p.name || 'Polygon')">
-                <input
-                  type="checkbox"
-                  [checked]="p.visible !== false"
-                  (click)="toggleLeaf(p, entry.group, layer)"
-                />
-                {{ p.name || "Polygon" }}
-              </label>
-            </ng-container>
-            <ng-container *ngFor="let c of entry.circles">
-              <label *ngIf="matchesSearch(c.name || 'Circle')">
-                <input
-                  type="checkbox"
-                  [checked]="c.visible !== false"
-                  (click)="toggleLeaf(c, entry.group, layer)"
-                />
-                {{ c.name || "Circle" }}
-              </label>
-            </ng-container>
-            <ng-container *ngFor="let l of entry.lines; let i = index">
-              <label *ngIf="matchesSearch('Line ' + (i + 1))">
-                <input
-                  type="checkbox"
-                  [checked]="l.visible !== false"
-                  (click)="toggleLeaf(l, entry.group, layer)"
-                />
-                Line {{ i + 1 }}
-              </label>
-            </ng-container>
-          </div>
-        </details>
-        <ng-template #groupLeafRow>
-          <div class="tree-indent no-children">
-            <ng-container *ngTemplateOutlet="groupSummaryTpl; context: { entry: entry, layer: layer }"></ng-container>
-          </div>
-        </ng-template>
-      </ng-template>
-
-      <!-- A layer node's own checkbox+label row — factored out for the same
-           reason as groupSummaryTpl above. -->
-      <ng-template #layerSummaryTpl let-layer="layer">
-        <label
-          (click)="$event.stopPropagation()"
-          [title]="layer.isMainLayer ? 'Main layer — always visible' : ''"
-        >
-          <input
-            type="checkbox"
-            [checked]="layerState(layer) === 'checked'"
-            [indeterminate]="layerState(layer) === 'indeterminate'"
-            [disabled]="layer.isMainLayer"
-            (click)="$event.stopPropagation(); toggleLayer(layer)"
-          />
-          {{ layer.displayName }}{{ layer.isMainLayer ? " (main)" : "" }}
-        </label>
-
-        <!-- Test-only control: switches this layer's theme at runtime (no
-             config-file edit needed) so the cascade (group -> layer ->
-             app-wide -> "default") can be tried live. "Inherit" maps to
-             undefined, same as never setting MapConfig.theme at all. -->
-        <select
-          class="theme-select"
-          [title]="'Theme for ' + layer.displayName"
-          (click)="$event.stopPropagation()"
-          (change)="onLayerThemeChange(layer, $any($event.target).value)"
-        >
-          <!-- [selected] set explicitly on each option, rather than relying
-               on the <select>'s own [value] to match against options
-               rendered by *ngFor below — a plain [value] binding on the
-               select can desync here: once Angular sets it to a string
-               that's unchanged on a later check, it skips re-applying the
-               DOM property, even if that first attempt happened before the
-               *ngFor options existed yet to match against. -->
-          <option value="" [selected]="!layer.themeName">Inherit</option>
-          <option *ngFor="let name of themeNames" [value]="name" [selected]="layer.themeName === name">{{ name }}</option>
-        </select>
-      </ng-template>
-
-      <!-- One layer node: its own summary checkbox, its ungrouped groups,
-           its toggleable heading sections (each bucketing groups from a
-           sub-layer API call), and any nested child layers (e.g. static
-           layers nested under the base/Oman layer) — rendered by calling
-           this same template again, so nesting depth isn't hardcoded. A
-           layer with none of the above (layerHasContent() false — e.g. a
-           static layer configured with groups: []) has nothing to expand,
-           so it renders as a plain row instead of a <details> that would
-           still show a disclosure arrow over an empty panel. -->
-      <ng-template #layerNodeTpl let-layer="layer">
-        <details open *ngIf="layerHasContent(layer); else layerLeafRow">
-          <summary>
-            <ng-container *ngTemplateOutlet="layerSummaryTpl; context: { layer: layer }"></ng-container>
-          </summary>
-
-          <ng-container *ngFor="let entry of layer.groups">
-            <ng-container *ngIf="groupShown(entry) && groupMatchesSearch(entry)">
-              <ng-container *ngTemplateOutlet="groupEntryTpl; context: { entry: entry, layer: layer }"></ng-container>
-            </ng-container>
-          </ng-container>
-
-          <ng-container *ngFor="let h of layer.headings">
-            <details class="tree-indent" *ngIf="headingHasShownGroup(h) && headingMatchesSearch(h)" open>
-              <summary>
-                <label (click)="$event.stopPropagation()">
-                  <input
-                    type="checkbox"
-                    [checked]="headingState(h) === 'checked'"
-                    [indeterminate]="headingState(h) === 'indeterminate'"
-                    (click)="$event.stopPropagation(); toggleHeading(h, layer)"
-                  />
-                  {{ h.heading }}
-                </label>
-              </summary>
-              <ng-container *ngFor="let entry of h.groups">
-                <ng-container *ngIf="groupShown(entry) && groupMatchesSearch(entry)">
-                  <ng-container *ngTemplateOutlet="groupEntryTpl; context: { entry: entry, layer: layer }"></ng-container>
-                </ng-container>
-              </ng-container>
-            </details>
-          </ng-container>
-
-          <!-- One row per shapeData feature (e.g. Al Wusta's two clusters) —
-               lets a multi-polygon layer's individual shapes be shown/hidden
-               without touching the rest of the layer. Only features with no
-               "region" set land here — grouped ones render below instead. -->
-          <div class="tree-indent" *ngFor="let feature of layer.shapeFeatures">
-            <label *ngIf="matchesSearch(feature.name)">
-              <input type="checkbox" [checked]="feature.visible" (click)="toggleShapeFeature(feature, layer)" />
-              {{ feature.name }}
-            </label>
-          </div>
-
-          <!-- shapeData features bucketed by "properties.region" (e.g. "Al
-               Wusta North" containing "Lekhwair Cluster") — a toggleable
-               section, same pattern as the heading sections above. -->
-          <ng-container *ngFor="let g of layer.shapeFeatureGroups">
-            <details class="tree-indent" open>
-              <summary>
-                <label (click)="$event.stopPropagation()">
-                  <input
-                    type="checkbox"
-                    [checked]="shapeFeatureGroupState(g) === 'checked'"
-                    [indeterminate]="shapeFeatureGroupState(g) === 'indeterminate'"
-                    (click)="$event.stopPropagation(); toggleShapeFeatureGroup(g, layer)"
-                  />
-                  {{ g.region }}
-                </label>
-              </summary>
-              <div class="tree-indent" *ngFor="let feature of g.features">
-                <label *ngIf="matchesSearch(feature.name)">
-                  <input type="checkbox" [checked]="feature.visible" (click)="toggleShapeFeature(feature, layer)" />
-                  {{ feature.name }}
-                </label>
-              </div>
-            </details>
-          </ng-container>
-
-          <ng-container *ngFor="let child of layer.children">
-            <div class="tree-indent" *ngIf="layerMatchesSearch(child)">
-              <ng-container *ngTemplateOutlet="layerNodeTpl; context: { layer: child }"></ng-container>
-            </div>
-          </ng-container>
-        </details>
-        <ng-template #layerLeafRow>
-          <div class="no-children">
-            <ng-container *ngTemplateOutlet="layerSummaryTpl; context: { layer: layer }"></ng-container>
-          </div>
-        </ng-template>
-      </ng-template>
-
-      <!-- Binding the whole [layers] array (rather than one <e-layer> per
-           mapOptions.layers[i]) is what lets this render N Syncfusion
-           layers for N MapConfig entries — one per genuinely distinct
-           shapeData/region, e.g. Musandam + Dhofar + Al Wusta stacked on
-           the base Oman layer. Groups (Facilities/Surface/...) still live
-           WITHIN each layer's markerSettings/polygonSettings — they don't
-           need separate Syncfusion layers, so toggling them never has the
-           "one layer hides another" occlusion problem real layers can have
-           when they geographically overlap. -->
-      <ejs-maps
-        class="map-container"
-        *ngIf="mapVisible && mapOptions?.layers?.length"
-        #mapInstance
-        width="100%"
-        height="100%"
-        [titleSettings]="mapOptions?.titleSettings"
-        [zoomSettings]="mapOptions?.zoomSettings"
-        [centerPosition]="mapOptions?.centerPosition"
-        [layers]="mapOptions?.layers"
-        (markerClick)="onMarkerClick($event)"
-        (click)="onMapClick($event)"
-        (shapeSelected)="onShapeSelected($event)"
-        (resize)="onMapResize()"
-        (loaded)="onMapLoaded()"
-        (zoomComplete)="onZoomComplete()"
-      >
-      </ejs-maps>
-
-      <!-- On-screen equivalent of the console.log in onMarkerClick()/
-           onMapClick() — appears briefly over the map on a marker/polygon/
-           circle click, then clears itself (see showToast()). -->
-      <div class="click-toast" *ngIf="toastMessage">
-        {{ toastMessage }}
-      </div>
-
-    </div>
-  `,
-  styles: [
-    `
-      /* The component's own host element (<app-nx-map-demo>) is inline by
-         default — needs display:block for a height to apply to it at all,
-         and needs an actual height for .nx-map-demo's 100% below to
-         resolve against (percentages need a concrete ancestor height all
-         the way up; see the html/body/app-root chain in styles.css). */
-      :host {
-        display: block;
-        height: 100%;
-        width: 100%;
-      }
-
-      .nx-map-demo {
-        position: relative;
-        height: 100%;
-        width: 100%;
-      }
-
-      /* Syncfusion's Maps root renders its own internal layers (zoom
-         toolbar, tooltip, etc.) with their own z-index values. Pinning the
-         map's own stacking context to z-index: 0 here means none of those
-         internal layers can ever climb above a sibling that has a higher
-         z-index at THIS level — otherwise an internal layer with a high
-         z-index can end up on top of the picker even though the picker sits
-         later in the DOM. */
-      .nx-map-demo ::ng-deep ejs-maps {
-        position: relative;
-        z-index: 0;
-      }
-
-      /* width="100%"/height="100%" on ejs-maps (Syncfusion's own attrs)
-         resolve against THIS element's box — so this needs a concrete
-         height too, which it now gets from .nx-map-demo's 100% above
-         (itself resolving up through :host -> app-root -> body -> html,
-         all set to height:100% in styles.css). Fills the parent instead of
-         a fixed 600px. */
-      .nx-map-demo .map-container {
-        display: block;
-        height: 100%;
-        width: 100%;
-      }
-
-      /* Browsers' own UA stylesheet already stretches the fullscreen
-         element to fill the viewport, but explicit vw/vh + an opaque
-         background is cheap insurance against that varying (and against
-         .nx-map-demo's own height:100% having nothing to resolve against
-         once it's promoted out of normal flow). */
-      .nx-map-demo:fullscreen {
-        width: 100vw;
-        height: 100vh;
-        background: #fff;
-      }
-
-      /* top/right are set at runtime (see alignLayerControl()) to match
-         wherever Syncfusion actually renders its zoom toolbar — that
-         position depends on the map's rendered aspect ratio and isn't a
-         fixed pixel offset from the container edge, so a hardcoded value
-         here drifts out of alignment depending on viewport size. Same for
-         .maximize-control below (chained off it, see maximizeBtnRight). */
-      .nx-map-demo .layer-control {
-        position: absolute;
-        z-index: 100;
-      }
-
-      .nx-map-demo .maximize-control {
-        position: absolute;
-        z-index: 100;
-      }
-
-      .nx-map-demo .layer-btn {
-        width: 36px;
-        height: 36px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: #fff;
-        border: none;
-        border-radius: 4px;
-        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
-        cursor: pointer;
-      }
-
-      /* Positioned the same way as .layer-control (top tracks the zoom
-         toolbar), just further left of it — see basemapBtnRight. Relative
-         positioning so .basemap-panel below (absolute) anchors off THIS
-         button rather than the map container. */
-      .nx-map-demo .basemap-control {
-        position: absolute;
-        z-index: 100;
-      }
-
-      /* Small dropdown under the base-map button — same visual language as
-         .layer-panel (white card, shadow, rounded corners) but far simpler:
-         just three stacked options, no header/search/tree. */
-      .nx-map-demo .basemap-panel {
-        position: absolute;
-        top: 42px;
-        right: 0;
-        width: 130px;
-        background: #fff;
-        border-radius: 6px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
-        overflow: hidden;
-      }
-
-      .nx-map-demo .basemap-panel button {
-        display: block;
-        width: 100%;
-        text-align: left;
-        border: none;
-        border-top: 1px solid #eee;
-        background: #fff;
-        color: #3c4043;
-        font-size: 13px;
-        padding: 8px 12px;
-        cursor: pointer;
-      }
-
-      .nx-map-demo .basemap-panel button:first-child {
-        border-top: none;
-      }
-
-      .nx-map-demo .basemap-panel button:hover {
-        background: #f1f3f4;
-      }
-
-      .nx-map-demo .basemap-panel button.active {
-        background: #eef3fc;
-        color: #1a73e8;
-        font-weight: 600;
-      }
-
-      /* Pinned to the map's own right edge (not the button's position,
-         which tracks the zoom toolbar and can sit well inward of the true
-         edge). top/max-height are computed at runtime in
-         alignLayerControl() to span from just under the button down to
-         the map's actual bottom edge, so long content scrolls within that
-         space instead of overflowing past the map or the viewport. */
-      .nx-map-demo .layer-panel {
-        position: absolute;
-        right: 8px;
-        width: 340px;
-        overflow-y: auto;
-        background: #fff;
-        border-radius: 6px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
-        /* Needed now that this is a SIBLING of .map-container (z-index: 0)
-           rather than nested inside .layer-control (z-index: 100) — without
-           an explicit z-index here, an element with z-index:auto stacks by
-           DOM order among same-level (z-index:0) siblings, and .map-container
-           comes later in the DOM, so it would paint on top of this panel. */
-        z-index: 100;
-      }
-
-      .nx-map-demo .layer-panel-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        background: #1a1a1a;
-        color: #fff;
-        padding: 10px 12px;
-        border-radius: 6px 6px 0 0;
-        font-size: 14px;
-        font-weight: 600;
-      }
-
-      .nx-map-demo .layer-panel-header .icon-btn {
-        background: none;
-        border: none;
-        color: #fff;
-        font-size: 14px;
-        cursor: pointer;
-        padding: 2px 4px;
-        line-height: 1;
-      }
-
-      .nx-map-demo .layer-panel-subheader {
-        padding: 8px 12px 4px;
-        font-size: 12px;
-        font-weight: 600;
-        color: #5f6368;
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
-      }
-
-      .nx-map-demo .layer-panel-testbar {
-        padding: 8px 12px 0;
-      }
-
-      .nx-map-demo .reload-btn {
-        width: 100%;
-        padding: 6px 8px;
-        font-size: 12px;
-        background: #eef3fc;
-        border: 1px solid #c3d4f0;
-        border-radius: 4px;
-        color: #1a73e8;
-        cursor: pointer;
-      }
-
-      .nx-map-demo .reload-btn:hover {
-        background: #e1eaf9;
-      }
-
-      .nx-map-demo .layer-panel-search {
-        padding: 4px 12px 8px;
-      }
-
-      .nx-map-demo .layer-panel-search input {
-        width: 100%;
-        box-sizing: border-box;
-        padding: 6px 8px;
-        font-size: 13px;
-        border: 1px solid #dadce0;
-        border-radius: 4px;
-      }
-
-      /* Centered near the top of the map, above the layer control/toolbar
-         (z-index higher than both), so it's never covered by either. */
-      .nx-map-demo .click-toast {
-        position: absolute;
-        top: 12px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 200;
-        background: rgba(26, 26, 26, 0.92);
-        color: #fff;
-        padding: 8px 16px;
-        border-radius: 6px;
-        font-size: 13px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
-        max-width: 80%;
-        text-align: center;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        pointer-events: none;
-      }
-
-      .nx-map-demo .layer-panel-body {
-        padding: 0 8px 8px;
-      }
-
-      /* Custom marker hover-tooltip card, injected via
-         injectMarkerTooltipTemplate() (see that method's own comment for why
-         it's built with plain DOM APIs rather than declared inline in this
-         component's template) — referenced by
-         nx-map-builder.service.ts's markerSettings.tooltipSettings.template.
-         ::ng-deep because Syncfusion's tooltip module positions/clones this
-         content into its own overlay div rather than this component's normal
-         DOM position, which isn't guaranteed to preserve Angular's
-         view-encapsulation scoping attributes — same reasoning as ::ng-deep
-         ejs-maps above.
-         Confirmed live: Syncfusion's tooltip overlay itself has NO
-         background/border/shadow of its own for a templated marker tooltip
-         (unlike the plain-text tooltip it replaces) — the card chrome below
-         is entirely ours, not a Syncfusion default being restyled. */
-      ::ng-deep .marker-tooltip {
-        min-width: 240px;
-        padding: 14px 16px;
-        background: #ffffff;
-        border-radius: 12px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
-      }
-
-      ::ng-deep .marker-tooltip .mtt-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-      }
-
-      ::ng-deep .marker-tooltip .mtt-title {
-        font-size: 16px;
-        font-weight: 700;
-        color: #1a1a1a;
-      }
-
-      ::ng-deep .marker-tooltip .mtt-badge {
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 0.3px;
-        padding: 3px 10px;
-        border-radius: 999px;
-        text-transform: uppercase;
-        white-space: nowrap;
-      }
-
-      ::ng-deep .marker-tooltip .mtt-badge--warning {
-        background: #fff1e0;
-        color: #d97706;
-      }
-
-      ::ng-deep .marker-tooltip .mtt-subtitle {
-        font-size: 11px;
-        font-weight: 600;
-        letter-spacing: 0.4px;
-        color: #9aa0a6;
-        text-transform: uppercase;
-        margin-top: 2px;
-      }
-
-      ::ng-deep .marker-tooltip .mtt-row {
-        display: flex;
-        gap: 16px;
-        margin-top: 12px;
-      }
-
-      ::ng-deep .marker-tooltip .mtt-row--boxed {
-        background: #f4f5f7;
-        border-radius: 8px;
-        padding: 8px 10px;
-      }
-
-      ::ng-deep .marker-tooltip .mtt-stat {
-        flex: 1;
-      }
-
-      ::ng-deep .marker-tooltip .mtt-label {
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 0.3px;
-        color: #9aa0a6;
-        text-transform: uppercase;
-        white-space: nowrap;
-      }
-
-      ::ng-deep .marker-tooltip .mtt-value {
-        font-size: 18px;
-        font-weight: 700;
-        color: #1a1a1a;
-        margin-top: 2px;
-        white-space: nowrap;
-      }
-
-      ::ng-deep .marker-tooltip .mtt-value--warning {
-        color: #d97706;
-      }
-
-      ::ng-deep .marker-tooltip .mtt-value--danger {
-        color: #d92626;
-      }
-
-      ::ng-deep .marker-tooltip .mtt-value--plain {
-        font-size: 14px;
-        color: #1a1a1a;
-      }
-
-      ::ng-deep .marker-tooltip .mtt-unit {
-        font-size: 12px;
-        font-weight: 600;
-        color: #9aa0a6;
-        margin-left: 2px;
-      }
-
-      /* value2/value3 lines are always in the DOM (a static template
-         placeholder can't add/remove elements per marker) but toggled to
-         display:none per-point via the d2_<key>/d3_<key> fields
-         (NXMapBuilderService.toMarker()) whenever that point has no
-         value2/value3 — which today is every point, until some reading
-         actually populates them. */
-      ::ng-deep .marker-tooltip .mtt-value2,
-      ::ng-deep .marker-tooltip .mtt-value3 {
-        font-size: 13px;
-        font-weight: 600;
-        color: #5f6368;
-        margin-top: 2px;
-        white-space: nowrap;
-      }
-
-      ::ng-deep .marker-tooltip .mtt-unit {
-        font-size: 12px;
-        font-weight: 500;
-        color: inherit;
-        margin-left: 3px;
-      }
-
-      ::ng-deep .marker-tooltip .mtt-timestamp {
-        font-size: 12px;
-        color: #9aa0a6;
-        margin-top: 10px;
-      }
-
-      /* #marker-label-template's rendered content (see
-         injectMarkerLabelTemplate()) — an always-visible icon + name/value
-         label, positioned by Syncfusion at each marker's lat/long. ::ng-deep
-         for the same reason as .marker-tooltip above: Syncfusion positions
-         template markers outside this component's normal DOM/encapsulation
-         scope. */
-      /* Syncfusion's own wrapper around this element (class name
-         "maps_controlN_marker_template_element", see the pointer-events
-         rule below) is ITSELF already centered on the marker's exact
-         lat/long via its own inline transform: translate(-50%, -50%),
-         sized to fit THIS element exactly (no padding/margin gap) —
-         confirmed live via getBoundingClientRect(). So this element's own
-         natural (untransformed, no-transform-here) box is what ends up
-         centered on the marker. Confirmed live that a SECOND -50%,-50%
-         transform here (an earlier version of this rule) double-counted
-         that centering — shifted everything an extra half-its-own-size
-         up-left — and that even with no transform, sizing this element to
-         the full icon+text block (a previous version, no position/height
-         override below) still centered the wrong thing: the BLOCK's
-         center landed on the marker, not the ICON's, so the icon itself
-         sat visibly off the point by roughly half the text's height.
-         Fixed by sizing .marker-label to height: 0 with overflow: visible
-         — the ICON (first flex child, before its own translateY(-50%) —
-         see .marker-label-icon--* below) starts from that zero-height
-         line rather than from the combined icon+text block's top, so
-         translateY(-50%) alone is enough to land the icon's own center
-         there; the text simply follows after it in normal flex flow.
-         pointer-events: none !important: confirmed live that Syncfusion
-         stamps THIS element (not just the outer wrapper matched below)
-         with its own inline style="pointer-events: auto;" — same class
-         of override as the wrapper rule below, just on a different
-         element — which silently re-enabled hover-blocking on this
-         element without !important here too, even after the wrapper fix
-         alone. */
-      ::ng-deep .marker-label {
-        position: relative;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        height: 0;
-        overflow: visible;
-        pointer-events: none !important;
-      }
-
-      /* Syncfusion wraps EVERY template marker (ours here, and the base
-         layer's own tooltip-only markers elsewhere) in its own absolutely-
-         positioned div — class name is control-instance-scoped
-         ("maps_controlN_marker_template_element"), hence the substring
-         match — and sets pointer-events: auto on it via an INLINE style
-         (confirmed live via getAttribute('style')), which is OUTSIDE this
-         component's own .marker-label rule above and beats any stylesheet
-         rule without !important. Confirmed live: with this wrapper left at
-         its default, hovering ANY marker underneath one of these overlay
-         divs (including a completely different layer's, e.g. a static
-         layer's own markers sharing the same screen position) never got
-         Syncfusion's mouseover far enough to open its tooltip — this
-         wrapper was eating the event first. Only meaningful once a donut
-         selection actually adds the overlay layer (buildMarkerPoints() in
-         nx-map-builder.service.ts); harmless no-op otherwise. */
-      ::ng-deep [class*="_marker_template_element"] {
-        pointer-events: none !important;
-      }
-
-      /* Base for every icon shape below — sets the color via a custom
-         property (\`--icon-color\`, set inline per marker by
-         toMetricOverlayMarker()'s own \`color\` field) rather than each shape
-         rule setting its own color property directly, since a triangle
-         needs border-bottom-color and a diamond/circle need background —
-         one shared color source, two different CSS properties reading it.
-         \`translateY(-50%)\` is what actually puts the icon's own CENTER on
-         the marker (not just this element's top edge) — .marker-label's
-         height: 0 above places every flex child's untransformed top edge
-         AT the marker's y-coordinate; shifting each icon up by half of
-         its OWN layout height (a percentage translate is always relative
-         to the element's own box, regardless of any rotation also applied
-         — confirmed live) lands its visual center there instead. Combined
-         with align-items: center on the flex parent for the x-axis, this
-         is what makes the icon sit exactly on the marker point. */
-      ::ng-deep .marker-label-icon--triangle {
-        width: 0;
-        height: 0;
-        border-left: 5px solid transparent;
-        border-right: 5px solid transparent;
-        border-bottom: 8px solid var(--icon-color);
-        transform: translateY(-50%);
-      }
-
-      /* Rotated square — NxMapBuilderService's DEFAULT_IMPACT_SHAPES uses
-         this for a "customer impact" high reading (configurable per group
-         via MapGroup.impactMarkerStyle, see its own comment). rotate(45deg)
-         is applied AFTER translateY(-50%) here (CSS transform functions
-         compose right-to-left) — translateY still reads this element's own
-         pre-rotation 8px height either way, so the composed order doesn't
-         change the centering math above. */
-      ::ng-deep .marker-label-icon--diamond {
-        width: 8px;
-        height: 8px;
-        background: var(--icon-color);
-        transform: translateY(-50%) rotate(45deg);
-      }
-
-      /* Fallback shape for a "normal"-status reading (no customer/
-         non-customer impact to differentiate) and for any impact value
-         that isn't "customer" or "non-customer". */
-      ::ng-deep .marker-label-icon--circle {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: var(--icon-color);
-        transform: translateY(-50%);
-      }
-
-      /* Sits in normal flex flow right after the icon (which itself
-         renders starting at .marker-label's y: 0 line, per that rule's own
-         comment) — so the text naturally lands just below the icon without
-         needing its own transform, same visual position as before the
-         icon-centering fix above, just no longer entangled with it. */
-      ::ng-deep .marker-label-text {
-        font-size: 10px;
-        font-weight: 700;
-        white-space: nowrap;
-        text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff;
-        line-height: 1.15;
-        text-align: center;
-      }
-
-      .nx-map-demo .layer-panel summary {
-        cursor: pointer;
-        list-style: revert;
-      }
-
-      .nx-map-demo .layer-panel summary label {
-        display: inline-flex;
-      }
-
-      /* Subtle highlight on an expanded node's own row — mirrors the
-         "currently open" row shading in the reference layer list. */
-      .nx-map-demo .layer-panel details[open] > summary {
-        background: #f1f3f4;
-        border-radius: 4px;
-      }
-
-      .nx-map-demo .tree-indent {
-        margin-left: 16px;
-      }
-
-      /* A childless group/layer row (no <details> wrapper, so no native
-         disclosure triangle) — matches a <summary>'s own left inset so it
-         still lines up with sibling rows that DO have an arrow. */
-      .nx-map-demo .no-children {
-        margin-left: 1em;
-      }
-
-      .nx-map-demo .layer-panel label {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 5px 6px;
-        font-size: 13px;
-        color: #202124;
-        cursor: pointer;
-        white-space: nowrap;
-      }
-
-      .nx-map-demo .leaves label {
-        font-size: 12px;
-        color: #5f6368;
-      }
-
-      /* Test-only per-layer theme switcher (onLayerThemeChange()) — kept
-         small/inline next to the layer's own label so it doesn't compete
-         for attention with the actual checkbox tree. */
-      .nx-map-demo .layer-panel select.theme-select {
-        margin-left: 6px;
-        font-size: 11px;
-        padding: 1px 3px;
-        border: 1px solid #dadce0;
-        border-radius: 3px;
-        color: #5f6368;
-        background: #fff;
-        cursor: pointer;
-      }
-
-      /* ej2-base's material theme resets native form control styling
-         globally, which otherwise makes plain checkboxes render with
-         zero visible size — force the browser's default checkbox back on
-         for this panel specifically, and tint the checked state so it
-         reads clearly against both the highlighted and plain rows. */
-      .nx-map-demo .layer-panel input[type="checkbox"] {
-        appearance: auto;
-        -webkit-appearance: auto;
-        accent-color: #1a73e8;
-        width: 14px;
-        height: 14px;
-        margin: 0;
-      }
-
-      .nx-map-demo .layer-panel input[type="checkbox"]:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-      }
-    `
-  ]
+  templateUrl: "./nx-map-demo.component.html",
+  styleUrls: ["./nx-map-demo.component.scss"]
 })
 export class NxMapDemoComponent implements OnChanges, AfterViewInit {
   // The host's own payload — one node per layer (root = base layer, each
@@ -1058,7 +78,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
   mapVisible = true;
   layerPanelOpen = false;
   basemapPanelOpen = false;
-  layerTree: LayerTreeNode[] = [];
+  layerTree: (LayerTreeNode | LayerRegionNode)[] = [];
 
   // Every theme name in the registry, for the layer panel's per-layer theme
   // <select> — static (doesn't depend on mapOptions/layerTree), populated
@@ -1105,10 +125,10 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
       document.exitFullscreen();
       return;
     }
-    // .nx-map-demo itself, not the whole page/host — this is the map plus
+    // .nx-map itself, not the whole page/host — this is the map plus
     // its own layer/basemap controls, not any donut panel or other widget
     // a parent component might be rendering alongside it.
-    this.elRef.nativeElement.querySelector(".nx-map-demo")?.requestFullscreen();
+    this.elRef.nativeElement.querySelector(".nx-map")?.requestFullscreen();
   }
 
   @HostListener("document:fullscreenchange")
@@ -1688,10 +708,53 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
       this.matchesSearch(layer.displayName) ||
       layer.groups.some(e => this.groupMatchesSearch(e)) ||
       layer.headings.some(h => this.headingMatchesSearch(h)) ||
-      layer.children.some(c => this.layerMatchesSearch(c)) ||
+      layer.children.some(c => this.layerOrRegionMatchesSearch(c)) ||
       layer.shapeFeatures.some(f => this.matchesSearch(f.name)) ||
       layer.shapeFeatureGroups.some(g => this.matchesSearch(g.region) || g.features.some(f => this.matchesSearch(f.name)))
     );
+  }
+
+  // Type guard exposed to the template (bound methods work in *ngIf,
+  // imported free functions don't) — distinguishes a LayerRegionNode from
+  // a LayerTreeNode wherever both can appear side by side (layerTree's root
+  // list, or a layer's own `children`).
+  isRegionNode(item: LayerTreeNode | LayerRegionNode): item is LayerRegionNode {
+    return isLayerRegionNode(item);
+  }
+
+  // Dispatches search-matching to layerMatchesSearch() or a region's own
+  // name/contents, for a list that can hold either kind of node.
+  layerOrRegionMatchesSearch(item: LayerTreeNode | LayerRegionNode): boolean {
+    if (!this.isRegionNode(item)) {
+      return this.layerMatchesSearch(item);
+    }
+    if (!this.filterText.trim()) {
+      return true;
+    }
+    return this.matchesSearch(item.region) || item.layers.some(l => this.layerMatchesSearch(l));
+  }
+
+  // Tri-state checkbox for a LayerRegionNode — same combineStates()
+  // convention as every other parent level, derived purely from its
+  // layers' own layerState() (a region has no visibility of its own).
+  layerRegionState(region: LayerRegionNode): "checked" | "unchecked" | "indeterminate" {
+    return this.combineStates(region.layers.map(l => this.layerState(l)));
+  }
+
+  // Cascades show/hide to every layer inside the region — same "click an
+  // indeterminate/unchecked folder -> select all" convention as
+  // toggleHeading()/toggleShapeFeatureGroup().
+  toggleLayerRegion(region: LayerRegionNode): void {
+    const shouldShow = this.layerRegionState(region) !== "checked";
+    region.layers.forEach(layer => {
+      if (layer.isMainLayer) {
+        return;
+      }
+      this.setLayerTreeVisibility(layer, shouldShow);
+      this.builder.setLayerVisible(layer.layerIndex, shouldShow);
+    });
+    this.builder.refresh(this.mapOptions);
+    this.render();
   }
 
   private combineStates(states: ("checked" | "unchecked" | "indeterminate")[]): "checked" | "unchecked" | "indeterminate" {
@@ -1730,7 +793,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
     const states = [
       ...layer.groups.map(e => this.groupState(e)),
       ...layer.headings.map(h => this.headingState(h)),
-      ...layer.children.map(c => this.layerState(c)),
+      ...layer.children.map(c => (this.isRegionNode(c) ? this.layerRegionState(c) : this.layerState(c))),
       ...layer.shapeFeatures.map(f => (f.visible ? "checked" : "unchecked") as "checked" | "unchecked"),
       ...layer.shapeFeatureGroups.map(g => this.shapeFeatureGroupState(g))
     ];
@@ -1748,7 +811,13 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
     layer.visible = visible;
     layer.groups.forEach(entry => this.setGroupVisibility(entry, visible));
     layer.headings.forEach(heading => heading.groups.forEach(entry => this.setGroupVisibility(entry, visible)));
-    layer.children.forEach(child => this.setLayerTreeVisibility(child, visible));
+    layer.children.forEach(child => {
+      if (this.isRegionNode(child)) {
+        child.layers.forEach(l => this.setLayerTreeVisibility(l, visible));
+      } else {
+        this.setLayerTreeVisibility(child, visible);
+      }
+    });
     layer.shapeFeatures.forEach(feature => {
       feature.visible = visible;
       this.builder.setShapeFeatureVisible(layer.layerIndex, feature.index, visible);
@@ -1781,7 +850,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
     const anyVisible = [
       ...layer.groups.map(e => this.groupState(e)),
       ...layer.headings.map(h => this.headingState(h)),
-      ...layer.children.map(c => this.layerState(c)),
+      ...layer.children.map(c => (this.isRegionNode(c) ? this.layerRegionState(c) : this.layerState(c))),
       ...layer.shapeFeatures.map(f => (f.visible ? "checked" : "unchecked") as "checked" | "unchecked"),
       ...layer.shapeFeatureGroups.map(g => this.shapeFeatureGroupState(g))
     ].some(s => s !== "unchecked");

@@ -1,0 +1,61 @@
+:host {
+  display: block;
+}
+.nx-donut-card {
+  position: relative;
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 4px;
+}
+.nx-donut-card:hover {
+  background: #f2f2f2;
+}
+.nx-donut-card--selected {
+  background: #e6eef7;
+  outline: 1px solid #1f4e79;
+}
+.nx-donut-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  font-weight: 700;
+  font-size: 15px;
+  text-align: center;
+  color: #222;
+  max-width: 70%;
+}
+.nx-donut-badge {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  font-size: 10px;
+  font-weight: 600;
+  color: #222;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  padding: 0 3px;
+  white-space: nowrap;
+}
+/* Flat placeholder ring for isEmpty — same footprint as the real
+   Syncfusion chart (height: 130px) so the card doesn't jump size
+   switching between the two, plain CSS border-circle rather than an
+   SVG pie since there's no data to divide into slices. */
+.nx-donut-empty-ring {
+  height: 130px;
+  width: 130px;
+  max-width: 100%;
+  margin: 0 auto;
+  border-radius: 50%;
+  border: 14px solid #e3e5e8;
+  box-sizing: border-box;
+}
+.nx-donut-center--empty {
+  color: #9aa0a6;
+}
+.nx-donut-empty-text {
+  font-weight: 500;
+  font-size: 11px;
+}

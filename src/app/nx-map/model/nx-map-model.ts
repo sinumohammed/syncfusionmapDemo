@@ -322,6 +322,15 @@ export interface MapConfig {
   // becomes main; the rest are simply treated as static/child layers, with
   // no separate flag to search for or disagree with.
   layerName: string;
+  // Optional layer-tree grouping label, independent of parentLayerName
+  // (which controls WHICH layer this one nests under, not how it's
+  // presented alongside its siblings there). When set, this layer renders
+  // inside a toggleable "<region>" folder next to every sibling layer
+  // (root-level, or under the same parent) sharing the same region string,
+  // instead of listed directly — see getLayerTree()'s groupByRegion() in
+  // nx-map-builder.service.ts. Omit to keep this layer a direct sibling,
+  // exactly as before regions existed.
+  region?: string;
   title?: TitleConfig;
   zoom?: ZoomConfig;
   dataLabel?: DataLabel;

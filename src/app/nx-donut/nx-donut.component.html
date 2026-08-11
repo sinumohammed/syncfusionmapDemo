@@ -1,0 +1,26 @@
+<div class="nx-donut-card" [class.nx-donut-card--selected]="selected" (click)="select.emit()">
+  <ejs-accumulationchart
+    *ngIf="series.length"
+    [id]="chartElementId"
+    [series]="series"
+    [legendSettings]="legendSettings"
+    [tooltip]="tooltipSettings"
+    [margin]="margin"
+    [enableAnimation]="true"
+    (loaded)="onChartLoaded($event)"
+    height="130px"
+    width="100%"
+  ></ejs-accumulationchart>
+  <!-- Every slice is 0 (no readings at all for this metric) — a real
+       Syncfusion pie has nothing to divide up in that case, so this
+       renders a plain CSS ring instead of attempting one (see isEmpty's
+       own comment). Still inside the same clickable .nx-donut-card, so
+       a click still reaches NxDonutCollectionComponent normally. -->
+  <div class="nx-donut-empty-ring" *ngIf="isEmpty"></div>
+  <div class="nx-donut-center" [class.nx-donut-center--empty]="isEmpty">
+    {{ config?.label }}<ng-container *ngIf="isEmpty"><br /><span class="nx-donut-empty-text">No data</span></ng-container>
+  </div>
+  <div class="nx-donut-badge" *ngFor="let badge of badges" [style.left.px]="badge.left" [style.top.px]="badge.top">
+    {{ badge.text }}
+  </div>
+</div>

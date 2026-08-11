@@ -1,0 +1,8 @@
+<div class="app-shell">
+  <app-nx-donut-collection
+    class="donut-pane"
+    [config]="donutCollectionConfig"
+    (sublayersSelected)="onSublayersSelected($event)"
+  ></app-nx-donut-collection>
+  <app-nx-map-collection class="map-pane" [config]="mapCollectionConfig" #mapCollectionRef></app-nx-map-collection>
+</div>

@@ -1,0 +1,40 @@
+:host {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+.nx-donut-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 12px;
+  /* No overflow-y here on purpose — an ancestor with any non-visible
+     overflow clips a hovered slice's tooltip too (CSS forces both
+     axes non-visible together once either one is), confirmed live
+     that was cutting the tooltip's text off. */
+}
+.nx-donut-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.nx-donut-legend {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: #333;
+}
+.nx-donut-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.nx-donut-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}

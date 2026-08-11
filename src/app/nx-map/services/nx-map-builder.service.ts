@@ -187,7 +187,10 @@ export interface LayerTreeNode {
   // Other layers whose config.parentLayerName === this.layerName — e.g.
   // static layers nested under the base layer in the filter popup, even
   // though each still renders as its own independent Syncfusion SubLayer.
-  children: LayerTreeNode[];
+  // Siblings sharing the same MapConfig.region get bucketed into a
+  // LayerRegionNode here instead of appearing as their own direct entry —
+  // see groupLayersByRegion().
+  children: (LayerTreeNode | LayerRegionNode)[];
   // This layer's individual shapeData features with no `region` set —
   // rendered directly under the layer, same as before shapeFeatureGroups
   // existed. Empty for a layer whose shapeData is a single shape, has none
@@ -201,6 +204,25 @@ export interface LayerTreeNode {
   // it's inheriting from the app-wide/default theme instead. Drives the
   // layer panel's theme <select> — see setLayerTheme().
   themeName: string | undefined;
+}
+
+// Buckets sibling layer nodes sharing the same MapConfig.region into a
+// toggleable folder in the layer tree — same idea as HeadingNode for
+// groups, but one level up (layer nodes themselves, wherever they'd
+// otherwise sit as direct siblings: the tree's root list, or one layer's
+// `children`). Purely a display grouping — every layer inside still keeps
+// its own independent visibility/state; a region node has no state of its
+// own beyond what's derived from its `layers` (see the demo component's
+// layerRegionState()/toggleLayerRegion()).
+export interface LayerRegionNode {
+  region: string;
+  layers: LayerTreeNode[];
+}
+
+// Discriminates a getLayerTree()/LayerTreeNode.children entry — a
+// LayerRegionNode always has `layers`, which no LayerTreeNode has.
+export function isLayerRegionNode(node: LayerTreeNode | LayerRegionNode): node is LayerRegionNode {
+  return (node as LayerRegionNode).layers !== undefined;
 }
 
 @Injectable()
@@ -876,23 +898,61 @@ export class NXMapBuilderService {
   // refresh(). Layers with config.participateInFilter === false still
   // render on the map but are omitted from this tree entirely — no toggle
   // offered for them.
-  getLayerTree(): LayerTreeNode[] {
+  getLayerTree(): (LayerTreeNode | LayerRegionNode)[] {
     const nodes = this.layers
       .map((layer, layerIndex) => (layer.config.participateInFilter === false ? null : this.buildTreeNode(layer, layerIndex)))
       .filter((node): node is LayerTreeNode => node !== null);
 
     const nodesByLayerName = new Map(nodes.map(node => [node.layerName, node]));
 
+    // Flat (ungrouped) children per node, keyed by layerName — nestedLayerNames
+    // below needs the raw layer names before groupLayersByRegion() folds some
+    // of them into LayerRegionNode buckets that no longer carry a layerName.
+    const flatChildren = new Map<string, LayerTreeNode[]>(nodes.map(node => [node.layerName, []]));
+
     nodes.forEach(node => {
       const parentName = this.layers[node.layerIndex].config.parentLayerName;
       const parent = parentName ? nodesByLayerName.get(parentName) : undefined;
       if (parent && parent !== node) {
-        parent.children.push(node);
+        flatChildren.get(parent.layerName)!.push(node);
       }
     });
 
-    const nestedLayerNames = new Set(nodes.flatMap(node => node.children.map(child => child.layerName)));
-    return nodes.filter(node => !nestedLayerNames.has(node.layerName));
+    const nestedLayerNames = new Set(Array.from(flatChildren.values()).flatMap(children => children.map(child => child.layerName)));
+
+    nodes.forEach(node => {
+      node.children = this.groupLayersByRegion(flatChildren.get(node.layerName) ?? []);
+    });
+
+    const roots = nodes.filter(node => !nestedLayerNames.has(node.layerName));
+    return this.groupLayersByRegion(roots);
+  }
+
+  // Buckets a flat sibling list into LayerRegionNode folders wherever
+  // MapConfig.region is set, in first-seen region order — same pattern as
+  // buildTreeNode()'s heading/shapeFeatureGroup bucketing, one level up. A
+  // node whose layer has no `region` stays a direct entry, in its original
+  // position, exactly as before regions existed.
+  private groupLayersByRegion(nodes: LayerTreeNode[]): (LayerTreeNode | LayerRegionNode)[] {
+    const result: (LayerTreeNode | LayerRegionNode)[] = [];
+    const regionNodes = new Map<string, LayerRegionNode>();
+
+    nodes.forEach(node => {
+      const region = this.layers[node.layerIndex].config.region;
+      if (!region) {
+        result.push(node);
+        return;
+      }
+      let regionNode = regionNodes.get(region);
+      if (!regionNode) {
+        regionNode = { region, layers: [] };
+        regionNodes.set(region, regionNode);
+        result.push(regionNode);
+      }
+      regionNode.layers.push(node);
+    });
+
+    return result;
   }
 
   private buildTreeNode(layer: LayerState, layerIndex: number): LayerTreeNode {

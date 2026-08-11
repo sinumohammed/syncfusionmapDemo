@@ -1,0 +1,583 @@
+/* The component's own host element (<app-nx-map-demo>) is inline by
+   default — needs display:block for a height to apply to it at all,
+   and needs an actual height for .nx-map's 100% below to
+   resolve against (percentages need a concrete ancestor height all
+   the way up; see the html/body/app-root chain in styles.css). */
+:host {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+
+.nx-map {
+  position: relative;
+  height: 100%;
+  width: 100%;
+}
+
+/* Syncfusion's Maps root renders its own internal layers (zoom
+   toolbar, tooltip, etc.) with their own z-index values. Pinning the
+   map's own stacking context to z-index: 0 here means none of those
+   internal layers can ever climb above a sibling that has a higher
+   z-index at THIS level — otherwise an internal layer with a high
+   z-index can end up on top of the picker even though the picker sits
+   later in the DOM. */
+.nx-map ::ng-deep ejs-maps {
+  position: relative;
+  z-index: 0;
+}
+
+/* width="100%"/height="100%" on ejs-maps (Syncfusion's own attrs)
+   resolve against THIS element's box — so this needs a concrete
+   height too, which it now gets from .nx-map's 100% above
+   (itself resolving up through :host -> app-root -> body -> html,
+   all set to height:100% in styles.css). Fills the parent instead of
+   a fixed 600px. */
+.nx-map .map-container {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+
+/* Browsers' own UA stylesheet already stretches the fullscreen
+   element to fill the viewport, but explicit vw/vh + an opaque
+   background is cheap insurance against that varying (and against
+   .nx-map's own height:100% having nothing to resolve against
+   once it's promoted out of normal flow). */
+.nx-map:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  background: #fff;
+}
+
+/* top/right are set at runtime (see alignLayerControl()) to match
+   wherever Syncfusion actually renders its zoom toolbar — that
+   position depends on the map's rendered aspect ratio and isn't a
+   fixed pixel offset from the container edge, so a hardcoded value
+   here drifts out of alignment depending on viewport size. Same for
+   .maximize-control below (chained off it, see maximizeBtnRight). */
+.nx-map .layer-control {
+  position: absolute;
+  z-index: 100;
+}
+
+.nx-map .maximize-control {
+  position: absolute;
+  z-index: 100;
+}
+
+.nx-map .layer-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: none;
+  border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+
+/* Positioned the same way as .layer-control (top tracks the zoom
+   toolbar), just further left of it — see basemapBtnRight. Relative
+   positioning so .basemap-panel below (absolute) anchors off THIS
+   button rather than the map container. */
+.nx-map .basemap-control {
+  position: absolute;
+  z-index: 100;
+}
+
+/* Small dropdown under the base-map button — same visual language as
+   .layer-panel (white card, shadow, rounded corners) but far simpler:
+   just three stacked options, no header/search/tree. */
+.nx-map .basemap-panel {
+  position: absolute;
+  top: 42px;
+  right: 0;
+  width: 130px;
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+.nx-map .basemap-panel button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-top: 1px solid #eee;
+  background: #fff;
+  color: #3c4043;
+  font-size: 13px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.nx-map .basemap-panel button:first-child {
+  border-top: none;
+}
+
+.nx-map .basemap-panel button:hover {
+  background: #f1f3f4;
+}
+
+.nx-map .basemap-panel button.active {
+  background: #eef3fc;
+  color: #1a73e8;
+  font-weight: 600;
+}
+
+/* Pinned to the map's own right edge (not the button's position,
+   which tracks the zoom toolbar and can sit well inward of the true
+   edge). top/max-height are computed at runtime in
+   alignLayerControl() to span from just under the button down to
+   the map's actual bottom edge, so long content scrolls within that
+   space instead of overflowing past the map or the viewport. */
+.nx-map .layer-panel {
+  position: absolute;
+  right: 8px;
+  width: 340px;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  /* Needed now that this is a SIBLING of .map-container (z-index: 0)
+     rather than nested inside .layer-control (z-index: 100) — without
+     an explicit z-index here, an element with z-index:auto stacks by
+     DOM order among same-level (z-index:0) siblings, and .map-container
+     comes later in the DOM, so it would paint on top of this panel. */
+  z-index: 100;
+}
+
+.nx-map .layer-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #1a1a1a;
+  color: #fff;
+  padding: 10px 12px;
+  border-radius: 6px 6px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.nx-map .layer-panel-header .icon-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 4px;
+  line-height: 1;
+}
+
+.nx-map .layer-panel-subheader {
+  padding: 8px 12px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #5f6368;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.nx-map .layer-panel-testbar {
+  padding: 8px 12px 0;
+}
+
+.nx-map .reload-btn {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 12px;
+  background: #eef3fc;
+  border: 1px solid #c3d4f0;
+  border-radius: 4px;
+  color: #1a73e8;
+  cursor: pointer;
+}
+
+.nx-map .reload-btn:hover {
+  background: #e1eaf9;
+}
+
+.nx-map .layer-panel-search {
+  padding: 4px 12px 8px;
+}
+
+.nx-map .layer-panel-search input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  font-size: 13px;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+}
+
+/* Centered near the top of the map, above the layer control/toolbar
+   (z-index higher than both), so it's never covered by either. */
+.nx-map .click-toast {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  background: rgba(26, 26, 26, 0.92);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  max-width: 80%;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.nx-map .layer-panel-body {
+  padding: 0 8px 8px;
+}
+
+/* Custom marker hover-tooltip card, injected via
+   injectMarkerTooltipTemplate() (see that method's own comment for why
+   it's built with plain DOM APIs rather than declared inline in this
+   component's template) — referenced by
+   nx-map-builder.service.ts's markerSettings.tooltipSettings.template.
+   ::ng-deep because Syncfusion's tooltip module positions/clones this
+   content into its own overlay div rather than this component's normal
+   DOM position, which isn't guaranteed to preserve Angular's
+   view-encapsulation scoping attributes — same reasoning as ::ng-deep
+   ejs-maps above.
+   Confirmed live: Syncfusion's tooltip overlay itself has NO
+   background/border/shadow of its own for a templated marker tooltip
+   (unlike the plain-text tooltip it replaces) — the card chrome below
+   is entirely ours, not a Syncfusion default being restyled. */
+::ng-deep .marker-tooltip {
+  min-width: 240px;
+  padding: 14px 16px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
+}
+
+::ng-deep .marker-tooltip .mtt-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+::ng-deep .marker-tooltip .mtt-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+::ng-deep .marker-tooltip .mtt-badge {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+::ng-deep .marker-tooltip .mtt-badge--warning {
+  background: #fff1e0;
+  color: #d97706;
+}
+
+::ng-deep .marker-tooltip .mtt-subtitle {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  color: #9aa0a6;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+::ng-deep .marker-tooltip .mtt-row {
+  display: flex;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+::ng-deep .marker-tooltip .mtt-row--boxed {
+  background: #f4f5f7;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+::ng-deep .marker-tooltip .mtt-stat {
+  flex: 1;
+}
+
+::ng-deep .marker-tooltip .mtt-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: #9aa0a6;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+::ng-deep .marker-tooltip .mtt-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+::ng-deep .marker-tooltip .mtt-value--warning {
+  color: #d97706;
+}
+
+::ng-deep .marker-tooltip .mtt-value--danger {
+  color: #d92626;
+}
+
+::ng-deep .marker-tooltip .mtt-value--plain {
+  font-size: 14px;
+  color: #1a1a1a;
+}
+
+::ng-deep .marker-tooltip .mtt-unit {
+  font-size: 12px;
+  font-weight: 600;
+  color: #9aa0a6;
+  margin-left: 2px;
+}
+
+/* value2/value3 lines are always in the DOM (a static template
+   placeholder can't add/remove elements per marker) but toggled to
+   display:none per-point via the d2_<key>/d3_<key> fields
+   (NXMapBuilderService.toMarker()) whenever that point has no
+   value2/value3 — which today is every point, until some reading
+   actually populates them. */
+::ng-deep .marker-tooltip .mtt-value2,
+::ng-deep .marker-tooltip .mtt-value3 {
+  font-size: 13px;
+  font-weight: 600;
+  color: #5f6368;
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+::ng-deep .marker-tooltip .mtt-unit {
+  font-size: 12px;
+  font-weight: 500;
+  color: inherit;
+  margin-left: 3px;
+}
+
+::ng-deep .marker-tooltip .mtt-timestamp {
+  font-size: 12px;
+  color: #9aa0a6;
+  margin-top: 10px;
+}
+
+/* #marker-label-template's rendered content (see
+   injectMarkerLabelTemplate()) — an always-visible icon + name/value
+   label, positioned by Syncfusion at each marker's lat/long. ::ng-deep
+   for the same reason as .marker-tooltip above: Syncfusion positions
+   template markers outside this component's normal DOM/encapsulation
+   scope. */
+/* Syncfusion's own wrapper around this element (class name
+   "maps_controlN_marker_template_element", see the pointer-events
+   rule below) is ITSELF already centered on the marker's exact
+   lat/long via its own inline transform: translate(-50%, -50%),
+   sized to fit THIS element exactly (no padding/margin gap) —
+   confirmed live via getBoundingClientRect(). So this element's own
+   natural (untransformed, no-transform-here) box is what ends up
+   centered on the marker. Confirmed live that a SECOND -50%,-50%
+   transform here (an earlier version of this rule) double-counted
+   that centering — shifted everything an extra half-its-own-size
+   up-left — and that even with no transform, sizing this element to
+   the full icon+text block (a previous version, no position/height
+   override below) still centered the wrong thing: the BLOCK's
+   center landed on the marker, not the ICON's, so the icon itself
+   sat visibly off the point by roughly half the text's height.
+   Fixed by sizing .marker-label to height: 0 with overflow: visible
+   — the ICON (first flex child, before its own translateY(-50%) —
+   see .marker-label-icon--* below) starts from that zero-height
+   line rather than from the combined icon+text block's top, so
+   translateY(-50%) alone is enough to land the icon's own center
+   there; the text simply follows after it in normal flex flow.
+   pointer-events: none !important: confirmed live that Syncfusion
+   stamps THIS element (not just the outer wrapper matched below)
+   with its own inline style="pointer-events: auto;" — same class
+   of override as the wrapper rule below, just on a different
+   element — which silently re-enabled hover-blocking on this
+   element without !important here too, even after the wrapper fix
+   alone. */
+::ng-deep .marker-label {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 0;
+  overflow: visible;
+  pointer-events: none !important;
+}
+
+/* Syncfusion wraps EVERY template marker (ours here, and the base
+   layer's own tooltip-only markers elsewhere) in its own absolutely-
+   positioned div — class name is control-instance-scoped
+   ("maps_controlN_marker_template_element"), hence the substring
+   match — and sets pointer-events: auto on it via an INLINE style
+   (confirmed live via getAttribute('style')), which is OUTSIDE this
+   component's own .marker-label rule above and beats any stylesheet
+   rule without !important. Confirmed live: with this wrapper left at
+   its default, hovering ANY marker underneath one of these overlay
+   divs (including a completely different layer's, e.g. a static
+   layer's own markers sharing the same screen position) never got
+   Syncfusion's mouseover far enough to open its tooltip — this
+   wrapper was eating the event first. Only meaningful once a donut
+   selection actually adds the overlay layer (buildMarkerPoints() in
+   nx-map-builder.service.ts); harmless no-op otherwise. */
+::ng-deep [class*="_marker_template_element"] {
+  pointer-events: none !important;
+}
+
+/* Base for every icon shape below — sets the color via a custom
+   property (`--icon-color`, set inline per marker by
+   toMetricOverlayMarker()'s own `color` field) rather than each shape
+   rule setting its own color property directly, since a triangle
+   needs border-bottom-color and a diamond/circle need background —
+   one shared color source, two different CSS properties reading it.
+   `translateY(-50%)` is what actually puts the icon's own CENTER on
+   the marker (not just this element's top edge) — .marker-label's
+   height: 0 above places every flex child's untransformed top edge
+   AT the marker's y-coordinate; shifting each icon up by half of
+   its OWN layout height (a percentage translate is always relative
+   to the element's own box, regardless of any rotation also applied
+   — confirmed live) lands its visual center there instead. Combined
+   with align-items: center on the flex parent for the x-axis, this
+   is what makes the icon sit exactly on the marker point. */
+::ng-deep .marker-label-icon--triangle {
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-bottom: 8px solid var(--icon-color);
+  transform: translateY(-50%);
+}
+
+/* Rotated square — NxMapBuilderService's DEFAULT_IMPACT_SHAPES uses
+   this for a "customer impact" high reading (configurable per group
+   via MapGroup.impactMarkerStyle, see its own comment). rotate(45deg)
+   is applied AFTER translateY(-50%) here (CSS transform functions
+   compose right-to-left) — translateY still reads this element's own
+   pre-rotation 8px height either way, so the composed order doesn't
+   change the centering math above. */
+::ng-deep .marker-label-icon--diamond {
+  width: 8px;
+  height: 8px;
+  background: var(--icon-color);
+  transform: translateY(-50%) rotate(45deg);
+}
+
+/* Fallback shape for a "normal"-status reading (no customer/
+   non-customer impact to differentiate) and for any impact value
+   that isn't "customer" or "non-customer". */
+::ng-deep .marker-label-icon--circle {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--icon-color);
+  transform: translateY(-50%);
+}
+
+/* Sits in normal flex flow right after the icon (which itself
+   renders starting at .marker-label's y: 0 line, per that rule's own
+   comment) — so the text naturally lands just below the icon without
+   needing its own transform, same visual position as before the
+   icon-centering fix above, just no longer entangled with it. */
+::ng-deep .marker-label-text {
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.nx-map .layer-panel summary {
+  cursor: pointer;
+  list-style: revert;
+}
+
+.nx-map .layer-panel summary label {
+  display: inline-flex;
+}
+
+/* Subtle highlight on an expanded node's own row — mirrors the
+   "currently open" row shading in the reference layer list. */
+.nx-map .layer-panel details[open] > summary {
+  background: #f1f3f4;
+  border-radius: 4px;
+}
+
+.nx-map .tree-indent {
+  margin-left: 16px;
+}
+
+/* A childless group/layer row (no <details> wrapper, so no native
+   disclosure triangle) — matches a <summary>'s own left inset so it
+   still lines up with sibling rows that DO have an arrow. */
+.nx-map .no-children {
+  margin-left: 1em;
+}
+
+.nx-map .layer-panel label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  font-size: 13px;
+  color: #202124;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.nx-map .leaves label {
+  font-size: 12px;
+  color: #5f6368;
+}
+
+/* Test-only per-layer theme switcher (onLayerThemeChange()) — kept
+   small/inline next to the layer's own label so it doesn't compete
+   for attention with the actual checkbox tree. */
+.nx-map .layer-panel select.theme-select {
+  margin-left: 6px;
+  font-size: 11px;
+  padding: 1px 3px;
+  border: 1px solid #dadce0;
+  border-radius: 3px;
+  color: #5f6368;
+  background: #fff;
+  cursor: pointer;
+}
+
+/* ej2-base's material theme resets native form control styling
+   globally, which otherwise makes plain checkboxes render with
+   zero visible size — force the browser's default checkbox back on
+   for this panel specifically, and tint the checked state so it
+   reads clearly against both the highlighted and plain rows. */
+.nx-map .layer-panel input[type="checkbox"] {
+  appearance: auto;
+  -webkit-appearance: auto;
+  accent-color: #1a73e8;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+}
+
+.nx-map .layer-panel input[type="checkbox"]:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

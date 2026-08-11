@@ -1,4 +1,4 @@
-import { NXMapBuilderService } from "../src/app/nx-map/services/nx-map-builder.service";
+import { LayerTreeNode, NXMapBuilderService } from "../src/app/nx-map/services/nx-map-builder.service";
 import { MapConfig, MapOptions } from "../src/app/nx-map/model/nx-map-model";
 import * as configJson from "../src/app/nx-map/data/pdo-map-config.json";
 
@@ -93,7 +93,10 @@ assertTrue(
 );
 
 // --- getLayerTree() exposes live references + per-layer/group/item toggles ---
-const tree = builder.getLayerTree();
+// None of this file's configs set MapConfig.region, so getLayerTree() never
+// buckets a LayerRegionNode in here — safe to treat every entry as a plain
+// LayerTreeNode.
+const tree = builder.getLayerTree() as LayerTreeNode[];
 assertEqual("getLayerTree() returns one node per layer", tree.length, configs.length);
 
 const omanNode = tree[omanLayerIndex];
@@ -180,7 +183,7 @@ builder.setLayerVisible(alwustaLayerIndex, true);
 builder.refresh(options);
 
 // --- Main layer identification + protection ---
-const treeAfterInit = builder.getLayerTree();
+const treeAfterInit = builder.getLayerTree() as LayerTreeNode[];
 assertTrue(
   "omanv1 (isMainLayer: true in JSON) is flagged as the main layer",
   treeAfterInit[omanLayerIndex].isMainLayer === true
@@ -244,7 +247,7 @@ assertEqual(
 );
 assertTrue(
   "the remaining layer is still omanv1 (main layer untouched)",
-  excludedBuilder.getLayerTree()[0].layerName === "omanv1"
+  (excludedBuilder.getLayerTree()[0] as LayerTreeNode).layerName === "omanv1"
 );
 
 // --- Config-time exclusion is refused on the main layer ---

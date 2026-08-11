@@ -15,36 +15,8 @@ import { DonutCollectionConfig, DonutSelectionEvent } from "./nx-donut/model/nx-
 // map collection on the right.
 @Component({
   selector: "app-root",
-  template: `
-    <div class="app-shell">
-      <app-nx-donut-collection
-        class="donut-pane"
-        [config]="donutCollectionConfig"
-        (sublayersSelected)="onSublayersSelected($event)"
-      ></app-nx-donut-collection>
-      <app-nx-map-collection class="map-pane" [config]="mapCollectionConfig" #mapCollectionRef></app-nx-map-collection>
-    </div>
-  `,
-  styles: [
-    `
-      .app-shell {
-        display: flex;
-        height: 100%;
-        width: 100%;
-      }
-      .donut-pane {
-        flex: 0 0 320px;
-        height: 100%;
-        border-right: 1px solid #ddd;
-        overflow: hidden;
-      }
-      .map-pane {
-        flex: 1 1 auto;
-        height: 100%;
-        min-width: 0;
-      }
-    `
-  ]
+  templateUrl: "./app.component.html",
+  styleUrls: ["./app.component.scss"]
 })
 export class AppComponent {
   // real-parent-config.json's own top-level node IS the collection wrapper

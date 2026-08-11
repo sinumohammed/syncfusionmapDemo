@@ -21,40 +21,8 @@ import { RawLayerNode } from "./services/parent-config-transform";
 // map can exist.
 @Component({
   selector: "app-nx-map-collection",
-  template: `
-    <div class="nx-map-collection">
-      <app-nx-map-demo
-        class="nx-map-collection-item"
-        *ngFor="let item of maps; let i = index"
-        [parentConfig]="item"
-      ></app-nx-map-demo>
-    </div>
-  `,
-  styles: [
-    `
-      :host {
-        display: block;
-        height: 100%;
-        width: 100%;
-      }
-      /* Wraps to a new row past one map's worth of width rather than
-         squeezing every item into a single row — reasonable default for an
-         unknown/variable item count; a single-item collection (today's
-         only real config) just fills the pane exactly as the old direct
-         <app-nx-map-demo> binding did. */
-      .nx-map-collection {
-        display: flex;
-        flex-wrap: wrap;
-        height: 100%;
-        width: 100%;
-      }
-      .nx-map-collection-item {
-        flex: 1 1 480px;
-        min-width: 0;
-        min-height: 100%;
-      }
-    `
-  ]
+  templateUrl: "./nx-map-collection.component.html",
+  styleUrls: ["./nx-map-collection.component.scss"]
 })
 export class NxMapCollectionComponent implements OnChanges {
   // No bundled default (same reasoning as NxMapDemoComponent.parentConfig)

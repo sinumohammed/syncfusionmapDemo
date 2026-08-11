@@ -17,69 +17,8 @@ import { DonutCollectionConfig, DonutConfig, DonutSelectionEvent } from "./model
 // itself has no idea any of this exists.
 @Component({
   selector: "app-nx-donut-collection",
-  template: `
-    <div class="nx-donut-panel">
-      <div class="nx-donut-grid">
-        <app-nx-donut
-          *ngFor="let donut of donuts"
-          [config]="donut"
-          [selected]="selectedId === donut.id"
-          (select)="onDonutSelected(donut)"
-        ></app-nx-donut>
-      </div>
-
-      <div class="nx-donut-legend" *ngIf="legendItems.length">
-        <div class="nx-donut-legend-item" *ngFor="let item of legendItems">
-          <span class="nx-donut-swatch" [style.background]="item.color"></span>
-          {{ item.label }}
-        </div>
-      </div>
-    </div>
-  `,
-  styles: [
-    `
-      :host {
-        display: block;
-        height: 100%;
-        width: 100%;
-      }
-      .nx-donut-panel {
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-        box-sizing: border-box;
-        padding: 12px;
-        /* No overflow-y here on purpose — an ancestor with any non-visible
-           overflow clips a hovered slice's tooltip too (CSS forces both
-           axes non-visible together once either one is), confirmed live
-           that was cutting the tooltip's text off. */
-      }
-      .nx-donut-grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 8px;
-      }
-      .nx-donut-legend {
-        margin-top: 12px;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        font-size: 12px;
-        color: #333;
-      }
-      .nx-donut-legend-item {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      }
-      .nx-donut-swatch {
-        display: inline-block;
-        width: 10px;
-        height: 10px;
-        border-radius: 2px;
-      }
-    `
-  ]
+  templateUrl: "./nx-donut-collection.component.html",
+  styleUrls: ["./nx-donut-collection.component.scss"]
 })
 export class NxDonutCollectionComponent implements OnChanges {
   // No bundled default (same reasoning as NxMapDemoComponent.parentConfig)

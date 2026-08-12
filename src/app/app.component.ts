@@ -1,8 +1,7 @@
-import { Component, ViewChild } from "@angular/core";
+import { Component } from "@angular/core";
 import * as realParentConfigJson from "./nx-map/testing/real-parent-config.json";
 import { RawLayerNode, buildMapCollectionConfig } from "./nx-map/services/parent-config-transform";
-import { NxMapCollectionComponent } from "./nx-map/nx-map-collection.component";
-import { MapCollectionConfig } from "./nx-map/model/nx-map-model";
+import { MapCollectionConfig, MapDonutSelection } from "./nx-map/model/nx-map-model";
 import * as donutCollectionJson from "./nx-donut/config/nx-donut-charts.json";
 import { DonutCollectionConfig, DonutSelectionEvent } from "./nx-donut/model/nx-donut-model";
 
@@ -31,13 +30,21 @@ export class AppComponent {
   );
   donutCollectionConfig = ((donutCollectionJson as any).default ?? donutCollectionJson) as DonutCollectionConfig;
 
-  @ViewChild("mapCollectionRef") private mapCollectionRef?: NxMapCollectionComponent;
+  // Bound straight onto <app-nx-map-collection>'s own donutSelection @Input
+  // in the template (see app.component.html) — this is the only point of
+  // contact between the donut side and the map side; neither imports the
+  // other. Reassigning this field (rather than reaching into the map side
+  // through a @ViewChild and calling a method on it) is what actually
+  // triggers NxMapCollectionComponent's/NxMapDemoComponent's own
+  // ngOnChanges, same as `mapCollectionConfig`/`donutCollectionConfig`
+  // above already do for their own @Input bindings.
+  donutSelection: MapDonutSelection | null = null;
 
-  // Forwards a donut card's selection to every map in the collection — see
-  // NxMapCollectionComponent.applyDonutSelection(). This is the only point
-  // of contact between the donut side and the map side; neither imports the
-  // other.
+  // Forwards a donut card's selection to every map in the collection —
+  // DonutSelectionEvent and MapDonutSelection are independent types that
+  // just happen to share the same shape (see MapDonutSelection's own
+  // comment), so no mapping/casting is needed here.
   onSublayersSelected(selection: DonutSelectionEvent): void {
-    this.mapCollectionRef?.applyDonutSelection(selection.selectedId, selection.allIds, selection.slices);
+    this.donutSelection = selection;
   }
 }

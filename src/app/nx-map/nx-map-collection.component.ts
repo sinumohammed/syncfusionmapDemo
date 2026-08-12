@@ -1,8 +1,7 @@
-import { Component, Input, OnChanges, QueryList, SimpleChanges, ViewChildren } from "@angular/core";
+import { Component, Input, OnChanges, SimpleChanges } from "@angular/core";
 import { forkJoin, of } from "rxjs";
-import { NxMapDemoComponent } from "./nx-map-demo.component";
 import { NXMapConfigService } from "./services/nx-map-config.service";
-import { MapCollectionConfig } from "./model/nx-map-model";
+import { MapCollectionConfig, MapDonutSelection } from "./model/nx-map-model";
 import { RawLayerNode } from "./services/parent-config-transform";
 
 // Iterates NxMapDemoComponent — one <app-nx-map-demo> per entry in
@@ -15,10 +14,12 @@ import { RawLayerNode } from "./services/parent-config-transform";
 // deliberately keeps its own independent copy).
 //
 // Owns the one thing that only makes sense collection-wide: forwarding a
-// donut selection to EVERY map instance in the collection (see
-// applyDonutSelection() below) — the host (app.component.ts) talks to this
-// component, not to any individual NxMapDemoComponent, once more than one
-// map can exist.
+// donut selection to EVERY map instance in the collection — purely by
+// re-binding its own `donutSelection` @Input straight through onto every
+// <app-nx-map-demo> in the template (see nx-map-collection.component.html),
+// same as `maps` itself flows down. The host (app.component.ts) only ever
+// sets THIS component's `donutSelection` Input; it never reaches into an
+// individual NxMapDemoComponent.
 @Component({
   selector: "app-nx-map-collection",
   templateUrl: "./nx-map-collection.component.html",
@@ -31,13 +32,14 @@ export class NxMapCollectionComponent implements OnChanges {
   // collection.
   @Input() config?: MapCollectionConfig<RawLayerNode>;
 
-  maps: RawLayerNode[] = [];
+  // Passed straight through onto every <app-nx-map-demo>'s own
+  // donutSelection @Input in the template — see NxMapDemoComponent.
+  // donutSelection's own comment for what a change here actually does; a
+  // map whose own data has no points carrying the selected metric simply
+  // does nothing, same as today's single-map case.
+  @Input() donutSelection?: MapDonutSelection | null;
 
-  // One NxMapDemoComponent instance per `maps` entry, in DOM order — used
-  // purely to broadcast a donut selection to all of them (see
-  // applyDonutSelection() below), never to distinguish one map from
-  // another.
-  @ViewChildren(NxMapDemoComponent) private mapComponents!: QueryList<NxMapDemoComponent>;
+  maps: RawLayerNode[] = [];
 
   constructor(private configService: NXMapConfigService) {}
 
@@ -50,15 +52,5 @@ export class NxMapCollectionComponent implements OnChanges {
     resolved$.subscribe(maps => {
       this.maps = maps;
     });
-  }
-
-  // Forwards a donut card's selection to EVERY map in this collection —
-  // called by the host (app.component.ts), which has no other way to reach
-  // into however many NxMapDemoComponent instances this collection ends up
-  // rendering. See NxMapDemoComponent.applyDonutSelection() for what each
-  // one does with it; a map whose own data has no points carrying the
-  // selected metric simply does nothing, same as today's single-map case.
-  applyDonutSelection(selectedId: string | null, universeIds: string[], slices?: { x: string; y: number; color?: string }[]): void {
-    this.mapComponents?.forEach(m => m.applyDonutSelection(selectedId, universeIds, slices));
   }
 }

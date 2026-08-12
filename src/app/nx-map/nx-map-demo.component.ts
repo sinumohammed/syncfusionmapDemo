@@ -22,7 +22,7 @@ import {
   Zoom,
   IMarkerClickEventArgs
 } from "@syncfusion/ej2-angular-maps";
-import { MapConfig, MapGroup, MapOptions, PointMetric, TooltipTemplateConfig, TooltipTemplateItem } from "./model/nx-map-model";
+import { MapConfig, MapDonutSelection, MapGroup, MapOptions, PointMetric, TooltipTemplateConfig, TooltipTemplateItem } from "./model/nx-map-model";
 import { NXMapAppConfig } from "./model/nx-map-app-config";
 import {
   DEFAULT_TOOLTIP_TEMPLATE,
@@ -61,6 +61,16 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
   // config to fall back on, since a real host always supplies this via
   // ngOnChanges (see below), never at construction time.
   @Input() parentConfig?: RawLayerNode;
+
+  // Set by an external donut/category panel (via the host — see
+  // app.component.ts) when it selects or deselects a metric card. Flows in
+  // as a plain @Input, handled in ngOnChanges below, rather than the host
+  // reaching in and calling a method on this component directly through a
+  // @ViewChild/@ViewChildren reference — this component doesn't need to
+  // know what a "donut" is either way, it just reacts to its own Input
+  // changing like it does for parentConfig. See applyDonutSelectionChange()
+  // for what a change here actually does.
+  @Input() donutSelection?: MapDonutSelection | null;
 
   // Both assigned outside the constructor (mapInstance by Angular's
   // @ViewChild after view init, mapOptions asynchronously by rebuildMap()
@@ -173,17 +183,17 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
   private subLayerGroups: MapGroup[] = [];
   // Snapshot of subLayerGroups exactly as last loaded/reloaded from the API
   // (or the very first load) — kept separately because
-  // applyDonutSelection() below needs each group's ORIGINAL points as
+  // applyDonutSelectionChange() below needs each group's ORIGINAL points as
   // position/name/value anchors even after a prior selection has replaced
   // this.subLayerGroups' points with synthetic ones. Updated everywhere
   // this.subLayerGroups is assigned from a real fetch (never by
-  // applyDonutSelection() itself, which only ever derives FROM this).
+  // applyDonutSelectionChange() itself, which only ever derives FROM this).
   private subLayerGroupsOriginal: MapGroup[] = [];
   // Same idea as subLayerGroupsOriginal, but per static layer (index-aligned
   // with staticLayerResults) — a static layer's own groups (e.g. the live
   // MOL layer's "mol" group, embedded directly in its LayerConfigJSON, NOT
   // fetched via subLayerApis) need the exact same "keep an original
-  // snapshot, derive every selection FROM it" treatment applyDonutSelection()
+  // snapshot, derive every selection FROM it" treatment applyDonutSelectionChange()
   // already gives subLayerGroups, or a second click would derive from
   // already-selection-mutated groups instead of the clean originals. Set
   // once in loadMap()'s subscribe (static layers are never independently
@@ -228,6 +238,9 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
   // change too (e.g. the host swapping in a different widget's config),
   // not just the first one.
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes["donutSelection"]) {
+      this.applyDonutSelectionChange();
+    }
     if (!changes["parentConfig"] || !this.parentConfig) {
       return;
     }
@@ -377,37 +390,35 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
     });
   }
 
-  // Called by an external donut/category panel when it selects (or
-  // deselects) a metric card — this component has no idea what a "donut"
-  // is; the host wires the two together (see app.component.ts). Every
-  // marker stays visible on the map at all times, with its normal hover
-  // tooltip, whether or not anything is selected — nothing here ever
-  // creates a marker or hides one.
+  // Reacts to the donutSelection @Input changing (see ngOnChanges above) —
+  // fired whenever an external donut/category panel selects or deselects a
+  // metric card, via the host binding its own selection state down through
+  // NxMapCollectionComponent (see app.component.ts/nx-map-collection.
+  // component.ts). This component still has no idea what a "donut" is
+  // beyond MapDonutSelection's shape. Every marker stays visible on the map
+  // at all times, with its normal hover tooltip, whether or not anything is
+  // selected — nothing here ever creates a marker or hides one.
   //
-  // `selectedId` is a metric id (tvp/salt/bsw/h2s/api/flow/other), not a
-  // group id — a point carries a reading for a metric via MapPoint.metrics
-  // (the always-loaded copy the hover tooltip reads), so this sets
-  // activeMetricId on whichever group(s) actually have points carrying that
-  // metric (in practice just the mol/MOL group, wherever it happens to
-  // live — see the sub-layer AND static-layer loop below), leaving every
-  // other group's activeMetricId cleared. `slices` is accepted here only
-  // for signature compatibility with NxDonutCollectionComponent's
-  // DonutSelectionEvent and otherwise unused (a click is a single click:
-  // the whole metric lights up at once, not customer/non-customer
-  // separately). `universeIds` is likewise unused — membership is decided
-  // per-point (metrics[selectedId] present or not), not by group id list.
+  // donutSelection.selectedId is a metric id (tvp/salt/bsw/h2s/api/flow/
+  // other), not a group id — a point carries a reading for a metric via
+  // MapPoint.metrics (the always-loaded copy the hover tooltip reads), so
+  // this sets activeMetricId on whichever group(s) actually have points
+  // carrying that metric (in practice just the mol/MOL group, wherever it
+  // happens to live — see the sub-layer AND static-layer loop in
+  // applyMetricSelection() below), leaving every other group's
+  // activeMetricId cleared. `slices`/`allIds` are unused here — membership
+  // is decided per-point (metrics[selectedId] present or not), not by group
+  // id list; they only exist on MapDonutSelection for shape-parity with
+  // DonutSelectionEvent.
   //
   // Every point already carries its own reading for every metric
   // (MapPoint.metrics, loaded once as part of the normal group fetch) — a
-  // donut click just re-keys THIS metric's readings by point id from data
-  // already on hand, no separate per-metric endpoint/file needed. Pass
-  // `selectedId: null` to clear every group's activeMetricId/
-  // activeMetricValues.
-  applyDonutSelection(
-    selectedId: string | null,
-    universeIds: string[],
-    slices?: { x: string; y: number; color?: string }[]
-  ): void {
+  // donut selection just re-keys THIS metric's readings by point id from
+  // data already on hand, no separate per-metric endpoint/file needed. A
+  // null/unset donutSelection, or one with selectedId: null, clears every
+  // group's activeMetricId/activeMetricValues.
+  private applyDonutSelectionChange(): void {
+    const selectedId = this.donutSelection?.selectedId ?? null;
     if (!selectedId) {
       this.applyMetricSelection(null, null);
       return;
@@ -437,7 +448,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
     return values;
   }
 
-  // Shared by applyDonutSelection()'s clear (selectedId: null, no fetch
+  // Shared by applyDonutSelectionChange()'s clear (selectedId: null, no fetch
   // needed) and fetched-response paths — stamps activeMetricId/
   // activeMetricValues onto whichever groups actually have a point carrying
   // `selectedId`, deriving from each layer's own ORIGINAL groups snapshot

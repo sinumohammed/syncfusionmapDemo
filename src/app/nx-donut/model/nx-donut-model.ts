@@ -59,7 +59,7 @@ export interface DonutCollectionConfig {
 // either donut component knowing what a "sub-layer" means on the receiving
 // end. `allIds` is the full set of every donut's own id(s) in this
 // collection, so the receiver can tell "everything else in this filter"
-// apart from "everything on the map" (e.g. nx-map's applyDonutSelection()
+// apart from "everything on the map" (e.g. nx-map's applyDonutSelectionChange()
 // un-labels every OTHER id in `allIds`, leaving ids outside it — like its
 // own static mol/surface groups — untouched). `slices` is the selected
 // donut's own data verbatim (present only when selectedId is set) — a host

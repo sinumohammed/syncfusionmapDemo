@@ -619,7 +619,7 @@ export class NXMapBuilderService {
 
       // Overlay layer for the currently-selected donut metric — covers the
       // SAME full point list (every mol point carries every metric), not a
-      // filtered subset, per applyDonutSelection()'s "no new markers, no
+      // filtered subset, per applyDonutSelectionChange()'s "no new markers, no
       // markers dropped" design. `template` fully replaces Syncfusion's own
       // shape/color/cluster rendering for THIS second layer only — the base
       // layer above still renders normally underneath it. Clustering is

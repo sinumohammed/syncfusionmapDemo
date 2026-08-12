@@ -71,7 +71,7 @@ export interface MapPoint extends BaseMapObject, GeoLocation, ShapeStyle {
   unit?: string;
   // Donut-metric readings keyed by donut id (tvp/salt/bsw/h2s/api/flow/
   // other) — shown in full on hover (see toMarker()'s m_<key>/c_<key>
-  // fields) and used by NxMapDemoComponent.applyDonutSelection() to decide
+  // fields) and used by NxMapDemoComponent.donutSelection to decide
   // which color a persistent label gets when that metric's donut is
   // clicked (see MapGroup.activeMetricId).
   metrics?: Record<string, PointMetric>;
@@ -196,12 +196,12 @@ export interface MapGroup {
   // color is METRIC_COLORS[activeMetricId] when that point's reading's
   // status is "high", NORMAL_LABEL_COLOR otherwise. Hover tooltip behavior
   // is unaffected either way (always reads point.metrics, never this).
-  // Set by NxMapDemoComponent.applyDonutSelection() when an external panel
+  // Set by NxMapDemoComponent.donutSelection when an external panel
   // (e.g. a donut/category chart) selects a metric — cleared (null) again
   // once nothing is selected.
   activeMetricId?: string | null;
   // The freshly-fetched per-point values for activeMetricId — see
-  // NXMapConfigService.loadMarkerValues() and applyDonutSelection()'s own
+  // NXMapConfigService.loadMarkerValues() and applyDonutSelectionChange()'s own
   // comment. Keyed by point id (MapPoint.id via BaseMapObject), same shape
   // as one entry of MapPoint.metrics. toMetricOverlayMarker() in
   // nx-map-builder.service.ts reads THIS (not point.metrics) for the
@@ -429,6 +429,21 @@ export interface DataSource<T> {
 
 export interface MapState {
   groups: MapGroup[];
+}
+
+// Mirrors DonutSelectionEvent (nx-donut-model.ts) in shape — same
+// independent-shape-mirroring convention as MapCollectionConfig/
+// DonutCollectionConfig above, so nx-map still shares nothing with nx-donut
+// at the type level. Bound as an @Input on NxMapCollectionComponent/
+// NxMapDemoComponent (see NxMapDemoComponent.donutSelection) so a donut
+// selection flows down through the normal Angular @Input/ngOnChanges path
+// like any other config change, rather than the host reaching in and
+// calling a component method directly through a @ViewChild/@ViewChildren
+// reference.
+export interface MapDonutSelection {
+  selectedId: string | null;
+  allIds: string[];
+  slices?: { x: string; y: number; color?: string }[];
 }
 
 // Top-level collection config for NxMapCollectionComponent — mirrors

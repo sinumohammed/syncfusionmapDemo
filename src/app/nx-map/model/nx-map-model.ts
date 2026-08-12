@@ -443,6 +443,18 @@ export interface DataSource<T> {
   url?: string; // required when source === "file" | "api" (HttpClient.get either way)
 }
 
+// What a child layer brought in via LayerFileLists/LayerAPIURL/
+// LayerInlineConfig (parent-config-transform.ts) resolves to — one per
+// layer. `shapeData` present + non-null means a real GeoJSON boundary
+// (Al Wusta/Surface/Sub Surface-style); omitted/null means a points/
+// groups layer (MOL-style), and NxMapDemoComponent.loadMap() synthesizes
+// NXMapBuilderService.EMPTY_PLACEHOLDER_SHAPE in its place — which case
+// this is is inferred purely from presence, no separate "type" field.
+export interface LayerFileEnvelope {
+  shapeData?: any;
+  layerConfig: MapConfig;
+}
+
 export interface MapState {
   groups: MapGroup[];
 }

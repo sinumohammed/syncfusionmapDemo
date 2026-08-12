@@ -114,20 +114,6 @@
         </button>
       </div>
 
-      <!-- Manual test trigger for reloadSubLayerGroups() — no auto-firing
-           anywhere; this is the only thing that calls it. Alternates
-           between the full 2-group mock response and a partial 1-group
-           one (Surface dropped) each click, purely so clicking it twice
-           visibly proves the reload REPLACES the previous sub-layer
-           groups (Surface disappears from this popup, not just stops
-           rendering on the map) rather than appending to them — wire a
-           real payload/endpoint here when a live backend exists. -->
-      <div class="layer-panel-testbar">
-        <button type="button" class="reload-btn" (click)="reloadSubLayerGroupsDemo()">
-          Reload Sub-Layers ({{ subLayerDemoAlt ? "partial" : "full" }} → click for {{ subLayerDemoAlt ? "full" : "partial" }})
-        </button>
-      </div>
-
       <div class="layer-panel-subheader">Layers</div>
 
       <div class="layer-panel-search">

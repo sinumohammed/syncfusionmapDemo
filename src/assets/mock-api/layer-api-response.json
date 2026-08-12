@@ -1,0 +1,35 @@
+[
+  {
+    "shapeData": {
+      "type": "FeatureCollection",
+      "features": [
+        {
+          "type": "Feature",
+          "properties": { "name": "Muscat (API)" },
+          "geometry": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [58.35, 23.5],
+                [58.35, 23.7],
+                [58.65, 23.7],
+                [58.65, 23.5],
+                [58.35, 23.5]
+              ]
+            ]
+          }
+        }
+      ]
+    },
+    "layerConfig": {
+      "layerName": "muscat-api",
+      "title": { "text": "Muscat (API)" },
+      "region": "Zones",
+      "dataLabel": { "visible": true, "color": "beige", "opacity": 0.9 },
+      "background": "rgba(255,193,7,0.35)",
+      "borderColor": "#ff9800",
+      "borderWidth": 1.5,
+      "shapeFeaturesSelectable": true
+    }
+  }
+]

@@ -16,7 +16,7 @@ Angular + Syncfusion Maps (`@syncfusion/ej2-angular-maps`) demo that renders one
 - `app/nx-map/config/nx-map-themes.json` — the theme registry (see "Themes" below), keyed by theme name. Bundled via a direct compile-time import (`resolveJsonModule`), not fetched.
 - `app/nx-map/testing/sample-parent-config.json` / `real-parent-config.json` — example inputs for `parent-config-transform.ts`'s `buildAppConfig()` (a small synthetic one and an actual captured payload); `nx-map-demo.component.ts` can be pointed at either one (via `buildAppConfig(...)`) in place of `pdo-map-config.json` for testing against non-`NXMapAppConfig`-shaped upstream data.
 - `assets/nx-map/` — shape/boundary GeoJSON and static-layer `MapConfig` JSON, served as static HTTP assets (fetched via `HttpClient`) for layers that don't rely on the bundled shape-data registry.
-- `assets/mock-api/` — stand-in JSON responses for the sub-layer API until a real backend exists: `sublayer-groups.json` (full response — Main Oil Line + Surface groups) and `sublayer-groups-partial.json` (Main Oil Line only, used to demo that a reload *replaces* rather than merges groups).
+- `assets/mock-api/` — stand-in JSON responses for `LayerAPIURL`: `layer-api-response.json` (a `LayerFileEnvelope[]`).
 
 ## `NXMapAppConfig` — where the data comes from
 
@@ -51,8 +51,6 @@ interface DataSource<T> {
 - **Static layers** (`staticLayers: StaticLayerRef[]`) — hardcoded layers with their own real boundary/shapeData (genuinely separate Syncfusion `SubLayer`s, same mechanism as a governorate boundary). Each entry's `layerName` is likewise only known once `configSource` resolves — `nx-map-demo.component.ts`'s `ngOnInit()` resolves each ref's config first, then uses the resolved `layerName` for the shapeData-fallback lookup and for merging that ref's own `subLayerApis` groups.
 - **Sub-layer API config** (`subLayerApis: SubLayerApiConfig[]`) — purely configuration, no data. Each entry is one endpoint URL plus an optional default `heading`. At the `NXMapAppConfig` level, the `MapGroup[]` content arrives at runtime from the API call(s) and is merged into the **base layer's** `groups[]`; at the `StaticLayerRef` level (per-layer `subLayerApis`), it's merged into **that layer's own** `groups[]` instead — sub-layer groups share whichever layer's geography they're merged into, so unlike static layers they don't get their own Syncfusion layer (see the "same geography → groups, not layers" guidance in `nx-map-builder.service.ts`).
 
-`subLayerApis` currently points at `assets/mock-api/sublayer-groups.json` (and `sublayer-groups-partial.json`, used by the demo's "Reload Sub-Layers" test button) — static JSON served over real HTTP via `HttpClient.get`, exactly like a live endpoint. Swapping to a real backend later is a one-line config change (replace the `url`) — no other code changes needed.
-
 ## Themes
 
 A layer's markers/clusters/lines/polygons/circles/tooltip-border/dataLabel can each supply their own style inline, or fall back to a named theme's defaults — `nx-map-themes.json` is a flat registry (`"default"`, `"theme1"`, `"theme2"`, ...) of `MapTheme` objects, imported at compile time (same pattern as `pdo-map-config.json`).
@@ -73,7 +71,7 @@ An unrecognized theme name at any level falls back to `"default"` rather than er
 
 ## Id-based line waypoints
 
-`MapLine.points` (a raw array of `{latitude, longitude}` waypoints) is still fully supported, but duplicates coordinates that may already exist on a named marker elsewhere in the same data. `MapLine.pointIds?: string[]` is the preferred alternative: an ordered list of marker ids (`MapPoint.id`, inherited from `BaseMapObject`), resolved by `NXMapBuilderService.buildPointIdLookup()`/`resolveLinePoints()` against every marker in that line's **layer** (not just its own group, so a line can connect markers living in different groups). `pointIds` takes precedence over `points` when both are set; an id with no matching marker logs a warning and that one waypoint is skipped rather than breaking the whole line. Both formats can coexist on different lines in the same file — see `assets/mock-api/sublayer-groups.json`'s Main Oil Line group (fully migrated to `pointIds`) alongside its Surface group's line (still raw `points`).
+`MapLine.points` (a raw array of `{latitude, longitude}` waypoints) is still fully supported, but duplicates coordinates that may already exist on a named marker elsewhere in the same data. `MapLine.pointIds?: string[]` is the preferred alternative: an ordered list of marker ids (`MapPoint.id`, inherited from `BaseMapObject`), resolved by `NXMapBuilderService.buildPointIdLookup()`/`resolveLinePoints()` against every marker in that line's **layer** (not just its own group, so a line can connect markers living in different groups). `pointIds` takes precedence over `points` when both are set; an id with no matching marker logs a warning and that one waypoint is skipped rather than breaking the whole line. Both formats can coexist on different lines in the same file — see `assets/nx-map/layers/mol.json`'s Main Oil Line group, fully migrated to `pointIds`.
 
 ## Parent-object transform
 

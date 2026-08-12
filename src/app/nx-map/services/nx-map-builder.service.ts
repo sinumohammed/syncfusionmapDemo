@@ -38,6 +38,16 @@ const TILE_URL_TEMPLATES: Record<"osm" | "satellite", string> = {
   satellite: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/level/tileY/tileX"
 };
 
+// Stand-in shapeData for a points/groups-only layer (MOL-style) — a
+// LayerFileEnvelope with no shapeData of its own still needs SOMETHING to
+// satisfy Syncfusion's SubLayer machinery, even though this layer draws no
+// real boundary; a single feature with empty coordinates renders nothing.
+// See NxMapDemoComponent.loadMap().
+export const EMPTY_PLACEHOLDER_SHAPE = {
+  type: "FeatureCollection",
+  features: [{ type: "Feature", properties: {}, geometry: { type: "MultiPolygon", coordinates: [] } }]
+};
+
 // One fixed highlight color per donut/metric id — used ONLY for a point
 // whose metrics[activeMetricId].status is "high" once that metric's donut
 // is clicked (see buildMarkerPoints()'s activeMetricId branch). Unrelated

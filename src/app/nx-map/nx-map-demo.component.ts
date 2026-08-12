@@ -22,10 +22,11 @@ import {
   Zoom,
   IMarkerClickEventArgs
 } from "@syncfusion/ej2-angular-maps";
-import { MapConfig, MapDonutSelection, MapGroup, MapOptions, PointMetric, TooltipTemplateConfig, TooltipTemplateItem } from "./model/nx-map-model";
+import { LayerFileEnvelope, MapConfig, MapDonutSelection, MapGroup, MapOptions, PointMetric, TooltipTemplateConfig, TooltipTemplateItem } from "./model/nx-map-model";
 import { NXMapAppConfig } from "./model/nx-map-app-config";
 import {
   DEFAULT_TOOLTIP_TEMPLATE,
+  EMPTY_PLACEHOLDER_SHAPE,
   GroupEntry,
   HeadingNode,
   LayerRegionNode,
@@ -176,12 +177,6 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
   // see showToast()/onMarkerClick()/onMapClick().
   toastMessage: string | null = null;
 
-  // Manual test-only toggle for the "Reload Sub-Layers" button — alternates
-  // which mock file the demo re-fetches so clicking it visibly proves
-  // reloadSubLayerGroups() replaces the previous groups rather than
-  // appending to them. Not part of the real reload mechanism itself.
-  subLayerDemoAlt = false;
-
   // buildAppConfig(parentConfig) — a description of WHERE each piece of
   // data comes from (inline/file/api), not the map data itself. See
   // ngOnChanges()/loadMap() for how it's resolved into the MapConfig[] the
@@ -191,30 +186,19 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
   private configs: MapConfig[] = [];
 
   // Kept as fields (rather than only local variables inside loadMap()) so
-  // reloadSubLayerGroups() can rebuild the map later without re-fetching
-  // the base layer/static layers all over again — only subLayerGroups
-  // actually changes on a reload.
+  // applyDonutSelectionChange()/applyMetricSelection() can re-derive from
+  // them later without re-fetching the base layer/static layers all over
+  // again.
   private baseConfig: MapConfig | undefined;
   private baseShape: any;
   private staticLayerResults: { config: MapConfig; shape: any }[] = [];
-  private subLayerGroups: MapGroup[] = [];
-  // Snapshot of subLayerGroups exactly as last loaded/reloaded from the API
-  // (or the very first load) — kept separately because
+  // Snapshot of each static layer's groups exactly as last loaded (index-
+  // aligned with staticLayerResults) — kept separately because
   // applyDonutSelectionChange() below needs each group's ORIGINAL points as
   // position/name/value anchors even after a prior selection has replaced
-  // this.subLayerGroups' points with synthetic ones. Updated everywhere
-  // this.subLayerGroups is assigned from a real fetch (never by
-  // applyDonutSelectionChange() itself, which only ever derives FROM this).
-  private subLayerGroupsOriginal: MapGroup[] = [];
-  // Same idea as subLayerGroupsOriginal, but per static layer (index-aligned
-  // with staticLayerResults) — a static layer's own groups (e.g. the live
-  // MOL layer's "mol" group, embedded directly in its LayerConfigJSON, NOT
-  // fetched via subLayerApis) need the exact same "keep an original
-  // snapshot, derive every selection FROM it" treatment applyDonutSelectionChange()
-  // already gives subLayerGroups, or a second click would derive from
-  // already-selection-mutated groups instead of the clean originals. Set
-  // once in loadMap()'s subscribe (static layers are never independently
-  // re-fetched the way reloadSubLayerGroups() re-fetches subLayerGroups).
+  // staticLayerResults' groups with synthetic ones; deriving from an
+  // already-selection-mutated copy on a second click would lose the
+  // originals. Set once in loadMap()'s subscribe.
   private staticLayerGroupsOriginal: MapGroup[][] = [];
   // See setMapStyle()'s own comment — the base layer's originally-configured
   // zoomFactor, restored whenever swapping back to a tile (osm/satellite)
@@ -268,8 +252,8 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
   private loadMap(appConfig: NXMapAppConfig): void {
     // Resolved SEQUENTIALLY (not inside the forkJoin below) specifically so
     // baseConfig.layerName — the one and only source of truth for the base
-    // layer's name — is already known before anything that needs it
-    // (shapeDataSource's registry-fallback lookup, and each static layer's
+    // layer's name — is already known before anything that needs it (the
+    // base layer's own name-based shape lookup, and each child layer's
     // default parentLayerName) gets resolved. There's deliberately no
     // separate "base layer name" field on NXMapAppConfig to pass to those in
     // parallel instead — see its own comment for why.
@@ -279,82 +263,43 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
         switchMap(baseConfig =>
           forkJoin({
             baseConfig: of(baseConfig),
-            baseShape: this.configService.resolveShapeData(baseConfig.layerName, appConfig.shapeDataSource),
-            // Sub-layer groups share the base layer's geography (no shapeData
-            // of their own) — the API response(s) are merged straight into
-            // the base layer's groups[] below, per
-            // nx-map-builder.service.ts's own documented guidance on
-            // same-geography categories vs new layers.
-            subGroups: this.configService.loadSubLayerGroups(appConfig.subLayerApis),
-            // Static (hardcoded) layers each have their own real
-            // boundary/shapeData — genuinely separate Syncfusion SubLayers —
-            // but are still nested under the base layer in the filter popup
-            // via parentLayerName. forkJoin([]) never emits (only
-            // completes) — guard the empty case so this still fires when a
-            // deployment has no static layers configured at all.
-            //
-            // Each ref's configSource is resolved FIRST (switchMap), same
-            // reasoning as the base layer above: this layer's layerName is
-            // only known once configSource actually resolves (an immediate
-            // JSON.parse for "inline", a real fetch for "file"/"api") —
-            // there's no separate up-front name to pass to
-            // resolveShapeData()'s registry-fallback lookup instead.
-            staticLayers: appConfig.staticLayers.length
-              ? forkJoin(
-                  appConfig.staticLayers.map(ref =>
-                    this.configService.resolve(ref.configSource).pipe(
-                      switchMap(config =>
-                        forkJoin({
-                          shape: this.configService.resolveShapeData(config.layerName, ref.shapeDataSource),
-                          // This layer's OWN sub-layer groups (distinct from
-                          // appConfig.subLayerApis, which only ever merges
-                          // into the BASE layer) — merged into THIS layer's
-                          // groups[] below. A ref with none just resolves an
-                          // empty array, leaving config.groups untouched.
-                          subGroups: this.configService.loadSubLayerGroups(ref.subLayerApis ?? [])
-                        }).pipe(
-                          map(({ shape, subGroups }) => ({
-                            config: {
-                              ...config,
-                              // theme: ref (StaticLayerRef) is the OVERRIDE —
-                              // it wins over whatever the config itself set,
-                              // falling back to the config's own theme only
-                              // when ref.theme is unset (see StaticLayerRef's
-                              // own comment).
-                              theme: ref.theme ?? config.theme,
-                              groups: [...(config.groups ?? []), ...subGroups],
-                              // parentLayerName/participateInFilter: the
-                              // OPPOSITE precedence from theme — the config's
-                              // OWN value (e.g. set directly inside a real
-                              // host's LayerConfigJSON) wins first, since
-                              // these describe a property of the layer
-                              // itself, not something a caller should be able
-                              // to silently override out from under it. ref's
-                              // value only applies when the config didn't set
-                              // one at all — this matters for
-                              // parent-config-transform.ts's buildAppConfig(),
-                              // which has no raw field for either and so
-                              // always produces a ref with
-                              // participateInFilter: true — without config's
-                              // own value winning first, a layer's own
-                              // "participateInFilter": false (set directly in
-                              // its LayerConfigJSON) would get silently
-                              // stomped back to true here every time.
-                              parentLayerName: config.parentLayerName ?? ref.parentLayerName ?? baseConfig.layerName,
-                              participateInFilter: config.participateInFilter ?? ref.participateInFilter ?? true
-                            },
-                            shape
-                          }))
-                        )
-                      )
-                    )
-                  )
-                )
-              : of([])
+            baseShape: this.configService.resolveShapeData(baseConfig.layerName),
+            // Every child layer this map brings in, from all three sources
+            // (LayerFileLists/LayerAPIURL/LayerInlineConfig), resolved and
+            // concatenated into one list — the "union" — then each mapped to
+            // the same { config, shape } shape staticLayerResults already
+            // used before this layer-file mechanism existed, so
+            // rebuildMap()/buildMap()/getLayerTree() need zero changes.
+            staticLayers: forkJoin([
+              appConfig.layerFileSources.length
+                ? forkJoin(appConfig.layerFileSources.map(source => this.configService.resolve<LayerFileEnvelope>(source)))
+                : of([] as LayerFileEnvelope[]),
+              appConfig.layerApiUrl
+                ? this.configService.resolve<LayerFileEnvelope[]>({ source: "api", url: appConfig.layerApiUrl })
+                : of([] as LayerFileEnvelope[]),
+              of(appConfig.layerInlineConfig ?? [])
+            ]).pipe(
+              map(([fileLayers, apiLayers, inlineLayers]) =>
+                [...fileLayers, ...apiLayers, ...inlineLayers].map(envelope => ({
+                  config: {
+                    ...envelope.layerConfig,
+                    // Defaults to nesting under the base layer in the filter
+                    // popup — the envelope's OWN value (set directly inside
+                    // its own file/API response/inline block) always wins.
+                    parentLayerName: envelope.layerConfig.parentLayerName ?? baseConfig.layerName,
+                    participateInFilter: envelope.layerConfig.participateInFilter ?? true
+                  },
+                  // Present + non-null shapeData => a real boundary; omitted
+                  // => a points/groups layer (MOL-style), synthesized here —
+                  // see LayerFileEnvelope's own comment.
+                  shape: envelope.shapeData ?? EMPTY_PLACEHOLDER_SHAPE
+                }))
+              )
+            )
           })
         )
       )
-      .subscribe(({ baseConfig, baseShape, subGroups, staticLayers }) => {
+      .subscribe(({ baseConfig, baseShape, staticLayers }) => {
         // "simple" is a config-only alias for "shape" — lets a host write
         // the friendlier name in baseMapType/availableBaseMapTypes without
         // the internal baseMapType type (and every comparison against it,
@@ -369,8 +314,6 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
         this.baseShape = baseShape;
         this.staticLayerResults = staticLayers;
         this.staticLayerGroupsOriginal = staticLayers.map((s: { config: MapConfig; shape: any }) => s.config.groups ?? []);
-        this.subLayerGroups = subGroups;
-        this.subLayerGroupsOriginal = subGroups;
         // The config's OWN zoomFactor — tuned for whatever raster tile view
         // it was written for (e.g. 5, to frame Oman in OSM/satellite tiles).
         // setMapStyle() below temporarily overwrites baseConfig.zoomFactor
@@ -400,30 +343,6 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
         this.injectMarkerTooltipTemplate(tooltipTemplate);
         this.rebuildMap();
       });
-  }
-
-  // Re-calls a configured sub-layer API endpoint with a different payload —
-  // wire this to whatever "some other action" should refresh the map's
-  // dynamic groups (a filter change, a search, etc). The new response
-  // REPLACES this.subLayerGroups entirely rather than appending to it, so
-  // whatever the endpoint returned last time is fully cleared before the
-  // new groups are merged into the base layer and the map/filter tree are
-  // rebuilt. `apiIndex` picks which configured endpoint to re-call — 0 (the
-  // default) is the only one for today's single-entry subLayerApis config.
-  // `urlOverride` exists only for reloadSubLayerGroupsDemo()'s benefit (see
-  // below) — a real integration should leave it unset and vary results via
-  // `payload` against the one configured URL instead.
-  reloadSubLayerGroups(payload?: Record<string, string | number | boolean>, apiIndex = 0, urlOverride?: string): void {
-    const api = this.nxAppConfig.subLayerApis[apiIndex];
-    if (!api) {
-      return;
-    }
-    const effectiveApi = urlOverride ? { ...api, url: urlOverride } : api;
-    this.configService.loadSubLayerGroup(effectiveApi, payload).subscribe(groups => {
-      this.subLayerGroups = groups;
-      this.subLayerGroupsOriginal = groups;
-      this.rebuildMap();
-    });
   }
 
   // Reacts to the donutSelection @Input changing (see ngOnChanges above) —
@@ -479,7 +398,6 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
         }
       }
     };
-    collectFrom(this.subLayerGroupsOriginal);
     this.staticLayerGroupsOriginal.forEach(collectFrom);
     return values;
   }
@@ -488,15 +406,14 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
   // needed) and fetched-response paths — stamps activeMetricId/
   // activeMetricValues onto whichever groups actually have a point carrying
   // `selectedId`, deriving from each layer's own ORIGINAL groups snapshot
-  // (subLayerGroupsOriginal / staticLayerGroupsOriginal) so a second
-  // selection never builds on top of the previous one's stamped fields.
+  // (staticLayerGroupsOriginal) so a second selection never builds on top of
+  // the previous one's stamped fields.
   private applyMetricSelection(selectedId: string | null, fetchedValues: Record<string, PointMetric> | null): void {
     const applyToGroup = (g: MapGroup): MapGroup => {
       const hasMetric = !!selectedId && (g.markerConfig?.points ?? []).some(p => p.metrics?.[selectedId] !== undefined);
       return { ...g, activeMetricId: hasMetric ? selectedId : null, activeMetricValues: hasMetric ? fetchedValues : null };
     };
 
-    this.subLayerGroups = this.subLayerGroupsOriginal.map(applyToGroup);
     this.staticLayerResults = this.staticLayerResults.map((s, i) => ({
       ...s,
       config: { ...s.config, groups: (this.staticLayerGroupsOriginal[i] ?? []).map(applyToGroup) }
@@ -504,32 +421,13 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
     this.rebuildMap();
   }
 
-  // The manual "Reload Sub-Layers" button's click handler — nothing else
-  // calls this or reloadSubLayerGroups(). Since the demo's endpoint is a
-  // static mock file (not a real backend that would actually vary its
-  // response by payload), this alternates the URL itself between the full
-  // 2-group response and a partial 1-group one, purely so a click visibly
-  // proves the reload REPLACES the previous groups — e.g. the "Surface"
-  // heading disappearing from this popup entirely, not just going empty —
-  // rather than accumulating duplicates. Swap this for a real
-  // endpoint/payload once a live backend exists; reloadSubLayerGroups()
-  // itself already re-calls a single configured URL with whatever payload
-  // you pass it.
-  reloadSubLayerGroupsDemo(): void {
-    this.subLayerDemoAlt = !this.subLayerDemoAlt;
-    const url = this.subLayerDemoAlt
-      ? "assets/mock-api/sublayer-groups-partial.json"
-      : "assets/mock-api/sublayer-groups.json";
-    this.reloadSubLayerGroups({ demo: this.subLayerDemoAlt ? "partial" : "full" }, 0, url);
-  }
-
-  // Shared by the initial load and reloadSubLayerGroups(): recombines
-  // whatever's currently in baseConfig/staticLayerResults/subLayerGroups
-  // into the MapConfig[] + shapeDataByLayer the builder expects, then
-  // rebuilds mapOptions and the filter tree from scratch. A full
-  // buildMap() (not just builder.refresh()) is needed here because
-  // subLayerGroups changing can add/remove whole groups, not just flip
-  // visibility on existing ones.
+  // Shared by the initial load and applyMetricSelection(): recombines
+  // whatever's currently in baseConfig/staticLayerResults into the
+  // MapConfig[] + shapeDataByLayer the builder expects, then rebuilds
+  // mapOptions and the filter tree from scratch. A full buildMap() (not just
+  // builder.refresh()) is needed here because a metric selection changing
+  // groups can add/remove whole groups, not just flip visibility on existing
+  // ones.
   //
   // render() at the end is NOT optional here: reassigning mapOptions gives
   // Angular a new object reference for [layers], but Syncfusion's own
@@ -548,16 +446,11 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
     if (!this.baseConfig) {
       return;
     }
-    const mergedBase: MapConfig = {
-      ...this.baseConfig,
-      groups: [...(this.baseConfig.groups ?? []), ...this.subLayerGroups]
-    };
-
-    // mergedBase MUST be first — NXMapBuilderService.initialize() always
-    // treats configs[0] as the main/base layer, purely positionally (see
-    // MapConfig's own comment); there's no isMainLayer flag to set here
-    // anymore.
-    this.configs = [mergedBase, ...this.staticLayerResults.map(s => s.config)];
+    // this.baseConfig MUST be first — NXMapBuilderService.initialize()
+    // always treats configs[0] as the main/base layer, purely positionally
+    // (see MapConfig's own comment); there's no isMainLayer flag to set
+    // here anymore.
+    this.configs = [this.baseConfig, ...this.staticLayerResults.map(s => s.config)];
 
     const shapeDataByLayer: Record<string, any> = {
       [this.baseConfig.layerName]: this.baseShape
@@ -606,7 +499,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
   // first page load already takes — confirmed correct — with no leftover
   // internal state from whatever style was active before.
   //
-  // Trade-off: like any other rebuildMap() call (e.g. reloadSubLayerGroups()),
+  // Trade-off: like any other rebuildMap() call (e.g. applyMetricSelection()),
   // this resets every layer/group/item back to fully checked — any filter
   // toggles the user made before switching style (or hitting Reset) are not
   // preserved.

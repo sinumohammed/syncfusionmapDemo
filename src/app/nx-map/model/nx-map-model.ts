@@ -343,6 +343,19 @@ export interface MapConfig {
   // option in this deployment at all. Ignored (with a console.warn) on the
   // main layer, since every other layer renders relative to it.
   visible?: boolean;
+  // Default true. Set to false to keep this layer fully present on the map
+  // AND in the filter tree, but start it UNCHECKED — same as if a user
+  // unchecked it right after load. Unlike `visible: false` (a config-time
+  // EXCLUSION — gone from both the map and the filter tree entirely), this
+  // only affects the starting checked/unchecked state; the layer is still
+  // there to check back on. Normally set per-layer inline, but
+  // NxMapDemoComponent.loadMap() also derives it from the base layer's own
+  // LayersDefaultSelected (parent-config-transform.ts) when that's
+  // present — see its own comment for the precedence between the two.
+  // Ignored (with a console.warn) on the main layer, same exemption as
+  // `visible` above — its checkbox is disabled, so starting it unchecked
+  // would leave no way to check it back on.
+  selected?: boolean;
   // This layer's own shape/region fill (shapeSettings.fill) — the color
   // filling the country/region boundary itself, not any marker/polygon/
   // circle drawn on top of it. Overrides the theme's layer.background

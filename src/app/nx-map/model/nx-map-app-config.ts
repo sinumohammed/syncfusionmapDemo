@@ -21,6 +21,15 @@ export interface NXMapAppConfig {
   layerFileSources: DataSource<LayerFileEnvelope>[];
   layerApiUrl?: string;
   layerInlineConfig?: LayerFileEnvelope[];
+  // When set, ONLY child layers whose own layerName appears here start
+  // checked/visible on load — every other child layer still renders and
+  // still appears in the filter tree, just starts unchecked (see
+  // MapConfig.selected). Overrides any individual layer's own `selected`.
+  // Undefined (the default) leaves each layer's own `selected` (or true)
+  // in charge — see NxMapDemoComponent.loadMap() for where this is applied
+  // and parent-config-transform.ts's RawLayerNode.LayersDefaultSelected for
+  // where it comes from.
+  defaultSelectedLayerNames?: string[];
   // App-wide default theme (a name into nx-map-themes.json) — every layer
   // inherits this unless it sets its own MapConfig.theme, which wins. Set
   // this ONCE here instead of repeating the same theme on every layer's own

@@ -5,6 +5,7 @@ import {
   HostListener,
   Input,
   OnChanges,
+  OnDestroy,
   SimpleChanges,
   ViewChild
 } from "@angular/core";
@@ -54,7 +55,7 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon, Selec
   templateUrl: "./nx-map-demo.component.html",
   styleUrls: ["./nx-map-demo.component.scss"]
 })
-export class NxMapDemoComponent implements OnChanges, AfterViewInit {
+export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // The host's own payload — one node per layer (root = base layer, each
   // Configuration[] entry = a static layer), matching parent-config-
   // transform.ts's RawLayerNode shape. Everything else on this component
@@ -287,7 +288,15 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
                     // popup — the envelope's OWN value (set directly inside
                     // its own file/API response/inline block) always wins.
                     parentLayerName: envelope.layerConfig.parentLayerName ?? baseConfig.layerName,
-                    participateInFilter: envelope.layerConfig.participateInFilter ?? true
+                    participateInFilter: envelope.layerConfig.participateInFilter ?? true,
+                    // appConfig.defaultSelectedLayerNames (LayersDefaultSelected),
+                    // when set, OVERRIDES the envelope's own `selected` —
+                    // it's an explicit "only these start checked" list for
+                    // the whole map, not a per-layer default. Unset leaves
+                    // the envelope's own `selected` (or true) in charge.
+                    selected: appConfig.defaultSelectedLayerNames
+                      ? appConfig.defaultSelectedLayerNames.includes(envelope.layerConfig.layerName)
+                      : envelope.layerConfig.selected
                   },
                   // Present + non-null shapeData => a real boundary; omitted
                   // => a points/groups layer (MOL-style), synthesized here —
@@ -1040,11 +1049,59 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
     }
     this.injectMarkerLabelTemplate();
     this.wireResetButton();
+    this.observeLayerGroupCreation();
     // Syncfusion renders the zoom toolbar asynchronously after the
     // component initializes — give it a moment before measuring.
     setTimeout(() => {
       this.alignLayerControl();
     }, 300);
+  }
+
+  ngOnDestroy(): void {
+    this.layerGroupObserver?.disconnect();
+  }
+
+  private layerGroupObserver: MutationObserver | undefined;
+
+  // Syncfusion recreates each layer group's own DOM element asynchronously
+  // in reaction to builder.refresh()'s mutated mapOptions.layers array —
+  // NOT synchronously within the click handler that triggered it. Confirmed
+  // live (MutationObserver timestamps) to land anywhere from ~10ms to
+  // ~40ms later, well before the 200ms-debounced "real" Syncfusion
+  // mapInstance.refresh() in render() below ever runs. Every freshly
+  // recreated element starts visible (see NXMapBuilderService.refresh()'s
+  // own comment on why Syncfusion's OWN `visible` flag is always fed as
+  // true) — without reacting to this, EVERY currently-hidden layer visibly
+  // flashes back on for that whole gap, on every single toggle, not just
+  // the one actually clicked (a fixed-delay setTimeout() correction here
+  // was tried and confirmed live to be unreliable — the recreation's own
+  // timing varies enough that a guessed delay either fires too early, and
+  // gets overwritten by the recreation right after, or leaves a visible
+  // gap). Reacting to the recreation itself removes the guesswork.
+  //
+  // Observes `.nx-map` (stable across a base-map style switch's own
+  // destroy/recreate of <ejs-maps> — see applyBaseMapStyle()) rather than
+  // <ejs-maps> itself, so this one observer, set up once, keeps working
+  // across that cycle too. childList only (not attributes) — this only
+  // ever needs to react to a layer group ELEMENT appearing, not to
+  // syncLayerDomVisibility()'s own `.style.display =` writes, which would
+  // otherwise risk a feedback loop.
+  private observeLayerGroupCreation(): void {
+    const host = this.elRef.nativeElement.querySelector(".nx-map");
+    if (!host) {
+      return;
+    }
+    this.layerGroupObserver = new MutationObserver(mutations => {
+      const touchesLayerGroup = mutations.some(m =>
+        Array.from(m.addedNodes).some(
+          n => n instanceof HTMLElement && (n.id.includes("_LayerIndex_") || !!n.querySelector?.('[id*="_LayerIndex_"]'))
+        )
+      );
+      if (touchesLayerGroup) {
+        this.syncLayerDomVisibility();
+      }
+    });
+    this.layerGroupObserver.observe(host, { childList: true, subtree: true });
   }
 
   // Builds the #marker-tooltip-template element that
@@ -1227,6 +1284,19 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
   // own comment) and survives every rebuild, so it doesn't need re-running
   // here.
   onMapLoaded(): void {
+    // Applies the real per-layer visible flags (MapConfig.selected: false,
+    // or a runtime toggle mid-rebuild) via the same display:none DOM patch
+    // a runtime toggle already uses — see buildLayers()'s own comment for
+    // why Syncfusion is never fed a real `visible: false` directly, at
+    // build time or refresh time, and why this DOM-level correction is
+    // what actually hides a layer instead. `(loaded)` also fires after
+    // every REBUILD (a style switch, Reset, a full reload), not just the
+    // very first one — calling this unconditionally here (rather than only
+    // from render(), which no-ops before mapInstance exists) is what makes
+    // a layer that starts unchecked actually start hidden on first paint,
+    // not just once a later toggle happens to run syncLayerDomVisibility()
+    // for unrelated reasons.
+    this.syncLayerDomVisibility();
     this.animateNavigationLines();
     // See suppressZoomCenterOverride's own comment. NOT cleared immediately
     // here — confirmed live that a late zoomComplete can still fire (and

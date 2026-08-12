@@ -313,6 +313,11 @@ export class NXMapBuilderService {
         `[NXMap] Layer "${configs[mainIndex].layerName}" is the main layer and can't be excluded via visible: false — including it anyway.`
       );
     }
+    if (configs[mainIndex]?.selected === false) {
+      console.warn(
+        `[NXMap] Layer "${configs[mainIndex].layerName}" is the main layer and can't start unchecked via selected: false — its checkbox is disabled, so including it fully checked anyway.`
+      );
+    }
 
     // Config-time exclusion: layers with visible: false never enter
     // this.layers at all, so they're absent from both the map and
@@ -325,42 +330,70 @@ export class NXMapBuilderService {
     // shifting indices.
     this.mainLayerIndex = includedConfigs.indexOf(configs[mainIndex]);
 
-    this.layers = includedConfigs.map(config => ({
-      config,
-      shapeData: shapeDataByLayer[config.layerName],
-      visible: true,
-      // Every feature starts visible — a fresh initialize() (including a
-      // full rebuildMap() reload) resets any prior per-feature hide, same
-      // as every other visibility flag cloned below.
-      shapeFeatureVisible: (shapeDataByLayer[config.layerName]?.features ?? []).map(() => true),
-      theme: this.resolveTheme(config.theme ?? baseTheme),
-      // Every leaf-bearing field is freshly cloned here (not just the
-      // group wrapper) — markerConfig.points already was, via
-      // flattenPointHierarchy(), but polygons/circles/lines previously
-      // came through as the SAME shared objects from `config` on every
-      // call. Since configs are cached and reused across repeated
-      // initialize() calls (e.g. every reload), a runtime `.visible`
-      // toggle on an uncloned polygon/circle/line mutated the shared
-      // source data permanently — a "reload resets everything to fully
-      // checked" reload silently stayed unchecked forever for any
-      // group whose only leaves were polygons/circles/lines (markers were
-      // never affected, since those were already cloned).
-      groups: (config.groups ?? []).map(group => ({
-        ...group,
-        markerConfig: group.markerConfig
-          ? {
-              ...group.markerConfig,
-              points: this.flattenPointHierarchy(group.markerConfig.points ?? [])
-            }
-          : group.markerConfig,
-        polygons: (group.polygons ?? []).map(p => ({ ...p, points: [...p.points] })),
-        circles: (group.circles ?? []).map(c => ({ ...c })),
-        // A line defined via pointIds (see MapLine.pointIds) has no own
-        // `points` array at all — only clone it when present, rather than
-        // assuming every line has one.
-        lines: (group.lines ?? []).map(l => ({ ...l, points: l.points ? [...l.points] : l.points }))
-      }))
-    }));
+    this.layers = includedConfigs.map((config, i) => {
+      // Starting checked/unchecked state — see MapConfig.selected's own
+      // comment. The main layer is exempt (same reasoning/warning as
+      // visible: false above) and always starts checked. Drives BOTH the
+      // layer's own checkbox (visible, below) AND, for a layer with actual
+      // per-feature checkboxes, its features' starting state
+      // (shapeFeatureVisible, below) — a layer that starts unchecked should
+      // read as unchecked all the way down the tree, not leave its own
+      // per-feature children (e.g. Al Wusta's North/South clusters) showing
+      // checked underneath an unchecked parent. Purely a starting STATE; a
+      // feature is still independently toggleable afterward via
+      // toggleShapeFeature()/toggleShapeFeatureGroup(), same as before.
+      const startSelected = i === this.mainLayerIndex ? true : config.selected ?? true;
+      const rawFeatures = shapeDataByLayer[config.layerName]?.features ?? [];
+      // Mirrors buildTreeNode()'s own gate for whether a layer gets
+      // per-feature checkbox rows at all (shapeFeaturesSelectable AND more
+      // than one feature — see its own comment). A layer WITHOUT those
+      // (e.g. a single-feature SubLayer) has no tree row to toggle
+      // shapeFeatureVisible back on later — toggleLayer()'s own cascade
+      // (setLayerTreeVisibility() in nx-map-demo.component.ts) only visits
+      // features that exist in the tree, so seeding startSelected here for
+      // one of these would permanently strand it: visibleShapeData() below
+      // would filter out its one-and-only feature forever, even after the
+      // layer's own checkbox was checked back on. Always true instead —
+      // the layer-level `visible` flag (this DOM group's own display:none)
+      // is the only thing that should ever hide this shape.
+      const hasSelectableFeatures = !!config.shapeFeaturesSelectable && rawFeatures.length > 1;
+      return {
+        config,
+        shapeData: shapeDataByLayer[config.layerName],
+        visible: startSelected,
+        // A fresh initialize() (including a full rebuildMap() reload)
+        // resets any prior per-feature hide, same as every other
+        // visibility flag cloned below.
+        shapeFeatureVisible: rawFeatures.map(() => (hasSelectableFeatures ? startSelected : true)),
+        theme: this.resolveTheme(config.theme ?? baseTheme),
+        // Every leaf-bearing field is freshly cloned here (not just the
+        // group wrapper) — markerConfig.points already was, via
+        // flattenPointHierarchy(), but polygons/circles/lines previously
+        // came through as the SAME shared objects from `config` on every
+        // call. Since configs are cached and reused across repeated
+        // initialize() calls (e.g. every reload), a runtime `.visible`
+        // toggle on an uncloned polygon/circle/line mutated the shared
+        // source data permanently — a "reload resets everything to fully
+        // checked" reload silently stayed unchecked forever for any
+        // group whose only leaves were polygons/circles/lines (markers were
+        // never affected, since those were already cloned).
+        groups: (config.groups ?? []).map(group => ({
+          ...group,
+          markerConfig: group.markerConfig
+            ? {
+                ...group.markerConfig,
+                points: this.flattenPointHierarchy(group.markerConfig.points ?? [])
+              }
+            : group.markerConfig,
+          polygons: (group.polygons ?? []).map(p => ({ ...p, points: [...p.points] })),
+          circles: (group.circles ?? []).map(c => ({ ...c })),
+          // A line defined via pointIds (see MapLine.pointIds) has no own
+          // `points` array at all — only clone it when present, rather than
+          // assuming every line has one.
+          lines: (group.lines ?? []).map(l => ({ ...l, points: l.points ? [...l.points] : l.points }))
+        }))
+      };
+    });
   }
 
   // Looks up a theme by name for a layer's config.theme — "default" for an
@@ -1268,7 +1301,23 @@ export class NXMapBuilderService {
         layer: {
           ...this.buildBaseMapFields(layer, isMain),
           shapePropertyPath: "name",
-          visible: layer.visible,
+          // ALWAYS true here, regardless of layer.visible — same reasoning
+          // as refresh()'s own `visible: true` below (see its comment):
+          // feeding Syncfusion's OWN layer visible: false makes it drop
+          // that entry from its internal layersCollection entirely at
+          // BUILD time too, not just on a later refresh, renumbering every
+          // LATER layer's "_LayerIndex_<n>" DOM id down by one — confirmed
+          // live as the cause of a layer that should start unchecked
+          // (MapConfig.selected: false) instead breaking EVERY layer's
+          // rendering, main layer included, the very first time more than
+          // one layer started unchecked. getLayerVisible()/
+          // syncLayerDomVisibility() (run once after the map's own
+          // `(loaded)` event — see NxMapDemoComponent.onMapLoaded()) are
+          // what actually hide it, via display:none, same mechanism a
+          // runtime toggle already used — this just makes the INITIAL
+          // build go through that same DOM-level path instead of Syncfusion's
+          // own (collection-shrinking) one.
+          visible: true,
           // The main layer renders as Syncfusion's base 'Layer' type; every
           // other config becomes a 'SubLayer' stacked on top of it. If your
           // regions' shapeData geographically overlaps, keep the SubLayer's

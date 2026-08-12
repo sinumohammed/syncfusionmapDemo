@@ -44,6 +44,22 @@ export interface RawLayerNode {
   // Same LayerFileEnvelope[] shape as LayerAPIURL's response, provided
   // directly — no fetch needed.
   LayerInlineConfig?: LayerFileEnvelope[] | null;
+  // Comma-separated layer names (matched against each child layer's own
+  // resolved `layerName`, e.g. "MOL" — same names LayerFileLists/
+  // LayerAPIURL/LayerInlineConfig's own layerConfig.layerName use, NOT
+  // necessarily the LayerFileLists name before slugifying) — when present,
+  // ONLY these child layers start checked/visible on load; every other
+  // child layer this map brings in (from any of the three sources) still
+  // renders fully and still appears in the filter tree, just starts
+  // unchecked, exactly like MapConfig.selected: false (see its own
+  // comment) — a user can still check it on manually. Overrides whatever
+  // an individual layer's own `selected` says — see buildAppConfig()'s own
+  // comment for the precedence between the two. Null/absent (the default)
+  // leaves every layer's own `selected` (or true) as the starting state,
+  // same as before this property existed. Never affects the main/base
+  // layer, which always starts checked regardless (its checkbox is
+  // disabled either way).
+  LayersDefaultSelected?: string | null;
   // App-wide default theme (NXMapAppConfig.theme) — null/absent keeps every
   // layer falling through to its own MapConfig.theme, then "default".
   Theme?: string | null;
@@ -66,26 +82,39 @@ export function slugifyLayerFileName(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+// Comma-separated -> trimmed, non-empty names, in list order. Shared by
+// LayerFileLists (below) and LayersDefaultSelected (buildAppConfig()).
+function parseCommaList(value: string | null | undefined): string[] {
+  return (value ?? "")
+    .split(",")
+    .map(name => name.trim())
+    .filter(name => name.length > 0);
+}
+
 // A node's LayerFileLists -> one DataSource<LayerFileEnvelope> per name, in
 // list order. Each resolves (NXMapConfigService.resolve()) to a single
 // layer's full envelope — unlike LayerAPIURL/LayerInlineConfig, which each
 // carry several layers at once, one file is always exactly one layer.
 function layerFileSourcesOf(node: RawLayerNode): DataSource<LayerFileEnvelope>[] {
-  return (node.LayerFileLists ?? "")
-    .split(",")
-    .map(name => name.trim())
-    .filter(name => name.length > 0)
-    .map(name => ({ source: "file", url: `${LAYER_FILES_BASE_PATH}/${slugifyLayerFileName(name)}.json` }));
+  return parseCommaList(node.LayerFileLists).map(name => ({
+    source: "file",
+    url: `${LAYER_FILES_BASE_PATH}/${slugifyLayerFileName(name)}.json`
+  }));
 }
 
 // Converts one RawLayerNode (the base/only layer left in this shape) into
 // the exact NXMapAppConfig shape NxMapDemoComponent already expects.
 export function buildAppConfig(root: RawLayerNode): NXMapAppConfig {
+  const defaultSelectedLayerNames = parseCommaList(root.LayersDefaultSelected);
   return {
     baseLayerConfigSource: { source: "inline", value: JSON.parse(root.MapSettings) },
     layerFileSources: layerFileSourcesOf(root),
     layerApiUrl: root.LayerAPIURL ?? undefined,
     layerInlineConfig: root.LayerInlineConfig ?? undefined,
+    // Empty (LayersDefaultSelected unset) -> undefined, not [] — loadMap()
+    // treats an empty array and "unset" identically today, but undefined
+    // reads more honestly as "no restriction" than an empty list of names.
+    defaultSelectedLayerNames: defaultSelectedLayerNames.length ? defaultSelectedLayerNames : undefined,
     theme: root.Theme ?? undefined
   };
 }

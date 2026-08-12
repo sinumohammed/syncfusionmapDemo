@@ -109,6 +109,23 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
   // to match MapConfig.baseMapType's own documented default.
   mapStyle: "shape" | "osm" | "satellite" = "shape";
 
+  // Which options the base-map style dropdown offers, and in what order —
+  // driven by the main layer's own MapConfig.availableBaseMapTypes (a
+  // comma-separated string parsed in loadMap() below). Defaults to all
+  // three, in this order, until a config actually resolves.
+  baseMapTypeOptions: Array<"shape" | "osm" | "satellite"> = ["shape", "osm", "satellite"];
+
+  // Display labels for the dropdown — "shape" reads as "Simple" and "osm"
+  // reads as "Map", to match the conventional Map/Satellite switch naming
+  // (see the template's own comment on the basemap-control). Both differ
+  // from their underlying baseMapType value, which stays "shape"/"osm" —
+  // only the label shown to the user changed.
+  readonly baseMapTypeLabels: Record<"shape" | "osm" | "satellite", string> = {
+    shape: "Simple",
+    osm: "Map",
+    satellite: "Satellite"
+  };
+
   // .basemap-control's own right offset — sits just left of .layer-control
   // (the layer LIST button, itself pinned closest to the zoom toolbar),
   // spaced by the layer button's width (36px) plus the same 8px gap
@@ -338,6 +355,16 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
         )
       )
       .subscribe(({ baseConfig, baseShape, subGroups, staticLayers }) => {
+        // "simple" is a config-only alias for "shape" — lets a host write
+        // the friendlier name in baseMapType/availableBaseMapTypes without
+        // the internal baseMapType type (and every comparison against it,
+        // e.g. isTileBaseMapType()) ever needing to know about it. Normalize
+        // it here, once, right as the config arrives, so everything
+        // downstream (this.mapStyle, the builder, setBaseMapType()) only
+        // ever sees "shape".
+        if ((baseConfig.baseMapType as string) === "simple") {
+          baseConfig.baseMapType = "shape";
+        }
         this.baseConfig = baseConfig;
         this.baseShape = baseShape;
         this.staticLayerResults = staticLayers;
@@ -352,6 +379,15 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit {
         // NXMapBuilderService.buildBaseMapFields()'s own comment); this is
         // what it restores when swapping back to a tile style.
         this.configuredZoomFactor = baseConfig.zoomFactor;
+        // Comma-separated, order-preserving, unknown/duplicate values
+        // dropped — falls back to all three (default order) when unset or
+        // when nothing in it survives the filter. "simple" is accepted here
+        // too (same config-only alias for "shape" as above).
+        const parsedOptions = (baseConfig.availableBaseMapTypes ?? "")
+          .split(",")
+          .map(v => (v.trim().toLowerCase() === "simple" ? "shape" : v.trim().toLowerCase()))
+          .filter((v, i, arr): v is "shape" | "osm" | "satellite" => (v === "shape" || v === "osm" || v === "satellite") && arr.indexOf(v) === i);
+        this.baseMapTypeOptions = parsedOptions.length ? parsedOptions : ["shape", "osm", "satellite"];
         // tooltipTemplate can be set on the main layer OR any static child
         // layer (MOL is a static layer under "oman", not the main layer
         // itself — see MapConfig.tooltipTemplate's own comment, now

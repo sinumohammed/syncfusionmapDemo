@@ -1129,7 +1129,7 @@ export class NXMapBuilderService {
     return this.isTileBaseMapType(type) ? TILE_URL_TEMPLATES[type] : undefined;
   }
 
-  // Swaps the main layer's base map style at runtime (e.g. a "Shape" /
+  // Swaps the main layer's base map style at runtime (e.g. a "Simple" /
   // "Map" / "Satellite" UI toggle) — "shape" falls back to whatever
   // shapeData was already resolved for this layer at initialize() time
   // (fetched regardless of the config's original baseMapType — see

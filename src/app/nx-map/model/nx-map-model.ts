@@ -368,7 +368,23 @@ export interface MapConfig {
   // main layer (see NXMapBuilderService.buildLayers()); when the main layer
   // starts as one of these two, NXMapBuilderService.setBaseMapType() can
   // swap between them at runtime (e.g. a "Map" / "Satellite" UI toggle).
+  // A config may write "simple" instead of "shape" here (and in
+  // availableBaseMapTypes below) — NxMapDemoComponent normalizes it to
+  // "shape" as soon as the config resolves, purely so config authors get
+  // the friendlier name shown in the dropdown ("Simple") without this type
+  // (or anything that compares against it, e.g.
+  // NXMapBuilderService.isTileBaseMapType()) needing to know a second
+  // spelling exists.
   baseMapType?: "shape" | "osm" | "satellite";
+  // Which of the three baseMapType values the base-map style switcher
+  // offers, and in what order — a comma-separated string (e.g.
+  // "shape,satellite,osm", or "simple,satellite,osm" — see baseMapType's
+  // own comment on the "simple"/"shape" alias), read by NXMapDemoComponent
+  // to build the Simple/Map/Satellite dropdown. baseMapType above is still
+  // the SELECTED value; this only controls what the dropdown lists and in
+  // which order. Omit (or leave unset) to offer all three, in the default
+  // shape/osm/satellite order.
+  availableBaseMapTypes?: string;
   // Only meaningful on the MAIN layer (MapOptions.centerPosition/
   // zoomSettings.zoomFactor are root-level in Syncfusion, not per-layer).
   // Shape layers auto-fit zoom/center to their shapeData's bounding box, so

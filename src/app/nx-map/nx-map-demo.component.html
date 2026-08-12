@@ -16,7 +16,7 @@
   <!-- Base-map style switcher — the "layer icon" spot itself now opens
        this (the conventional map-app placement for a Map/Satellite
        switch), positioned further from the zoom toolbar than the layer
-       LIST button below. "Shape" falls back to whatever shapeData was
+       LIST button below. "Simple" (baseMapType "shape") falls back to whatever shapeData was
        already resolved for the main layer (see
        NXMapBuilderService.setBaseMapType()'s own comment), "Map" is OSM
        streets, "Satellite" is Esri World Imagery. -->
@@ -35,14 +35,13 @@
     </button>
 
     <div class="basemap-panel" *ngIf="basemapPanelOpen">
-      <button type="button" [class.active]="mapStyle === 'shape'" (click)="setMapStyle('shape')">
-        Shape
-      </button>
-      <button type="button" [class.active]="mapStyle === 'osm'" (click)="setMapStyle('osm')">
-        Map
-      </button>
-      <button type="button" [class.active]="mapStyle === 'satellite'" (click)="setMapStyle('satellite')">
-        Satellite
+      <button
+        type="button"
+        *ngFor="let option of baseMapTypeOptions"
+        [class.active]="mapStyle === option"
+        (click)="setMapStyle(option)"
+      >
+        {{ baseMapTypeLabels[option] }}
       </button>
     </div>
   </div>

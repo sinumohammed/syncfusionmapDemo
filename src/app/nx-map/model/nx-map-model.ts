@@ -82,6 +82,20 @@ export interface MapPoint extends BaseMapObject, GeoLocation, ShapeStyle {
   // placeholder ("—"), same as before this field existed. No hardcoded
   // metric-id list involved on either side.
   tooltipMetrics?: Record<string, PointMetric>;
+  // This point's OWN hover-tooltip column count — overrides the map-wide
+  // default (NxMapDemoComponent.deriveTooltipTemplate()'s own `columns`,
+  // itself a static layer's MapConfig.tooltipTemplate.columns or
+  // NXMapBuilderService.DEFAULT_TOOLTIP_TEMPLATE.columns) for JUST this
+  // one point's tooltip — every other point keeps using the default.
+  // Set from MetricOverlayRecord.tooltip's own reserved "columns" key
+  // (see its own comment) — omit there to leave this point on the
+  // default, same as every point before this field existed. Read by
+  // NXMapBuilderService.toMarker() into this marker's own `columns`
+  // field, substituted into the tooltip template's CSS grid
+  // (`grid-template-columns`) at hover time — a genuinely PER-MARKER
+  // layout, not a template-wide setting, despite every marker sharing
+  // the same underlying #marker-tooltip-template DOM element.
+  tooltipColumns?: number;
   // Overrides the host group's own MapGroup.minZoomLevel for just THIS
   // point — set one or the other, not expecting both to blend; see
   // MapGroup.minZoomLevel's own comment for exactly what the threshold
@@ -192,14 +206,15 @@ export interface MetricOverlayRecord extends PointMetric, ShapeStyle {
   // point's own tooltipMetrics in NxMapDemoComponent.applyMetricSelection()
   // — omit entirely to leave the point's tooltip untouched by this record.
   //
-  // One reserved key: "columns" (a plain number, not a PointMetric reading)
-  // — how many tiles per row the tooltip grid renders, read by
-  // NxMapDemoComponent.deriveTooltipTemplate(). Same "first record that
-  // sets it wins" precedence as everything else derived from this map
-  // (see deriveTooltipTemplate()'s own comment) — only needs setting on
-  // one record, not every one. Omit to fall back to a static layer's own
-  // MapConfig.tooltipTemplate.columns when set, then the built-in default
-  // (NXMapBuilderService.DEFAULT_TOOLTIP_TEMPLATE.columns, 2).
+  // One reserved key: "columns" (a plain number, not a PointMetric
+  // reading) — how many tiles per row THIS record's own point's tooltip
+  // renders. PER-POINT, not global: forwarded onto just the ONE point
+  // this record matches (or creates) as MapPoint.tooltipColumns — every
+  // other point keeps using the map-wide default (a static layer's own
+  // MapConfig.tooltipTemplate.columns when set, otherwise
+  // NXMapBuilderService.DEFAULT_TOOLTIP_TEMPLATE.columns). Set it on
+  // every record that actually wants an override for its own point;
+  // omit it (the common case) to leave that point on the default.
   tooltip?: Record<string, PointMetric | number>;
 }
 

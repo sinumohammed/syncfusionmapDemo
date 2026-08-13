@@ -264,6 +264,19 @@ export class NXMapBuilderService {
     this.tooltipMetricKeys = keys;
   }
 
+  // The map-wide hover-tooltip column count — set via
+  // setDefaultTooltipColumns(), called by NxMapDemoComponent alongside
+  // setTooltipMetricKeys() with deriveTooltipTemplate()'s own resolved
+  // `columns` (a static layer's MapConfig.tooltipTemplate.columns when
+  // set, otherwise DEFAULT_TOOLTIP_TEMPLATE.columns). toMarker() uses
+  // this ONLY for a point that doesn't set its own MapPoint.tooltipColumns
+  // — see that field's own comment for the per-point override.
+  private defaultTooltipColumns = 2;
+
+  setDefaultTooltipColumns(columns: number): void {
+    this.defaultTooltipColumns = columns;
+  }
+
   // One lookup array per layer, each aligned with that layer's flat
   // `polygons` array from buildPolygon() (circles pushed first, then real
   // polygons — built in that exact order so indexes always match).
@@ -529,6 +542,11 @@ export class NXMapBuilderService {
       color: point.color ?? groupStyle?.color ?? theme.marker?.color,
       width: point.width ?? groupStyle?.width ?? theme.marker?.width ?? 20,
       height: point.height ?? groupStyle?.height ?? theme.marker?.height ?? 20,
+      // Consumed by #marker-tooltip-template's own CSS grid
+      // (grid-template-columns) — see MapPoint.tooltipColumns' own
+      // comment for why this is genuinely per-marker despite every
+      // marker sharing the same underlying template element.
+      columns: point.tooltipColumns ?? this.defaultTooltipColumns,
       __lookupKey: lookupKey
     };
 

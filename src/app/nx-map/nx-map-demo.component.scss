@@ -311,20 +311,24 @@
   margin-top: 2px;
 }
 
-::ng-deep .marker-tooltip .mtt-row {
-  display: flex;
-  gap: 16px;
+/* One CSS grid for the whole tile set, not a fixed number of pre-split
+   flex rows — its own column count comes from an inline
+   grid-template-columns style written per-marker
+   (NxMapDemoComponent.injectMarkerTooltipTemplate(), substituting
+   Syncfusion's ${columns} field — see MapPoint.tooltipColumns' own
+   comment), so two markers sharing this exact same template element can
+   still render a different number of columns each. Tiles wrap onto a new
+   row automatically once a row fills, same visual result the old
+   row-slicing produced for a uniform column count, but now correct for a
+   per-marker one too. */
+::ng-deep .marker-tooltip .mtt-grid {
+  display: grid;
+  gap: 12px 16px;
   margin-top: 12px;
 }
 
-::ng-deep .marker-tooltip .mtt-row--boxed {
-  background: #f4f5f7;
-  border-radius: 8px;
-  padding: 8px 10px;
-}
-
 ::ng-deep .marker-tooltip .mtt-stat {
-  flex: 1;
+  min-width: 0;
 }
 
 ::ng-deep .marker-tooltip .mtt-label {

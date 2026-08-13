@@ -23,7 +23,7 @@
     "value": 96.87,
     "unit": "kPa",
     "status": "normal",
-    "color": "green",
+    "color": "#c94a3f",
     "tooltip": {
       "tvp": { "color": "#c94a3f", "value": 96.87, "unit": "kPa", "status": "normal" },
       "salt": { "color": "#3fbfbf", "value": 3.8, "unit": "%", "status": "normal" },

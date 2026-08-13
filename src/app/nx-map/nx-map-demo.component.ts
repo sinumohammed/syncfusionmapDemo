@@ -459,18 +459,27 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   // Strips MetricOverlayRecord.tooltip's one reserved non-metric key
-  // ("columns" — a plain number, consumed only by deriveTooltipTemplate())
-  // before it lands on a MapPoint's own tooltipMetrics, which stays
-  // strictly Record<string, PointMetric> — toMarker() in
-  // nx-map-builder.service.ts never needs to know "columns" exists at all.
-  // Returns undefined for an empty/absent tooltip, same as leaving
-  // tooltipMetrics unset entirely.
+  // ("columns" — a plain number, see toTooltipColumns() below) before it
+  // lands on a MapPoint's own tooltipMetrics, which stays strictly
+  // Record<string, PointMetric> — toMarker() in nx-map-builder.service.ts
+  // never needs to know "columns" exists at all. Returns undefined for an
+  // empty/absent tooltip, same as leaving tooltipMetrics unset entirely.
   private static toTooltipMetrics(tooltip: Record<string, PointMetric | number> | undefined): Record<string, PointMetric> | undefined {
     if (!tooltip) {
       return undefined;
     }
     const entries = Object.entries(tooltip).filter((entry): entry is [string, PointMetric] => typeof entry[1] === "object");
     return entries.length ? Object.fromEntries(entries) : undefined;
+  }
+
+  // The other half of MetricOverlayRecord.tooltip's reserved "columns" key
+  // — pulls out just that one number (if present) for MapPoint.
+  // tooltipColumns, this record's own point's per-point column override.
+  // See that field's own comment: undefined here just leaves the point on
+  // the map-wide default, same as before this existed.
+  private static toTooltipColumns(tooltip: Record<string, PointMetric | number> | undefined): number | undefined {
+    const columns = tooltip?.["columns"];
+    return typeof columns === "number" ? columns : undefined;
   }
 
   // console.error + a visible toast (existing mechanism, already used for
@@ -612,7 +621,8 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
             color: record.color,
             width: record.width,
             height: record.height,
-            tooltipMetrics: NxMapDemoComponent.toTooltipMetrics(record.tooltip)
+            tooltipMetrics: NxMapDemoComponent.toTooltipMetrics(record.tooltip),
+            tooltipColumns: NxMapDemoComponent.toTooltipColumns(record.tooltip)
           },
           record
         });
@@ -638,7 +648,13 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
           ? {
               ...g.markerConfig,
               points: points.map(p =>
-                p.id && anchored[p.id]?.tooltip ? { ...p, tooltipMetrics: NxMapDemoComponent.toTooltipMetrics(anchored[p.id].tooltip) } : p
+                p.id && anchored[p.id]?.tooltip
+                  ? {
+                      ...p,
+                      tooltipMetrics: NxMapDemoComponent.toTooltipMetrics(anchored[p.id].tooltip),
+                      tooltipColumns: NxMapDemoComponent.toTooltipColumns(anchored[p.id].tooltip)
+                    }
+                  : p
               )
             }
           : g.markerConfig;
@@ -1355,33 +1371,30 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   // Builds this click's effective tooltip layout — the ONLY place any
-  // metric id's tile (or the tooltip's own column count) gets decided
-  // app-wide, no hardcoded metric-id list involved anywhere in this
-  // pipeline. Starts from this.staticTooltipTemplate's own items/columns
-  // (if any — a layer's explicit MapConfig.tooltipTemplate pins that
-  // metric id's title/position, or the column count, outright), then adds
-  // one auto-generated item for every OTHER key any of `records`' own
+  // metric id's tile gets decided app-wide, no hardcoded metric-id list
+  // involved anywhere in this pipeline. Starts from
+  // this.staticTooltipTemplate's own items (if any — a layer's explicit
+  // MapConfig.tooltipTemplate pins that metric id's title/position), then
+  // adds one auto-generated item for every OTHER key any of `records`' own
   // MetricOverlayRecord.tooltip maps mention (title from that metric's own
   // PointMetric.label, falling back to the key itself uppercased) — so a
   // metric id NO config anywhere has ever declared still gets a working
   // tile the very first time the fetched data mentions it, exactly what
   // "tomorrow it might be a different name/different count" needs.
-  // `tooltip.columns` (a plain number, not a PointMetric reading — see
-  // MetricOverlayRecord.tooltip's own comment) is the SAME kind of
-  // data-driven override for column count, first record that sets it
-  // wins, same precedence as a title. Falls all the way back to the
-  // built-in DEFAULT_TOOLTIP_TEMPLATE.columns (2) only when NEITHER the
-  // static config NOR any record's own data ever mentions a column count.
+  //
+  // `columns` here is the MAP-WIDE default only — a static layer's own
+  // MapConfig.tooltipTemplate.columns when set, otherwise
+  // DEFAULT_TOOLTIP_TEMPLATE.columns. It does NOT come from any record's
+  // own `tooltip.columns` — that reserved key is a PER-POINT override
+  // instead (see MapPoint.tooltipColumns' own comment): applyMetricSelection()
+  // forwards it onto just the one point that record matches/creates, never
+  // broadcast to every point the way a title/item is.
   private deriveTooltipTemplate(records: MetricOverlayRecord[]): TooltipTemplateConfig {
     const items = new Map<string, TooltipTemplateItem>();
-    let derivedColumns: number | undefined;
     (this.staticTooltipTemplate?.items ?? []).forEach(item => items.set(item.metricId, item));
     records.forEach(record => {
       Object.entries(record.tooltip ?? {}).forEach(([key, metric]) => {
         if (key === "columns") {
-          if (derivedColumns === undefined && typeof metric === "number") {
-            derivedColumns = metric;
-          }
           return;
         }
         if (!items.has(key)) {
@@ -1390,7 +1403,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
       });
     });
     return {
-      columns: this.staticTooltipTemplate?.columns ?? derivedColumns ?? DEFAULT_TOOLTIP_TEMPLATE.columns,
+      columns: this.staticTooltipTemplate?.columns ?? DEFAULT_TOOLTIP_TEMPLATE.columns,
       layout: this.staticTooltipTemplate?.layout,
       items: Array.from(items.values())
     };
@@ -1399,12 +1412,14 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // Shared by loadMap() (initial paint, records: []) and
   // applyMetricSelection() (every donut fetch) — derives this click's
   // tooltip layout, re-injects the DOM template, and keeps
-  // NXMapBuilderService.tooltipMetricKeys in the exact same lockstep
-  // deriveTooltipTemplate()'s own comment describes, all in one call.
+  // NXMapBuilderService.tooltipMetricKeys/defaultTooltipColumns in the
+  // exact same lockstep deriveTooltipTemplate()'s own comment describes,
+  // all in one call.
   private applyTooltipTemplate(records: MetricOverlayRecord[]): void {
     const tooltipTemplate = this.deriveTooltipTemplate(records);
     this.injectMarkerTooltipTemplate(tooltipTemplate);
     this.builder.setTooltipMetricKeys(tooltipTemplate.items.map(item => item.metricId));
+    this.builder.setDefaultTooltipColumns(tooltipTemplate.columns);
   }
 
   // Builds the #marker-tooltip-template element that
@@ -1452,19 +1467,25 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     // Which HTML shape each tile renders as — see TOOLTIP_TILE_LAYOUTS' own
     // comment for how a different deployment plugs in an alternate one.
     const renderTile = TOOLTIP_TILE_LAYOUTS[config.layout ?? "default"] ?? TOOLTIP_TILE_LAYOUTS["default"];
-    const columns = Math.max(1, config.columns);
-    const rows: string[] = [];
-    for (let i = 0; i < config.items.length; i += columns) {
-      const cells = config.items.slice(i, i + columns).map(renderTile).join("");
-      rows.push(`<div class="mtt-row">${cells}</div>`);
-    }
+    const tiles = config.items.map(renderTile).join("");
 
+    // A single CSS grid, not pre-split into fixed `columns`-many-wide rows
+    // at build time — `grid-template-columns` itself comes from
+    // `${columns}`, a per-MARKER Syncfusion field (NXMapBuilderService.
+    // toMarker(): point.tooltipColumns ?? the map-wide default), not a
+    // fixed value baked into this shared template. That's what makes
+    // MapPoint.tooltipColumns a genuinely PER-POINT override — every
+    // marker substitutes its OWN column count into the exact same
+    // template HTML, wrapping tiles into that many columns automatically
+    // (the browser's grid layout, not row-slicing here).
     container.innerHTML = `
       <div class="marker-tooltip">
         <div class="mtt-header">
           <span class="mtt-title">\${name}</span>
         </div>
-        ${rows.join("")}
+        <div class="mtt-grid" style="grid-template-columns: repeat(\${columns}, 1fr);">
+          ${tiles}
+        </div>
       </div>
     `;
   }

@@ -221,35 +221,6 @@
           }
         ]
       }
-    ],
-    "tooltipTemplate": {
-      "columns": 3,
-      "items": [
-        {
-          "metricId": "tvp",
-          "title": "TVP"
-        },
-        {
-          "metricId": "salt",
-          "title": "Salt"
-        },
-        {
-          "metricId": "bsw",
-          "title": "BS&W"
-        },
-        {
-          "metricId": "h2s",
-          "title": "Dissolved H2S"
-        },
-        {
-          "metricId": "api",
-          "title": "API"
-        },
-        {
-          "metricId": "flow",
-          "title": "Flow"
-        }
-      ]
-    }
+    ]
   }
 }

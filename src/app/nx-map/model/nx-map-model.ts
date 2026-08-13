@@ -94,10 +94,11 @@ export interface MapPoint extends BaseMapObject, GeoLocation, ShapeStyle {
 export interface PointMetric {
   value: number;
   unit?: string;
-  // "high" gets the clicked metric's own highlight color on the map
-  // (NXMapBuilderService.METRIC_COLORS); "normal" gets a shared neutral
-  // label color. Map coloring only ever looks at THIS field — see
-  // impact's own comment for what actually drives a donut's two slices.
+  // "high" gets this reading's own `color` below (falling back to a
+  // shared neutral label color when `color` is omitted); "normal" always
+  // gets the shared neutral color regardless of `color`. Map coloring only
+  // ever looks at THIS field — see impact's own comment for what actually
+  // drives a donut's two slices.
   status: "high" | "normal";
   // Only meaningful when status is "high" — which of a donut's two slices
   // this reading counts toward ("Customer impact" vs "Non-customer
@@ -130,6 +131,16 @@ export interface PointMetric {
   // wins over this — same "explicit config beats derived default"
   // precedence as everywhere else in this app.
   label?: string;
+  // This reading's own highlight color when status is "high" — straight
+  // from the data, no hardcoded per-metric-id palette anywhere in code
+  // (NXMapBuilderService no longer has a METRIC_COLORS lookup). Read by
+  // toMarker() for the hover tooltip tile's value color, and by
+  // toMetricOverlayMarker() (via a matched record's own top-level color,
+  // MetricOverlayRecord also being a PointMetric) for the on-map overlay
+  // label color once that metric's donut is clicked. Omit to fall back to
+  // the shared neutral label color, same as a "normal" reading always
+  // gets regardless of this field.
+  color?: string;
 }
 
 // One entry in the response NXMapConfigService.loadMetricOverlay() fetches
@@ -300,9 +311,9 @@ export interface MapGroup {
   // ADDITIONALLY renders a persistent label overlay (on top of its normal
   // shape+color+cluster rendering, which is unaffected) showing that
   // metric's own value — see buildMarkerPoints() in
-  // nx-map-builder.service.ts. Each point's label color is
-  // METRIC_COLORS[activeMetricId] when that point's reading's status is
-  // "high", NORMAL_LABEL_COLOR otherwise. Set by
+  // nx-map-builder.service.ts. Each point's label color is that reading's
+  // own PointMetric.color when its status is "high", NORMAL_LABEL_COLOR
+  // otherwise. Set by
   // NxMapDemoComponent.donutSelection when an external panel (e.g. a
   // donut/category chart) selects a metric — cleared (null) again once
   // nothing is selected.
@@ -326,8 +337,8 @@ export interface MapGroup {
   // this group's own impactMarkerStyle[reading.impact] entry, then
   // NXMapBuilderService.DEFAULT_IMPACT_SHAPES for that impact value, then a
   // plain circle if impact itself is unset (a "normal"-status reading never
-  // has one). `color` here overrides METRIC_COLORS[activeMetricId] the same
-  // way; omit either field to keep that level's own default. Unset/absent
+  // has one). `color` here overrides that reading's own PointMetric.color
+  // the same way; omit either field to keep that level's own default. Unset/absent
   // on this group entirely (the common case today) falls through to
   // defaults for every point.
   impactMarkerStyle?: Partial<Record<"customer" | "non-customer", { shape?: string; color?: string }>>;

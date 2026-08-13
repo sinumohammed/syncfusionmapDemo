@@ -48,30 +48,11 @@ export const EMPTY_PLACEHOLDER_SHAPE = {
   features: [{ type: "Feature", properties: {}, geometry: { type: "MultiPolygon", coordinates: [] } }]
 };
 
-// Optional highlight-color palette, by metric/donut id — used ONLY for a
-// point whose metrics[activeMetricId].status is "high" once that metric's
-// donut is clicked (see buildMarkerPoints()'s activeMetricId branch) and
-// for a "high" reading's tooltip tile color (toMarker()). A metric id
-// that isn't listed here (any brand-new one the fetched data introduces
-// tomorrow, not just these seven) just falls back to NORMAL_LABEL_COLOR
-// everywhere this is read — this is purely a nicer-looking extra, never a
-// gate on whether that metric's marker/tooltip actually works. Add an
-// entry here for a new metric id only if it deserves its own distinct
-// highlight color; unrelated to a point's own base marker color, which
-// keeps rendering normally underneath regardless of any donut selection.
-export const METRIC_COLORS: Record<string, string> = {
-  tvp: "#c94a3f",
-  salt: "#3fbfbf",
-  bsw: "#c9a63f",
-  h2s: "#3fae5a",
-  api: "#3f78c9",
-  flow: "#8e5ea2",
-  other: "#5f6368"
-};
-
-// Shared label color for a "normal"-status reading, regardless of which
-// metric is active — only "high" readings get their metric's own
-// METRIC_COLORS entry.
+// Shared label color for a "normal"-status reading, and the fallback for
+// a "high" one that doesn't set its own PointMetric.color — no hardcoded
+// per-metric-id palette anywhere in this file; a "high" reading's own
+// highlight color comes straight from that reading's own data (see
+// PointMetric.color's own comment) wherever one is read below.
 const NORMAL_LABEL_COLOR = "#5f6368";
 
 // Genuinely empty starting point — no metric ids baked in here at all.
@@ -573,7 +554,7 @@ export class NXMapBuilderService {
       const reading = point.tooltipMetrics?.[key];
       marker[`v_${key}`] = reading ? reading.value : "—";
       marker[`u_${key}`] = reading?.unit ?? "";
-      marker[`c_${key}`] = reading?.status === "high" ? METRIC_COLORS[key] ?? NORMAL_LABEL_COLOR : "#9aa0a6";
+      marker[`c_${key}`] = reading?.status === "high" ? reading?.color ?? NORMAL_LABEL_COLOR : "#9aa0a6";
       marker[`v2_${key}`] = reading?.value2 ?? "";
       marker[`u2_${key}`] = reading?.unit2 ?? "";
       marker[`d2_${key}`] = reading?.value2 !== undefined ? "block" : "none";
@@ -596,22 +577,23 @@ export class NXMapBuilderService {
   private toMetricOverlayMarker(
     point: MapPoint,
     lookupKey: string,
-    metricId: string,
     fetchedValues: Record<string, PointMetric> | null | undefined,
     impactStyle: MapGroup["impactMarkerStyle"] | undefined
   ) {
     const reading = point.id ? fetchedValues?.[point.id] : undefined;
     const isHigh = reading?.status === "high";
     // Resolution order, most specific wins: this group's own
-    // impactMarkerStyle[reading.impact] entry -> DEFAULT_IMPACT_SHAPES for
-    // that impact -> plain circle (a "normal" reading, or a "high" one that
-    // somehow has no impact value, never differentiates by shape). Color
-    // follows the same per-impact override, falling back to
-    // METRIC_COLORS/NORMAL_LABEL_COLOR exactly as before impact styling
-    // existed.
+    // impactMarkerStyle[reading.impact] entry -> this reading's OWN
+    // PointMetric.color (data-driven, see its own comment — `reading` here
+    // is the matched MetricOverlayRecord for `metricId`, itself a
+    // PointMetric) -> NORMAL_LABEL_COLOR (a "normal" reading, or a "high"
+    // one that sets neither). Shape follows the same per-impact override,
+    // falling back to DEFAULT_IMPACT_SHAPES for that impact, then a plain
+    // circle (a "normal" reading, or a "high" one that somehow has no
+    // impact value, never differentiates by shape).
     const configuredStyle = isHigh && reading?.impact ? impactStyle?.[reading.impact] : undefined;
     const iconShape = isHigh && reading?.impact ? configuredStyle?.shape ?? DEFAULT_IMPACT_SHAPES[reading.impact] : "circle";
-    const color = isHigh ? configuredStyle?.color ?? METRIC_COLORS[metricId] ?? NORMAL_LABEL_COLOR : NORMAL_LABEL_COLOR;
+    const color = isHigh ? configuredStyle?.color ?? reading?.color ?? NORMAL_LABEL_COLOR : NORMAL_LABEL_COLOR;
 
     return {
       latitude: point.latitude,
@@ -707,9 +689,8 @@ export class NXMapBuilderService {
       // layer above still renders normally underneath it. Clustering is
       // intentionally left off: it isn't designed to combine with template
       // markers.
-      const metricId = g.activeMetricId;
       const overlayDataSource = points.map((point, index) =>
-        this.toMetricOverlayMarker(point, `${layerIndex}:${g.id}:metric:${index}`, metricId, g.activeMetricValues, g.impactMarkerStyle)
+        this.toMetricOverlayMarker(point, `${layerIndex}:${g.id}:metric:${index}`, g.activeMetricValues, g.impactMarkerStyle)
       );
 
       const overlayLayer: MarkerSettingsModel = {

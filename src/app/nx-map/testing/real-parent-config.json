@@ -66,6 +66,7 @@
       "MapSettings": "{\"layerName\":\"oman\",\"baseMapType\":\"satellite\",\"availableBaseMapTypes\":\"simple,osm\",\"mapCenter\":{\"latitude\":21.6,\"longitude\":57},\"zoomFactor\":7,\"title\":{\"text\":\"\"},\"dataLabel\":{\"visible\":true,\"color\":\"#b5b5b5\",\"opacity\":0.9}}",
       "LayerFileLists": "MOL,AlWusta,Surface,Sub Surface",
       "LayersDefaultSelected": "MOL",
+      "MetricDataAPIURL": "assets/mock-api/metric-overlay-response.json",
       "LayerAPIURL": "assets/mock-api/layer-api-response.json",
       "LayerInlineConfig": [
         {

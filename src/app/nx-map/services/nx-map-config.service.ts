@@ -1,8 +1,8 @@
 import { Injectable } from "@angular/core";
-import { HttpClient } from "@angular/common/http";
+import { HttpClient, HttpParams } from "@angular/common/http";
 import { Observable, of } from "rxjs";
 import { catchError, map } from "rxjs/operators";
-import { DataSource, LayerFileEnvelope } from "../model/nx-map-model";
+import { DataSource, LayerFileEnvelope, MetricOverlayRecord } from "../model/nx-map-model";
 import { LAYER_FILES_BASE_PATH, slugifyLayerFileName } from "./parent-config-transform";
 
 @Injectable()
@@ -42,5 +42,16 @@ export class NXMapConfigService {
         return of(undefined);
       })
     );
+  }
+
+  // Fetches NXMapAppConfig.metricDataApiUrl fresh on every donut click —
+  // `metricId` (the clicked donut's own id) goes as a query param, same
+  // "static-asset-backed mock still works over real HTTP, a live backend
+  // reads the query string" pattern the rest of this service already uses.
+  // See MetricOverlayRecord's own comment for the response shape and
+  // NxMapDemoComponent.applyDonutSelectionChange() for how each entry gets
+  // matched to (or plotted as) a marker.
+  loadMetricOverlay(url: string, metricId: string): Observable<MetricOverlayRecord[]> {
+    return this.http.get<MetricOverlayRecord[]>(url, { params: new HttpParams({ fromObject: { metricId } }) });
   }
 }

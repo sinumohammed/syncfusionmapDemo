@@ -68,18 +68,6 @@ export const METRIC_COLORS: Record<string, string> = {
 // METRIC_COLORS entry.
 const NORMAL_LABEL_COLOR = "#5f6368";
 
-// Tooltip-only text colors for a metric's own value — independent of
-// METRIC_COLORS (which only applies once a donut is actually clicked).
-const STATUS_TOOLTIP_COLORS: Record<"high" | "normal", string> = {
-  high: "#d92626",
-  normal: "#1a1a1a"
-};
-
-// Every metric id a MapPoint.metrics object can carry — drives both the
-// tooltip's v_<key>/u_<key>/c_<key> fields (toMarker()) and METRIC_COLORS
-// above.
-const METRIC_KEYS = ["tvp", "salt", "bsw", "h2s", "api", "flow", "other"] as const;
-
 // Original 7-metric, 2-column tooltip layout — used whenever a MapConfig
 // doesn't set its own tooltipTemplate (see MapConfig.tooltipTemplate's own
 // comment). Kept here, not hardcoded into the template string, so a config
@@ -262,6 +250,37 @@ export class NXMapBuilderService {
   // Resolves markerClick's `data` arg in O(1) without any DOM-id parsing,
   // and the layerIndex prefix keeps two layers' same-named groups distinct.
   private markerLookup = new Map<string, GraphicLookup>();
+
+  // Which metric ids the always-on hover tooltip currently has a tile for —
+  // set via setTooltipMetricKeys(), called by NxMapDemoComponent.loadMap()
+  // with the SAME TooltipTemplateConfig.items list it feeds into
+  // injectMarkerTooltipTemplate()'s DOM template, so the template's own
+  // ${v_<key>} placeholders and toMarker()'s populated fields (below)
+  // always agree on exactly the same key set — no separate hardcoded
+  // metric-id list on either side. Empty until the first config resolves
+  // (or a layer/config never sets a tooltipTemplate at all), which is
+  // exactly what leaves the tooltip with no tiles pre-load, same as no
+  // reading ever existing for a metric no config mentions.
+  private tooltipMetricKeys: string[] = [];
+
+  // Current map zoom factor, same units/scale as MapConfig.zoomFactor/
+  // maxZoomFactor — set via setZoomLevel(), called by NxMapDemoComponent.
+  // onZoomComplete() on every zoom. buildMarkerPoints() below compares each
+  // point's (or its group's) MapGroup.minZoomLevel/MapPoint.minZoomLevel
+  // against this to decide whether that point belongs in the marker
+  // dataSource at all this build. Starts at 1 — Syncfusion's own
+  // least-zoomed-out level (see buildZoom()'s own minZoom) — so a point
+  // with a minZoomLevel above 1 correctly starts hidden on first paint,
+  // before any zoomComplete has ever fired to set a real value.
+  private currentZoomLevel = 1;
+
+  setZoomLevel(level: number): void {
+    this.currentZoomLevel = level;
+  }
+
+  setTooltipMetricKeys(keys: string[]): void {
+    this.tooltipMetricKeys = keys;
+  }
 
   // One lookup array per layer, each aligned with that layer's flat
   // `polygons` array from buildPolygon() (circles pushed first, then real
@@ -533,23 +552,33 @@ export class NXMapBuilderService {
 
     // Flat v_/u_/c_/v2_/u2_/d2_/v3_/u3_/d3_<key> fields for
     // #marker-tooltip-template — Syncfusion's template is plain ${field}
-    // substitution with no loops/conditionals, so every metric needs its
-    // own set of fields rather than iterating point.metrics directly in the
-    // template. d2_<key>/d3_<key> are a CSS `display` value ("" or "none")
-    // used to hide a tile's second/third value line per-point when that
-    // reading has no value2/value3 — the only way a static ${field}
-    // template can express "hide this if absent" per marker.
-    for (const key of METRIC_KEYS) {
-      const reading: PointMetric | undefined = point.metrics?.[key];
-      marker[`v_${key}`] = reading ? String(reading.value) : "—";
+    // substitution with no loops/conditionals, so every metric key the
+    // template currently has a tile for (this.tooltipMetricKeys — see its
+    // own comment) needs its own set of fields pre-populated, or the
+    // template renders the literal "${v_tvp}" placeholder text. Key list is
+    // data-driven now (NxMapDemoComponent.loadMap() feeds it in from
+    // whatever MapConfig.tooltipTemplate.items a layer's own config
+    // declares), not a hardcoded id list here — add a new metric id to a
+    // layer's tooltipTemplate and its field slot exists automatically, no
+    // code change. Per key: point.tooltipMetrics?.[key] (set by
+    // NxMapDemoComponent.applyMetricSelection() from a matched
+    // MetricOverlayRecord.tooltip — see its own comment) supplies a real
+    // reading when this point has one; otherwise every tile still renders
+    // the "—" placeholder, same as before any metric data existed anywhere.
+    // d2_<key>/d3_<key> stay a CSS `display` value, "none" unless value2/
+    // value3 is actually present (PointMetric's own optional second/third
+    // line — see its comment).
+    for (const key of this.tooltipMetricKeys) {
+      const reading = point.tooltipMetrics?.[key];
+      marker[`v_${key}`] = reading ? reading.value : "—";
       marker[`u_${key}`] = reading?.unit ?? "";
-      marker[`c_${key}`] = reading ? STATUS_TOOLTIP_COLORS[reading.status] : "#9aa0a6";
-      marker[`v2_${key}`] = reading?.value2 !== undefined ? String(reading.value2) : "";
+      marker[`c_${key}`] = reading?.status === "high" ? METRIC_COLORS[key] ?? NORMAL_LABEL_COLOR : "#9aa0a6";
+      marker[`v2_${key}`] = reading?.value2 ?? "";
       marker[`u2_${key}`] = reading?.unit2 ?? "";
-      marker[`d2_${key}`] = reading?.value2 !== undefined ? "" : "none";
-      marker[`v3_${key}`] = reading?.value3 !== undefined ? String(reading.value3) : "";
+      marker[`d2_${key}`] = reading?.value2 !== undefined ? "block" : "none";
+      marker[`v3_${key}`] = reading?.value3 ?? "";
       marker[`u3_${key}`] = reading?.unit3 ?? "";
-      marker[`d3_${key}`] = reading?.value3 !== undefined ? "" : "none";
+      marker[`d3_${key}`] = reading?.value3 !== undefined ? "block" : "none";
     }
 
     return marker;
@@ -560,10 +589,9 @@ export class NXMapBuilderService {
   // from THIS metric's own reading rather than the point's generic
   // value/color, per buildMarkerPoints()'s comment. `fetchedValues` is
   // MapGroup.activeMetricValues — the freshly-fetched response from
-  // NXMapConfigService.loadMarkerValues(metricId), keyed by point id;
-  // point.metrics[metricId] (the tooltip's own, always-loaded copy) is only
-  // a fallback for the gap before that fetch resolves, per
-  // MapGroup.activeMetricValues's own comment.
+  // NXMapConfigService.loadMetricOverlay(), keyed by point id — the only
+  // source, no static fallback (a point with no entry here just renders
+  // with no overlay reading, same as any other absent value).
   private toMetricOverlayMarker(
     point: MapPoint,
     lookupKey: string,
@@ -571,7 +599,7 @@ export class NXMapBuilderService {
     fetchedValues: Record<string, PointMetric> | null | undefined,
     impactStyle: MapGroup["impactMarkerStyle"] | undefined
   ) {
-    const reading = (point.id ? fetchedValues?.[point.id] : undefined) ?? point.metrics?.[metricId];
+    const reading = point.id ? fetchedValues?.[point.id] : undefined;
     const isHigh = reading?.status === "high";
     // Resolution order, most specific wins: this group's own
     // impactMarkerStyle[reading.impact] entry -> DEFAULT_IMPACT_SHAPES for
@@ -613,8 +641,18 @@ export class NXMapBuilderService {
 
       // A group's own points array may include markers individually hidden
       // via the tree UI (point.visible === false) — everything else in
-      // MapPoint defaults to visible when the flag is simply absent.
-      const points = (g.markerConfig?.points ?? []).filter(p => p.visible !== false);
+      // MapPoint defaults to visible when the flag is simply absent. Also
+      // drops any point whose own minZoomLevel (falling back to its
+      // group's g.minZoomLevel — point-level wins when both are set, same
+      // "most specific wins" precedence as style/theme elsewhere in this
+      // class) is above the map's current zoom (this.currentZoomLevel,
+      // via setZoomLevel()) — e.g. a "well" point that should only appear
+      // once zoomed in close enough to actually make sense. Neither field
+      // set on either level is the same as always visible, exactly as
+      // before minZoomLevel existed.
+      const points = (g.markerConfig?.points ?? [])
+        .filter(p => p.visible !== false)
+        .filter(p => this.currentZoomLevel >= (p.minZoomLevel ?? g.minZoomLevel ?? -Infinity));
 
       const dataSource = points.map((point, index) => {
         const lookupKey = `${layerIndex}:${g.id}:${index}`;
@@ -1428,27 +1466,53 @@ export class NXMapBuilderService {
   }
 
   private buildZoom(mainConfig: MapConfig) {
+    // Tile-based (osm/satellite) main layers take zoomFactor directly from
+    // config — the config is expected to set the right value to frame its
+    // region in raster tiles. A "shape" main layer (default, including
+    // when baseMapType is unset) always starts at zoomFactor 1 regardless
+    // of what the config says — shape rendering auto-fits its own
+    // shapeData bounding box, and Syncfusion's "no extra zoom" baseline
+    // (1) is what lets that auto-fit actually take effect; any config
+    // zoomFactor left over from switching to/from a tile style (see
+    // setMapStyle()'s own comment) would otherwise start the shape view
+    // zoomed in past its own boundary.
+    const zoomFactor = this.isTileBaseMapType(mainConfig.baseMapType) ? mainConfig.zoomFactor ?? 1 : 1;
+    // buildMap() evaluates zoomSettings (this method) before layers
+    // (buildLayers() -> buildMarkerPoints()), so setting this here lands
+    // BEFORE the very first buildMarkerPoints() call of this build reads
+    // it — a point with a MapGroup/MapPoint.minZoomLevel above the map's
+    // real starting zoom correctly starts hidden on first paint, not just
+    // after the first zoomComplete (NxMapDemoComponent.onZoomComplete())
+    // happens to fire and set the real value.
+    this.setZoomLevel(zoomFactor);
     return {
       enable: true,
       mouseWheelZoom: true,
       enablePanning: true,
       showToolbar: true,
-      // Tile-based (osm/satellite) main layers take zoomFactor directly
-      // from config — the config is expected to set the right value to
-      // frame its region in raster tiles. A "shape" main layer (default,
-      // including when baseMapType is unset) always starts at zoomFactor 1
-      // regardless of what the config says — shape rendering auto-fits its
-      // own shapeData bounding box, and Syncfusion's "no extra zoom"
-      // baseline (1) is what lets that auto-fit actually take effect; any
-      // config zoomFactor left over from switching to/from a tile style
-      // (see setMapStyle()'s own comment) would otherwise start the shape
-      // view zoomed in past its own boundary.
-      zoomFactor: this.isTileBaseMapType(mainConfig.baseMapType) ? mainConfig.zoomFactor : 1,
+      zoomFactor,
       // Matches the zoomFactor floor above — 1 is the least-zoomed-out view
       // Syncfusion itself supports, so this just makes that floor explicit
       // rather than relying on Syncfusion's own default (which mouse-wheel/
       // toolbar zoom-out could otherwise undercut).
       minZoom: 1,
+      // Syncfusion's OWN default (10, per ZoomSettingsModel's own doc
+      // comment) silently caps how far a tile ("osm"/"satellite") main
+      // layer can zoom in, regardless of what the tile provider can
+      // actually serve there — confirmed live as exactly why satellite
+      // mode stopped zooming well before a well/station became visible.
+      // mainConfig.maxZoomFactor lets a deployment override per map; unset
+      // falls back to 18, not 19 — confirmed live that 19 let the toolbar's
+      // ZoomIn button take one click past what ArcGIS World Imagery
+      // actually has tiles for at typical well/station locations, landing
+      // on a blank "no image available" tile right as ZoomIn disabled
+      // itself with nowhere further to go. 18 is the deepest level that
+      // stays inside real imagery at this provider for this kind of
+      // location — still far past where Syncfusion's own default (10) was
+      // actually biting. A "shape" main layer's own auto-fit zoom has no
+      // comparable ceiling to worry about, so this only matters for tile
+      // base map types.
+      maxZoom: mainConfig.maxZoomFactor ?? 18,
       // The toolbar's Reset button restores whatever centerPosition/
       // zoomFactor the map rendered with initially (our configured
       // mapCenter/zoomFactor for an "osm" main layer, or the shape's

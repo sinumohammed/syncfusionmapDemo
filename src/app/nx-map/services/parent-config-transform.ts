@@ -60,6 +60,10 @@ export interface RawLayerNode {
   // layer, which always starts checked regardless (its checkbox is
   // disabled either way).
   LayersDefaultSelected?: string | null;
+  // A URL fetched fresh on every donut click, with the clicked metric id
+  // sent as a query param — see NXMapAppConfig.metricDataApiUrl's own
+  // comment. Null/absent means a donut click has nothing to fetch.
+  MetricDataAPIURL?: string | null;
   // App-wide default theme (NXMapAppConfig.theme) — null/absent keeps every
   // layer falling through to its own MapConfig.theme, then "default".
   Theme?: string | null;
@@ -115,6 +119,7 @@ export function buildAppConfig(root: RawLayerNode): NXMapAppConfig {
     // treats an empty array and "unset" identically today, but undefined
     // reads more honestly as "no restriction" than an empty list of names.
     defaultSelectedLayerNames: defaultSelectedLayerNames.length ? defaultSelectedLayerNames : undefined,
+    metricDataApiUrl: root.MetricDataAPIURL ?? undefined,
     theme: root.Theme ?? undefined
   };
 }

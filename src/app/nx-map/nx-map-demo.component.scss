@@ -27,6 +27,37 @@
   z-index: 0;
 }
 
+/* Both live as siblings inside Syncfusion's own "Secondary_Element"
+   container (confirmed live via DOM inspection), covering the exact same
+   absolutely-positioned rect, with neither given an explicit z-index of
+   its own — so which one paints on top depends purely on DOM order,
+   which Syncfusion doesn't reliably keep the same across every internal
+   re-render (a tile-image reflow after async tile loads, for one). A
+   defensive guarantee, not a fix for any specific reported symptom —
+   template marker overlays (any layer's, not just the main one's) should
+   never end up painted UNDER the tile image regardless of DOM order. */
+.nx-map ::ng-deep [id$="_Tile_SVG_Parent"] {
+  z-index: 0 !important;
+}
+.nx-map ::ng-deep [id$="_Markers_Template_Group"] {
+  z-index: 1 !important;
+}
+
+/* Syncfusion's own marker hover-tooltip wrapper (id "<mapId>_mapsTooltip",
+   class "EJ2-maps-Tooltip" — see the ej2-maps bundle's tooltip module;
+   Syncfusion gives it `position: absolute` but no z-index of its own) is a
+   sibling of the template marker overlays above inside the same
+   "Secondary_Element" container. With no explicit z-index the tooltip only
+   ever wins on DOM order, which loses to _Markers_Template_Group's own
+   explicit z-index: 1 whenever a marker happens to sit later in the DOM —
+   reported live as the hovered marker's icon painting on top of (visually
+   "inside") its own tooltip card. Pinned above every other layer here so
+   the tooltip always wins regardless of DOM order or which marker/layer is
+   being hovered. */
+.nx-map ::ng-deep [id$="_mapsTooltip"] {
+  z-index: 2 !important;
+}
+
 /* width="100%"/height="100%" on ejs-maps (Syncfusion's own attrs)
    resolve against THIS element's box — so this needs a concrete
    height too, which it now gets from .nx-map's 100% above
@@ -438,13 +469,29 @@
    to the element's own box, regardless of any rotation also applied
    — confirmed live) lands its visual center there instead. Combined
    with align-items: center on the flex parent for the x-axis, this
-   is what makes the icon sit exactly on the marker point. */
+   is what makes the icon sit exactly on the marker point.
+
+   flex-shrink: 0 here is load-bearing, not cosmetic — confirmed live
+   that without it, the diamond/circle shapes below (their real height
+   coming from `height: 12px`, not border tricks) computed to an actual
+   height of 0px: a flex item's default flex-shrink: 1 shrinks it toward
+   fitting inside .marker-label's own height: 0 container, on the MAIN
+   axis (height, since .marker-label is flex-direction: column) — width
+   (the cross axis) is untouched by this, which is exactly why this went
+   unnoticed for so long: the shape still had its correct WIDTH, just
+   zero height, collapsing it to an invisible sliver regardless of base-
+   map style. The triangle shape (width/height: 0 by design, drawn
+   entirely from CSS borders instead) was never affected either way. */
+::ng-deep .marker-label-icon {
+  flex-shrink: 0;
+}
+
 ::ng-deep .marker-label-icon--triangle {
   width: 0;
   height: 0;
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-bottom: 8px solid var(--icon-color);
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-bottom: 12px solid var(--icon-color);
   transform: translateY(-50%);
 }
 
@@ -453,11 +500,15 @@
    via MapGroup.impactMarkerStyle, see its own comment). rotate(45deg)
    is applied AFTER translateY(-50%) here (CSS transform functions
    compose right-to-left) — translateY still reads this element's own
-   pre-rotation 8px height either way, so the composed order doesn't
-   change the centering math above. */
+   pre-rotation height either way, so the composed order doesn't
+   change the centering math above. Sized a bit larger than a typical
+   marker dot (12px, not 8px) specifically because this template icon
+   is sometimes the ONLY visible marker for a point at all — see
+   NxMapDemoComponent.applyMetricSelection()'s own comment on why a
+   layer's native marker can't always be relied on to render too. */
 ::ng-deep .marker-label-icon--diamond {
-  width: 8px;
-  height: 8px;
+  width: 12px;
+  height: 12px;
   background: var(--icon-color);
   transform: translateY(-50%) rotate(45deg);
 }
@@ -466,8 +517,8 @@
    non-customer impact to differentiate) and for any impact value
    that isn't "customer" or "non-customer". */
 ::ng-deep .marker-label-icon--circle {
-  width: 8px;
-  height: 8px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   background: var(--icon-color);
   transform: translateY(-50%);

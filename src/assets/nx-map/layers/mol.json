@@ -33,786 +33,116 @@
               "latitude": 23.6139,
               "longitude": 58.5229,
               "name": "MAF",
-              "imageUrl": "assets/icons/map-icons/tank.svg",
-              "height": 30,
-              "width": 30,
-              "metrics": {
-                "tvp": {
-                  "value": 60,
-                  "unit": "kPa",
-                  "status": "high",
-                  "impact": "customer"
-                },
-                "salt": {
-                  "value": 454.87,
-                  "unit": "mg/L",
-                  "status": "normal"
-                },
-                "bsw": {
-                  "value": 2.16,
-                  "unit": "%",
-                  "status": "normal"
-                },
-                "h2s": {
-                  "value": 9.04,
-                  "unit": "ppm",
-                  "status": "normal"
-                },
-                "api": {
-                  "value": 32.11,
-                  "unit": "deg",
-                  "status": "normal"
-                },
-                "flow": {
-                  "value": 522.46,
-                  "unit": "m3/d",
-                  "status": "normal"
-                },
-                "other": {
-                  "value": 14.87,
-                  "status": "high",
-                  "impact": "customer"
-                }
-              }
+              "imageUrl": "assets/icons/map-icons/tank.svg"
             },
             {
               "id": "Nizwa",
               "latitude": 22.9257,
               "longitude": 57.5367,
-              "name": "Nizwa",
-              "metrics": {
-                "tvp": {
-                  "value": 96.87,
-                  "unit": "kPa",
-                  "status": "normal"
-                },
-                "salt": {
-                  "value": 622.03,
-                  "unit": "mg/L",
-                  "status": "normal"
-                },
-                "bsw": {
-                  "value": 2.44,
-                  "unit": "%",
-                  "status": "normal"
-                },
-                "h2s": {
-                  "value": 11.3,
-                  "unit": "ppm",
-                  "status": "normal"
-                },
-                "api": {
-                  "value": 38.25,
-                  "unit": "deg",
-                  "status": "normal"
-                },
-                "flow": {
-                  "value": 562.28,
-                  "unit": "m3/d",
-                  "status": "normal"
-                },
-                "other": {
-                  "value": 14.08,
-                  "status": "normal"
-                }
-              }
+              "name": "Nizwa"
             },
             {
               "id": "ns",
               "latitude": 22.294,
               "longitude": 57.5367,
-              "name": "NS",
-              "metrics": {
-                "tvp": {
-                  "value": 62.29,
-                  "unit": "kPa",
-                  "status": "normal"
-                },
-                "salt": {
-                  "value": 569.32,
-                  "unit": "mg/L",
-                  "status": "normal"
-                },
-                "bsw": {
-                  "value": 4.19,
-                  "unit": "%",
-                  "status": "high",
-                  "impact": "customer"
-                },
-                "h2s": {
-                  "value": 9.45,
-                  "unit": "ppm",
-                  "status": "normal"
-                },
-                "api": {
-                  "value": 35.39,
-                  "unit": "deg",
-                  "status": "normal"
-                },
-                "flow": {
-                  "value": 544.61,
-                  "unit": "m3/d",
-                  "status": "normal"
-                },
-                "other": {
-                  "value": 10.18,
-                  "status": "normal"
-                }
-              }
+              "name": "NS"
             },
             {
               "id": "qa",
               "latitude": 21.3056,
               "longitude": 57.1017,
-              "name": "QA",
-              "metrics": {
-                "tvp": {
-                  "value": 82.33,
-                  "unit": "kPa",
-                  "status": "high",
-                  "impact": "non-customer"
-                },
-                "salt": {
-                  "value": 536.42,
-                  "unit": "mg/L",
-                  "status": "high",
-                  "impact": "customer"
-                },
-                "bsw": {
-                  "value": 4.01,
-                  "unit": "%",
-                  "status": "normal"
-                },
-                "h2s": {
-                  "value": 18.55,
-                  "unit": "ppm",
-                  "status": "normal"
-                },
-                "api": {
-                  "value": 30.34,
-                  "unit": "deg",
-                  "status": "normal"
-                },
-                "flow": {
-                  "value": 824.1,
-                  "unit": "m3/d",
-                  "status": "normal"
-                },
-                "other": {
-                  "value": 10.11,
-                  "status": "normal"
-                }
-              }
+              "name": "QA"
             },
             {
               "id": "mark",
               "latitude": 21.111,
               "longitude": 56.533,
-              "name": "Marker114km",
-              "metrics": {
-                "tvp": {
-                  "value": 74.95,
-                  "unit": "kPa",
-                  "status": "normal"
-                },
-                "salt": {
-                  "value": 481.72,
-                  "unit": "mg/L",
-                  "status": "normal"
-                },
-                "bsw": {
-                  "value": 7.64,
-                  "unit": "%",
-                  "status": "normal"
-                },
-                "h2s": {
-                  "value": 14.27,
-                  "unit": "ppm",
-                  "status": "normal"
-                },
-                "api": {
-                  "value": 31.07,
-                  "unit": "deg",
-                  "status": "normal"
-                },
-                "flow": {
-                  "value": 579.56,
-                  "unit": "m3/d",
-                  "status": "normal"
-                },
-                "other": {
-                  "value": 14.11,
-                  "status": "normal"
-                }
-              }
+              "name": "Marker114km"
             },
             {
               "id": "sb",
               "latitude": 20.2428,
               "longitude": 56.1453,
-              "name": "sahma",
-              "metrics": {
-                "tvp": {
-                  "value": 78.14,
-                  "unit": "kPa",
-                  "status": "normal"
-                },
-                "salt": {
-                  "value": 647.03,
-                  "unit": "mg/L",
-                  "status": "normal"
-                },
-                "bsw": {
-                  "value": 5.23,
-                  "unit": "%",
-                  "status": "high",
-                  "impact": "non-customer"
-                },
-                "h2s": {
-                  "value": 18.6,
-                  "unit": "ppm",
-                  "status": "normal"
-                },
-                "api": {
-                  "value": 32.67,
-                  "unit": "deg",
-                  "status": "normal"
-                },
-                "flow": {
-                  "value": 575.14,
-                  "unit": "m3/d",
-                  "status": "normal"
-                },
-                "other": {
-                  "value": 10.43,
-                  "status": "normal"
-                }
-              }
+              "name": "sahma"
             },
             {
               "id": "kpSouth",
               "latitude": 19.5187,
               "longitude": 56.2343,
-              "name": "kpSouth",
-              "metrics": {
-                "tvp": {
-                  "value": 85.04,
-                  "unit": "kPa",
-                  "status": "normal"
-                },
-                "salt": {
-                  "value": 625.85,
-                  "unit": "mg/L",
-                  "status": "high",
-                  "impact": "non-customer"
-                },
-                "bsw": {
-                  "value": 5.41,
-                  "unit": "%",
-                  "status": "high",
-                  "impact": "customer"
-                },
-                "h2s": {
-                  "value": 15.32,
-                  "unit": "ppm",
-                  "status": "normal"
-                },
-                "api": {
-                  "value": 39.74,
-                  "unit": "deg",
-                  "status": "normal"
-                },
-                "flow": {
-                  "value": 772.11,
-                  "unit": "m3/d",
-                  "status": "normal"
-                },
-                "other": {
-                  "value": 11.3,
-                  "status": "normal"
-                }
-              }
+              "name": "kpSouth"
             },
             {
               "id": "hub",
               "latitude": 19.0609,
               "longitude": 56.0954,
-              "name": "hub",
-              "metrics": {
-                "tvp": {
-                  "value": 66.62,
-                  "unit": "kPa",
-                  "status": "high",
-                  "impact": "customer"
-                },
-                "salt": {
-                  "value": 551.13,
-                  "unit": "mg/L",
-                  "status": "normal"
-                },
-                "bsw": {
-                  "value": 5.4,
-                  "unit": "%",
-                  "status": "normal"
-                },
-                "h2s": {
-                  "value": 6.81,
-                  "unit": "ppm",
-                  "status": "normal"
-                },
-                "api": {
-                  "value": 34.28,
-                  "unit": "deg",
-                  "status": "normal"
-                },
-                "flow": {
-                  "value": 872.62,
-                  "unit": "m3/d",
-                  "status": "normal"
-                },
-                "other": {
-                  "value": 10.71,
-                  "status": "normal"
-                }
-              }
+              "name": "hub"
             },
             {
               "id": "nim",
               "latitude": 18.5569,
               "longitude": 55.8658,
-              "name": "nim",
-              "metrics": {
-                "tvp": {
-                  "value": 73.16,
-                  "unit": "kPa",
-                  "status": "normal"
-                },
-                "salt": {
-                  "value": 557.03,
-                  "unit": "mg/L",
-                  "status": "normal"
-                },
-                "bsw": {
-                  "value": 5.45,
-                  "unit": "%",
-                  "status": "normal"
-                },
-                "h2s": {
-                  "value": 17.67,
-                  "unit": "ppm",
-                  "status": "normal"
-                },
-                "api": {
-                  "value": 30.03,
-                  "unit": "deg",
-                  "status": "normal"
-                },
-                "flow": {
-                  "value": 768.74,
-                  "unit": "m3/d",
-                  "status": "normal"
-                },
-                "other": {
-                  "value": 13.35,
-                  "status": "normal"
-                }
-              }
+              "name": "nim"
             },
             {
               "id": "mm",
               "latitude": 18.1728,
               "longitude": 55.2512,
-              "name": "MM",
-              "metrics": {
-                "tvp": {
-                  "value": 81.58,
-                  "unit": "kPa",
-                  "status": "normal"
-                },
-                "salt": {
-                  "value": 556.53,
-                  "unit": "mg/L",
-                  "status": "normal"
-                },
-                "bsw": {
-                  "value": 5.41,
-                  "unit": "%",
-                  "status": "high",
-                  "impact": "non-customer"
-                },
-                "h2s": {
-                  "value": 5.88,
-                  "unit": "ppm",
-                  "status": "high",
-                  "impact": "customer"
-                },
-                "api": {
-                  "value": 35,
-                  "unit": "deg",
-                  "status": "normal"
-                },
-                "flow": {
-                  "value": 890.11,
-                  "unit": "m3/d",
-                  "status": "normal"
-                },
-                "other": {
-                  "value": 12.09,
-                  "status": "normal"
-                }
-              }
+              "name": "MM"
             },
             {
               "id": "HW",
               "latitude": 18.0064,
               "longitude": 54.5694,
-              "name": "HW",
-              "metrics": {
-                "tvp": {
-                  "value": 98.86,
-                  "unit": "kPa",
-                  "status": "high",
-                  "impact": "non-customer"
-                },
-                "salt": {
-                  "value": 405.97,
-                  "unit": "mg/L",
-                  "status": "high",
-                  "impact": "customer"
-                },
-                "bsw": {
-                  "value": 4.27,
-                  "unit": "%",
-                  "status": "normal"
-                },
-                "h2s": {
-                  "value": 9.29,
-                  "unit": "ppm",
-                  "status": "normal"
-                },
-                "api": {
-                  "value": 35.77,
-                  "unit": "deg",
-                  "status": "normal"
-                },
-                "flow": {
-                  "value": 848.69,
-                  "unit": "m3/d",
-                  "status": "normal"
-                },
-                "other": {
-                  "value": 13.7,
-                  "status": "normal"
-                }
-              }
+              "name": "HW"
             },
             {
               "id": "cced",
               "latitude": 20.9811,
               "longitude": 57.8006,
               "name": "cced",
-              "shape": "Circle",
-              "metrics": {
-                "tvp": {
-                  "value": 92.85,
-                  "unit": "kPa",
-                  "status": "normal"
-                },
-                "salt": {
-                  "value": 577.7,
-                  "unit": "mg/L",
-                  "status": "normal"
-                },
-                "bsw": {
-                  "value": 7.5,
-                  "unit": "%",
-                  "status": "normal"
-                },
-                "h2s": {
-                  "value": 16.12,
-                  "unit": "ppm",
-                  "status": "normal"
-                },
-                "api": {
-                  "value": 37.37,
-                  "unit": "deg",
-                  "status": "normal"
-                },
-                "flow": {
-                  "value": 711.09,
-                  "unit": "m3/d",
-                  "status": "normal"
-                },
-                "other": {
-                  "value": 14.22,
-                  "status": "normal"
-                }
-              }
+              "shape": "Circle"
             },
             {
               "id": "oxyMuradi",
               "latitude": 22.4023,
               "longitude": 56.9871,
               "name": "Oxy Muradi",
-              "shape": "Circle",
-              "metrics": {
-                "tvp": {
-                  "value": 67.16,
-                  "unit": "kPa",
-                  "status": "normal"
-                },
-                "salt": {
-                  "value": 583.34,
-                  "unit": "mg/L",
-                  "status": "normal"
-                },
-                "bsw": {
-                  "value": 6.87,
-                  "unit": "%",
-                  "status": "normal"
-                },
-                "h2s": {
-                  "value": 14.48,
-                  "unit": "ppm",
-                  "status": "normal"
-                },
-                "api": {
-                  "value": 36.31,
-                  "unit": "deg",
-                  "status": "high",
-                  "impact": "customer"
-                },
-                "flow": {
-                  "value": 868.54,
-                  "unit": "m3/d",
-                  "status": "normal"
-                },
-                "other": {
-                  "value": 13.49,
-                  "status": "normal"
-                }
-              }
+              "shape": "Circle"
             },
             {
               "id": "ALG",
               "latitude": 20.9873,
               "longitude": 56.77,
               "name": "AG",
-              "shape": "Circle",
-              "metrics": {
-                "tvp": {
-                  "value": 99.81,
-                  "unit": "kPa",
-                  "status": "normal"
-                },
-                "salt": {
-                  "value": 520.4,
-                  "unit": "mg/L",
-                  "status": "high",
-                  "impact": "non-customer"
-                },
-                "bsw": {
-                  "value": 3.19,
-                  "unit": "%",
-                  "status": "high",
-                  "impact": "customer"
-                },
-                "h2s": {
-                  "value": 7,
-                  "unit": "ppm",
-                  "status": "normal"
-                },
-                "api": {
-                  "value": 30.2,
-                  "unit": "deg",
-                  "status": "normal"
-                },
-                "flow": {
-                  "value": 710.23,
-                  "unit": "m3/d",
-                  "status": "normal"
-                },
-                "other": {
-                  "value": 14.39,
-                  "status": "normal"
-                }
-              }
+              "shape": "Circle"
             },
             {
               "id": "rhip",
               "latitude": 18.03298,
               "longitude": 55.2512,
               "name": "RHIP",
-              "shape": "Circle",
-              "metrics": {
-                "tvp": {
-                  "value": 92.64,
-                  "unit": "kPa",
-                  "status": "high",
-                  "impact": "customer"
-                },
-                "salt": {
-                  "value": 654.72,
-                  "unit": "mg/L",
-                  "status": "normal"
-                },
-                "bsw": {
-                  "value": 6.49,
-                  "unit": "%",
-                  "status": "normal"
-                },
-                "h2s": {
-                  "value": 5.95,
-                  "unit": "ppm",
-                  "status": "normal"
-                },
-                "api": {
-                  "value": 34.21,
-                  "unit": "deg",
-                  "status": "normal"
-                },
-                "flow": {
-                  "value": 627.88,
-                  "unit": "m3/d",
-                  "status": "normal"
-                },
-                "other": {
-                  "value": 12.46,
-                  "status": "normal"
-                }
-              }
+              "shape": "Circle"
             },
             {
               "id": "alnoor",
               "latitude": 18.6882,
               "longitude": 55.5039,
               "name": "ALNOOR",
-              "shape": "Circle",
-              "metrics": {
-                "tvp": {
-                  "value": 77.67,
-                  "unit": "kPa",
-                  "status": "normal"
-                },
-                "salt": {
-                  "value": 502.24,
-                  "unit": "mg/L",
-                  "status": "normal"
-                },
-                "bsw": {
-                  "value": 5.99,
-                  "unit": "%",
-                  "status": "normal"
-                },
-                "h2s": {
-                  "value": 8.12,
-                  "unit": "ppm",
-                  "status": "normal"
-                },
-                "api": {
-                  "value": 33.51,
-                  "unit": "deg",
-                  "status": "normal"
-                },
-                "flow": {
-                  "value": 773.98,
-                  "unit": "m3/d",
-                  "status": "high",
-                  "impact": "customer"
-                },
-                "other": {
-                  "value": 14.18,
-                  "status": "normal"
-                }
-              }
+              "shape": "Circle"
             },
             {
               "id": "TY_MS",
               "latitude": 18.7081,
               "longitude": 55.3417,
               "name": "Tayseer",
-              "shape": "Circle",
-              "metrics": {
-                "tvp": {
-                  "value": 97.08,
-                  "unit": "kPa",
-                  "status": "normal"
-                },
-                "salt": {
-                  "value": 526.72,
-                  "unit": "mg/L",
-                  "status": "normal"
-                },
-                "bsw": {
-                  "value": 7.74,
-                  "unit": "%",
-                  "status": "high",
-                  "impact": "non-customer"
-                },
-                "h2s": {
-                  "value": 12.35,
-                  "unit": "ppm",
-                  "status": "normal"
-                },
-                "api": {
-                  "value": 32.43,
-                  "unit": "deg",
-                  "status": "normal"
-                },
-                "flow": {
-                  "value": 715.76,
-                  "unit": "m3/d",
-                  "status": "normal"
-                },
-                "other": {
-                  "value": 11.59,
-                  "status": "normal"
-                }
-              }
+              "shape": "Circle"
             },
             {
               "id": "rim",
               "latitude": 18.8541,
               "longitude": 56.3065,
               "name": "Rima",
-              "shape": "Circle",
-              "metrics": {
-                "tvp": {
-                  "value": 77.37,
-                  "unit": "kPa",
-                  "status": "normal"
-                },
-                "salt": {
-                  "value": 471.34,
-                  "unit": "mg/L",
-                  "status": "high",
-                  "impact": "customer"
-                },
-                "bsw": {
-                  "value": 4.74,
-                  "unit": "%",
-                  "status": "normal"
-                },
-                "h2s": {
-                  "value": 11.61,
-                  "unit": "ppm",
-                  "status": "normal"
-                },
-                "api": {
-                  "value": 34.66,
-                  "unit": "deg",
-                  "status": "normal"
-                },
-                "flow": {
-                  "value": 686.59,
-                  "unit": "m3/d",
-                  "status": "normal"
-                },
-                "other": {
-                  "value": 14.43,
-                  "status": "normal"
-                }
-              }
+              "shape": "Circle"
             }
           ]
         },

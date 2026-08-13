@@ -2,6 +2,8 @@
   "default": {
     "marker": {
       "shape": "Balloon",
+      "width": 20,
+      "height": 20,
       "border": { "width": 1, "color": "#285255" }
     },
     "polygon": {

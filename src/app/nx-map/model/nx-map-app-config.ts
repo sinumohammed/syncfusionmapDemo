@@ -30,6 +30,14 @@ export interface NXMapAppConfig {
   // and parent-config-transform.ts's RawLayerNode.LayersDefaultSelected for
   // where it comes from.
   defaultSelectedLayerNames?: string[];
+  // Fetched fresh on every donut click (NxMapDemoComponent.
+  // applyDonutSelectionChange()), with the clicked metric id sent as a
+  // `metricId` query param — see NXMapConfigService.loadMetricOverlay()
+  // and MetricOverlayRecord's own comment for the response shape and how
+  // each entry gets matched to (or plotted as) a marker. Undefined (the
+  // default) means a donut click has nothing to fetch — logged loudly
+  // (console.error + toast) rather than silently doing nothing.
+  metricDataApiUrl?: string;
   // App-wide default theme (a name into nx-map-themes.json) — every layer
   // inherits this unless it sets its own MapConfig.theme, which wins. Set
   // this ONCE here instead of repeating the same theme on every layer's own

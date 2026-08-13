@@ -69,12 +69,26 @@ export interface MapPoint extends BaseMapObject, GeoLocation, ShapeStyle {
   // this field existed.
   value?: number;
   unit?: string;
-  // Donut-metric readings keyed by donut id (tvp/salt/bsw/h2s/api/flow/
-  // other) — shown in full on hover (see toMarker()'s m_<key>/c_<key>
-  // fields) and used by NxMapDemoComponent.donutSelection to decide
-  // which color a persistent label gets when that metric's donut is
-  // clicked (see MapGroup.activeMetricId).
-  metrics?: Record<string, PointMetric>;
+  // This point's own always-on hover tooltip data — every metric it has a
+  // reading for, keyed by metric id ("tvp", "bsw", whatever a
+  // MetricOverlayRecord.tooltip happens to carry). Set by
+  // NxMapDemoComponent.applyMetricSelection() from a matched record's own
+  // `tooltip` map — NOT by activeMetricId/activeMetricValues (that's still
+  // only ever ONE metric, driving the separate on-map overlay label/color,
+  // unaffected by this). NXMapBuilderService.toMarker() reads these keys
+  // (scoped to NXMapBuilderService.setTooltipMetricKeys() — see its own
+  // comment) to populate the hover tooltip's v_/u_/c_<key> fields; a key
+  // this point has no entry for here just renders the template's own
+  // placeholder ("—"), same as before this field existed. No hardcoded
+  // metric-id list involved on either side.
+  tooltipMetrics?: Record<string, PointMetric>;
+  // Overrides the host group's own MapGroup.minZoomLevel for just THIS
+  // point — set one or the other, not expecting both to blend; see
+  // MapGroup.minZoomLevel's own comment for exactly what the threshold
+  // means. Lets a group that's otherwise always visible single out just
+  // its "well"/station-style points to wait for a closer zoom, without
+  // moving them into a separate group.
+  minZoomLevel?: number;
 }
 
 export interface PointMetric {
@@ -106,11 +120,64 @@ export interface PointMetric {
   unit3?: string;
 }
 
-// One tile in the hover tooltip's metric grid — `metricId` must be one of
-// NXMapBuilderService.METRIC_KEYS (tvp/salt/bsw/h2s/api/flow/other), the
-// only ids toMarker() actually computes template fields for. `title` is
-// the tile's own small label (e.g. "TVP", "BS&W") — defaults to
-// metricId.toUpperCase() if omitted.
+// One entry in the response NXMapConfigService.loadMetricOverlay() fetches
+// on a donut click (NXMapAppConfig.metricDataApiUrl) — a PointMetric reading
+// plus enough to find (or create) the marker it belongs on. Matched by
+// NxMapDemoComponent's own algorithm (see applyDonutSelectionChange()):
+// `markerId` resolving to an existing point (scoped to `layerId`'s own
+// layer when given, or matched against every layer when omitted) anchors
+// the reading to that point, exactly like MapGroup.activeMetricValues
+// already does; a `markerId` that doesn't resolve but carries its own
+// `latitude`/`longitude` instead plots as a brand-new point (on `layerId`'s
+// own layer when that resolves, otherwise the main layer), using `id` (or
+// `markerId` if `id` is omitted, or an auto-generated one if both are) as
+// THIS new point's own MapPoint.id; neither markerId/latitude+longitude is
+// a console.error + on-screen toast, that record skipped. A deployment's
+// own backend decides how it computes/attributes each reading — this map
+// only ever cares about these six extra fields on top of the reading
+// itself.
+export interface MetricOverlayRecord extends PointMetric, ShapeStyle {
+  layerId?: string;
+  markerId?: string;
+  // Only meaningful for a brand-new (unanchored) point — its own identity,
+  // independent of `markerId` (which always means "match this EXISTING
+  // marker", whether or not that match actually resolves). Omit to fall
+  // back to `markerId` (even an unresolved one) or, failing that, an
+  // auto-generated id.
+  id?: string;
+  latitude?: number;
+  longitude?: number;
+  name?: string;
+  // shape/color/width/height (via ShapeStyle) are only meaningful for a
+  // brand-new (unanchored) point too — forwarded straight onto that point's
+  // own MapPoint fields in NxMapDemoComponent.applyMetricSelection(), which
+  // already take precedence over the ad hoc group's own style/theme (see
+  // NXMapBuilderService.toMarker()'s point -> groupStyle -> theme
+  // resolution order). Omit any/all to just inherit the ad hoc group's own
+  // theme (METRIC_OVERLAY_GROUP_ID's `theme`, see its own comment) like
+  // every other ad hoc point.
+
+  // The FULL multi-metric snapshot for this point's always-on hover
+  // tooltip — independent of which single metric this record's own
+  // value/status/impact/markerId are actually about (that trio still only
+  // ever drives the ONE selected metric's on-map overlay label/color,
+  // exactly as before this field existed). Keyed by metric id — whatever
+  // keys show up here are exactly what NXMapBuilderService.toMarker()
+  // populates real values for on this point (see MapPoint.tooltipMetrics'
+  // own comment); a metric id absent here just leaves that tile's
+  // placeholder in place. Forwarded onto the matched (or brand-new)
+  // point's own tooltipMetrics in NxMapDemoComponent.applyMetricSelection()
+  // — omit entirely to leave the point's tooltip untouched by this record.
+  tooltip?: Record<string, PointMetric>;
+}
+
+// One tile in the hover tooltip's metric grid — `metricId` can be any
+// string; NxMapDemoComponent.loadMap() feeds this same list straight into
+// NXMapBuilderService.setTooltipMetricKeys(), so whatever ids appear here
+// are exactly the ones toMarker() computes real template fields for — no
+// separate hardcoded metric-id list to keep in sync. `title` is the tile's
+// own small label (e.g. "TVP", "BS&W") — defaults to metricId.toUpperCase()
+// if omitted.
 export interface TooltipTemplateItem {
   metricId: string;
   title?: string;
@@ -188,28 +255,27 @@ export interface MapGroup {
   // layer's own theme when unset — inline point/polygon/circle/line fields
   // still win over both.
   theme?: string;
-  // Default unset/null. When set to a metric id (tvp/salt/bsw/h2s/api/
-  // flow/other), every marker in this group ADDITIONALLY renders a
-  // persistent label overlay (on top of its normal shape+color+cluster
-  // rendering, which is unaffected) showing that metric's own value — see
-  // buildMarkerPoints() in nx-map-builder.service.ts. Each point's label
-  // color is METRIC_COLORS[activeMetricId] when that point's reading's
-  // status is "high", NORMAL_LABEL_COLOR otherwise. Hover tooltip behavior
-  // is unaffected either way (always reads point.metrics, never this).
-  // Set by NxMapDemoComponent.donutSelection when an external panel
-  // (e.g. a donut/category chart) selects a metric — cleared (null) again
-  // once nothing is selected.
+  // Default unset/null. When set to a metric id, every marker in this
+  // group that HAS a reading for it (via activeMetricValues below)
+  // ADDITIONALLY renders a persistent label overlay (on top of its normal
+  // shape+color+cluster rendering, which is unaffected) showing that
+  // metric's own value — see buildMarkerPoints() in
+  // nx-map-builder.service.ts. Each point's label color is
+  // METRIC_COLORS[activeMetricId] when that point's reading's status is
+  // "high", NORMAL_LABEL_COLOR otherwise. Set by
+  // NxMapDemoComponent.donutSelection when an external panel (e.g. a
+  // donut/category chart) selects a metric — cleared (null) again once
+  // nothing is selected.
   activeMetricId?: string | null;
   // The freshly-fetched per-point values for activeMetricId — see
-  // NXMapConfigService.loadMarkerValues() and applyDonutSelectionChange()'s own
-  // comment. Keyed by point id (MapPoint.id via BaseMapObject), same shape
-  // as one entry of MapPoint.metrics. toMetricOverlayMarker() in
-  // nx-map-builder.service.ts reads THIS (not point.metrics) for the
-  // overlay label/color whenever it's present — falling back to
-  // point.metrics[activeMetricId] only if a fetch hasn't populated this
-  // yet, so the overlay never has a blank flash while the "API" call for a
-  // freshly-clicked metric is in flight and point.metrics already has last
-  // load's data. Unset/null clears back to that fallback.
+  // NXMapConfigService.loadMetricOverlay() and
+  // NxMapDemoComponent.applyDonutSelectionChange()'s own comment. Keyed by
+  // point id (MapPoint.id via BaseMapObject, or a synthesized id for a
+  // brand-new unanchored point). toMetricOverlayMarker() in
+  // nx-map-builder.service.ts reads this for the overlay label/color — a
+  // point with no entry here (activeMetricId set, but this map has nothing
+  // for that point id) renders with no overlay at all, same as a point
+  // with no reading. Unset/null (no selection) clears every overlay.
   activeMetricValues?: Record<string, PointMetric> | null;
   // Optional per-impact icon override for a "high" reading's donut-click
   // overlay marker (see toMetricOverlayMarker() in
@@ -234,6 +300,23 @@ export interface MapGroup {
   // no leaves at all; true expands it into the previous per-leaf checkbox
   // list (one row per marker/polygon/circle/line).
   childrenParticipateInFilter?: boolean;
+  // Below this map zoom factor (same units/scale as MapConfig.zoomFactor/
+  // maxZoomFactor — see their own comments — read live off the map via
+  // NXMapBuilderService.setZoomLevel(), called from NxMapDemoComponent.
+  // onZoomComplete() on every zoom), every marker in this group hides
+  // entirely (NXMapBuilderService.buildMarkerPoints() drops it from the
+  // dataSource it hands Syncfusion, same as point.visible === false
+  // already does) — not just dimmed, gone from the map the same way
+  // unchecking the group would, though the filter-tree checkbox itself is
+  // untouched; this is purely zoom-driven and independent of it. At or
+  // above this level, markers show normally (subject to visible/checkbox
+  // state as always). Omit to ignore zoom entirely — every point always
+  // visible regardless of zoom, same as before this field existed. A
+  // point's OWN MapPoint.minZoomLevel overrides this group-level default
+  // for just that one point when set — e.g. singling out only a group's
+  // "well"/station-style points to wait for a closer zoom while the rest
+  // of the group stays visible throughout.
+  minZoomLevel?: number;
 }
 
 export interface DataLabel {
@@ -409,6 +492,19 @@ export interface MapConfig {
   // minimum visible stroke width at any zoom).
   mapCenter?: GeoLocation;
   zoomFactor?: number;
+  // Only meaningful on the MAIN layer, same as mapCenter/zoomFactor above —
+  // Syncfusion's ZoomSettingsModel.maxZoom defaults to 10 when left unset,
+  // which silently caps how far in an "osm"/"satellite" tile main layer can
+  // zoom regardless of what the tile provider itself can actually serve at
+  // that location (reported live: satellite mode stopped zooming well
+  // before individual wells/stations became visible, even though the same
+  // ArcGIS World Imagery tiles serve much closer zoom levels fine — this
+  // was Syncfusion's own default ceiling, not a provider limitation).
+  // NXMapBuilderService.buildZoom() uses this when set, falling back to 19
+  // (near the deepest zoom level slippy-map tile schemes like OSM/ArcGIS
+  // generally support) rather than Syncfusion's own low default. A "shape"
+  // main layer ignores this — its own auto-fit zoom has no comparable cap.
+  maxZoomFactor?: number;
   // Filter-tree-only nesting hint: this layer still renders as its own
   // independent Syncfusion SubLayer (own shapeData/geometry), but
   // getLayerTree() nests its node under the layer whose layerName matches

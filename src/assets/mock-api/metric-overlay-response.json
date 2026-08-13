@@ -1,0 +1,302 @@
+[
+  {
+    "layerId": "MOL",
+    "markerId": "maf",
+    "value": 60,
+    "unit": "kPa",
+    "status": "high",
+    "impact": "customer",
+    "tooltip": {
+      "tvp": { "value": 60, "unit": "kPa", "status": "high", "impact": "customer" },
+      "salt": { "value": 4.2, "unit": "%", "status": "normal" },
+      "bsw": { "value": 1.1, "unit": "%", "status": "normal" },
+      "h2s": { "value": 12, "unit": "ppm", "status": "normal" },
+      "api": { "value": 34.5, "unit": "°" },
+      "flow": { "value": 980, "unit": "m3/h", "status": "normal" }
+    }
+  },
+  {
+    "layerId": "MOL",
+    "markerId": "Nizwa",
+    "value": 96.87,
+    "unit": "kPa",
+    "status": "normal",
+    "tooltip": {
+      "tvp": { "value": 96.87, "unit": "kPa", "status": "normal" },
+      "salt": { "value": 3.8, "unit": "%", "status": "normal" },
+      "bsw": { "value": 0.9, "unit": "%", "status": "normal" },
+      "h2s": { "value": 8, "unit": "ppm", "status": "normal" },
+      "api": { "value": 33.1, "unit": "°" },
+      "flow": { "value": 875, "unit": "m3/h", "status": "normal" }
+    }
+  },
+  {
+    "layerId": "MOL",
+    "markerId": "ns",
+    "value": 71.4,
+    "unit": "kPa",
+    "status": "normal",
+    "tooltip": {
+      "tvp": { "value": 71.4, "unit": "kPa", "status": "normal" },
+      "salt": { "value": 5.1, "unit": "%", "status": "normal" },
+      "bsw": { "value": 1.4, "unit": "%", "status": "normal" },
+      "h2s": { "value": 15, "unit": "ppm", "status": "normal" },
+      "api": { "value": 32.8, "unit": "°" },
+      "flow": { "value": 760, "unit": "m3/h", "status": "normal" }
+    }
+  },
+  {
+    "layerId": "MOL",
+    "markerId": "qa",
+    "value": 82.33,
+    "unit": "kPa",
+    "status": "high",
+    "impact": "non-customer",
+    "tooltip": {
+      "tvp": { "value": 82.33, "unit": "kPa", "status": "high", "impact": "non-customer" },
+      "salt": { "value": 6.7, "unit": "%", "status": "high", "impact": "non-customer" },
+      "bsw": { "value": 2.3, "unit": "%", "status": "normal" },
+      "h2s": { "value": 22, "unit": "ppm", "status": "normal" },
+      "api": { "value": 31.6, "unit": "°" },
+      "flow": { "value": 640, "unit": "m3/h", "status": "normal" }
+    }
+  },
+  {
+    "layerId": "MOL",
+    "markerId": "mark",
+    "value": 58.9,
+    "unit": "kPa",
+    "status": "normal",
+    "tooltip": {
+      "tvp": { "value": 58.9, "unit": "kPa", "status": "normal" },
+      "salt": { "value": 3.4, "unit": "%", "status": "normal" },
+      "bsw": { "value": 0.8, "unit": "%", "status": "normal" },
+      "h2s": { "value": 9, "unit": "ppm", "status": "normal" },
+      "api": { "value": 34.0, "unit": "°" },
+      "flow": { "value": 590, "unit": "m3/h", "status": "normal" }
+    }
+  },
+  {
+    "layerId": "MOL",
+    "markerId": "sb",
+    "value": 65.2,
+    "unit": "kPa",
+    "status": "normal",
+    "tooltip": {
+      "tvp": { "value": 65.2, "unit": "kPa", "status": "normal" },
+      "salt": { "value": 4.9, "unit": "%", "status": "normal" },
+      "bsw": { "value": 1.2, "unit": "%", "status": "normal" },
+      "h2s": { "value": 11, "unit": "ppm", "status": "normal" },
+      "api": { "value": 33.7, "unit": "°" },
+      "flow": { "value": 705, "unit": "m3/h", "status": "normal" }
+    }
+  },
+  {
+    "layerId": "MOL",
+    "markerId": "kpSouth",
+    "value": 90.1,
+    "unit": "kPa",
+    "status": "high",
+    "impact": "customer",
+    "tooltip": {
+      "tvp": { "value": 90.1, "unit": "kPa", "status": "high", "impact": "customer" },
+      "salt": { "value": 5.6, "unit": "%", "status": "normal" },
+      "bsw": { "value": 1.9, "unit": "%", "status": "normal" },
+      "h2s": { "value": 18, "unit": "ppm", "status": "normal" },
+      "api": { "value": 32.2, "unit": "°" },
+      "flow": { "value": 830, "unit": "m3/h", "status": "high", "impact": "customer" }
+    }
+  },
+  {
+    "layerId": "MOL",
+    "markerId": "hub",
+    "value": 54.3,
+    "unit": "kPa",
+    "status": "normal",
+    "tooltip": {
+      "tvp": { "value": 54.3, "unit": "kPa", "status": "normal" },
+      "salt": { "value": 3.1, "unit": "%", "status": "normal" },
+      "bsw": { "value": 0.7, "unit": "%", "status": "normal" },
+      "h2s": { "value": 7, "unit": "ppm", "status": "normal" },
+      "api": { "value": 34.8, "unit": "°" },
+      "flow": { "value": 520, "unit": "m3/h", "status": "normal" }
+    }
+  },
+  {
+    "layerId": "MOL",
+    "markerId": "nim",
+    "value": 77.6,
+    "unit": "kPa",
+    "status": "normal",
+    "tooltip": {
+      "tvp": { "value": 77.6, "unit": "kPa", "status": "normal" },
+      "salt": { "value": 4.4, "unit": "%", "status": "normal" },
+      "bsw": { "value": 1.0, "unit": "%", "status": "normal" },
+      "h2s": { "value": 10, "unit": "ppm", "status": "normal" },
+      "api": { "value": 33.4, "unit": "°" },
+      "flow": { "value": 690, "unit": "m3/h", "status": "normal" }
+    }
+  },
+  {
+    "layerId": "MOL",
+    "markerId": "mm",
+    "value": 69.8,
+    "unit": "kPa",
+    "status": "normal",
+    "tooltip": {
+      "tvp": { "value": 69.8, "unit": "kPa", "status": "normal" },
+      "salt": { "value": 7.3, "unit": "%", "status": "high", "impact": "non-customer" },
+      "bsw": { "value": 1.6, "unit": "%", "status": "normal" },
+      "h2s": { "value": 14, "unit": "ppm", "status": "normal" },
+      "api": { "value": 31.9, "unit": "°" },
+      "flow": { "value": 615, "unit": "m3/h", "status": "normal" }
+    }
+  },
+  {
+    "layerId": "MOL",
+    "markerId": "HW",
+    "value": 48.5,
+    "unit": "kPa",
+    "status": "normal",
+    "tooltip": {
+      "tvp": { "value": 48.5, "unit": "kPa", "status": "normal" },
+      "salt": { "value": 2.9, "unit": "%", "status": "normal" },
+      "bsw": { "value": 0.6, "unit": "%", "status": "normal" },
+      "h2s": { "value": 6, "unit": "ppm", "status": "normal" },
+      "api": { "value": 35.2, "unit": "°" },
+      "flow": { "value": 470, "unit": "m3/h", "status": "normal" }
+    }
+  },
+  {
+    "layerId": "MOL",
+    "markerId": "cced",
+    "value": 88.4,
+    "unit": "kPa",
+    "status": "high",
+    "impact": "customer",
+    "tooltip": {
+      "tvp": { "value": 88.4, "unit": "kPa", "status": "high", "impact": "customer" },
+      "salt": { "value": 5.9, "unit": "%", "status": "normal" },
+      "bsw": { "value": 2.0, "unit": "%", "status": "normal" },
+      "h2s": { "value": 19, "unit": "ppm", "status": "normal" },
+      "api": { "value": 32.5, "unit": "°" },
+      "flow": { "value": 745, "unit": "m3/h", "status": "normal" }
+    }
+  },
+  {
+    "layerId": "MOL",
+    "markerId": "oxyMuradi",
+    "value": 62.7,
+    "unit": "kPa",
+    "status": "normal",
+    "tooltip": {
+      "tvp": { "value": 62.7, "unit": "kPa", "status": "normal" },
+      "salt": { "value": 4.0, "unit": "%", "status": "normal" },
+      "bsw": { "value": 1.0, "unit": "%", "status": "normal" },
+      "h2s": { "value": 10, "unit": "ppm", "status": "normal" },
+      "api": { "value": 33.9, "unit": "°" },
+      "flow": { "value": 610, "unit": "m3/h", "status": "normal" }
+    }
+  },
+  {
+    "layerId": "MOL",
+    "markerId": "ALG",
+    "value": 73.9,
+    "unit": "kPa",
+    "status": "normal",
+    "tooltip": {
+      "tvp": { "value": 73.9, "unit": "kPa", "status": "normal" },
+      "salt": { "value": 4.6, "unit": "%", "status": "normal" },
+      "bsw": { "value": 1.3, "unit": "%", "status": "normal" },
+      "h2s": { "value": 13, "unit": "ppm", "status": "normal" },
+      "api": { "value": 33.0, "unit": "°" },
+      "flow": { "value": 655, "unit": "m3/h", "status": "normal" }
+    }
+  },
+  {
+    "layerId": "MOL",
+    "markerId": "rhip",
+    "value": 55.6,
+    "unit": "kPa",
+    "status": "normal",
+    "tooltip": {
+      "tvp": { "value": 55.6, "unit": "kPa", "status": "normal" },
+      "salt": { "value": 3.3, "unit": "%", "status": "normal" },
+      "bsw": { "value": 0.8, "unit": "%", "status": "normal" },
+      "h2s": { "value": 9, "unit": "ppm", "status": "normal" },
+      "api": { "value": 34.3, "unit": "°" },
+      "flow": { "value": 540, "unit": "m3/h", "status": "normal" }
+    }
+  },
+  {
+    "layerId": "MOL",
+    "markerId": "alnoor",
+    "value": 84.2,
+    "unit": "kPa",
+    "status": "high",
+    "impact": "non-customer",
+    "tooltip": {
+      "tvp": { "value": 84.2, "unit": "kPa", "status": "high", "impact": "non-customer" },
+      "salt": { "value": 6.2, "unit": "%", "status": "normal" },
+      "bsw": { "value": 2.1, "unit": "%", "status": "normal" },
+      "h2s": { "value": 20, "unit": "ppm", "status": "high", "impact": "non-customer" },
+      "api": { "value": 31.4, "unit": "°" },
+      "flow": { "value": 700, "unit": "m3/h", "status": "normal" }
+    }
+  },
+  {
+    "layerId": "MOL",
+    "markerId": "TY_MS",
+    "value": 67.1,
+    "unit": "kPa",
+    "status": "normal",
+    "tooltip": {
+      "tvp": { "value": 67.1, "unit": "kPa", "status": "normal" },
+      "salt": { "value": 4.1, "unit": "%", "status": "normal" },
+      "bsw": { "value": 1.1, "unit": "%", "status": "normal" },
+      "h2s": { "value": 11, "unit": "ppm", "status": "normal" },
+      "api": { "value": 33.6, "unit": "°" },
+      "flow": { "value": 630, "unit": "m3/h", "status": "normal" }
+    }
+  },
+  {
+    "layerId": "MOL",
+    "markerId": "rim",
+    "value": 59.5,
+    "unit": "kPa",
+    "status": "normal",
+    "tooltip": {
+      "tvp": { "value": 59.5, "unit": "kPa", "status": "normal" },
+      "salt": { "value": 3.6, "unit": "%", "status": "normal" },
+      "bsw": { "value": 0.9, "unit": "%", "status": "normal" },
+      "h2s": { "value": 8, "unit": "ppm", "status": "normal" },
+      "api": { "value": 34.1, "unit": "°" },
+      "flow": { "value": 565, "unit": "m3/h", "status": "normal" }
+    }
+  },
+  {
+    "layerId": "MOL",
+    "markerId": "does-not-exist",
+    "value": 42,
+    "unit": "kPa",
+    "status": "normal"
+  },
+  {
+    "id": "ad-hoc-reading-1",
+    "latitude": 21.5,
+    "longitude": 57.9,
+    "name": "Ad Hoc Reading",
+    "value": 75.2,
+    "unit": "kPa",
+    "status": "high",
+    "impact": "customer",
+    "tooltip": {
+      "tvp": { "value": 75.2, "unit": "kPa", "status": "high", "impact": "customer" },
+      "salt": { "value": 5.0, "unit": "%", "status": "normal" },
+      "bsw": { "value": 1.5, "unit": "%", "status": "normal" },
+      "h2s": { "value": 16, "unit": "ppm", "status": "normal" },
+      "api": { "value": 32.9, "unit": "°" },
+      "flow": { "value": 700, "unit": "m3/h", "status": "normal" }
+    }
+  }
+]

@@ -23,7 +23,17 @@ import {
   Zoom,
   IMarkerClickEventArgs
 } from "@syncfusion/ej2-angular-maps";
-import { LayerFileEnvelope, MapConfig, MapDonutSelection, MapGroup, MapOptions, PointMetric, TooltipTemplateConfig, TooltipTemplateItem } from "./model/nx-map-model";
+import {
+  LayerFileEnvelope,
+  MapConfig,
+  MapDonutSelection,
+  MapGroup,
+  MapOptions,
+  MapPoint,
+  MetricOverlayRecord,
+  TooltipTemplateConfig,
+  TooltipTemplateItem
+} from "./model/nx-map-model";
 import { NXMapAppConfig } from "./model/nx-map-app-config";
 import {
   DEFAULT_TOOLTIP_TEMPLATE,
@@ -350,6 +360,13 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
           staticLayers.map((s: { config: MapConfig }) => s.config.tooltipTemplate).find((t: any) => !!t) ??
           DEFAULT_TOOLTIP_TEMPLATE;
         this.injectMarkerTooltipTemplate(tooltipTemplate);
+        // Same items list the template above was just built from — keeps
+        // NXMapBuilderService.toMarker()'s populated v_/u_/c_<key> fields
+        // in exact lockstep with the template's own ${v_<key>} placeholders
+        // (see setTooltipMetricKeys()'s own comment), so a layer's own
+        // tooltipTemplate.items is genuinely the only place this list is
+        // declared.
+        this.builder.setTooltipMetricKeys(tooltipTemplate.items.map((item: TooltipTemplateItem) => item.metricId));
         this.rebuildMap();
       });
   }
@@ -361,72 +378,243 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // component.ts). This component still has no idea what a "donut" is
   // beyond MapDonutSelection's shape. Every marker stays visible on the map
   // at all times, with its normal hover tooltip, whether or not anything is
-  // selected — nothing here ever creates a marker or hides one.
+  // selected — nothing here ever creates a marker or hides one, except the
+  // brand-new unanchored points a fetch can introduce (see
+  // applyMetricSelection() below).
   //
-  // donutSelection.selectedId is a metric id (tvp/salt/bsw/h2s/api/flow/
-  // other), not a group id — a point carries a reading for a metric via
-  // MapPoint.metrics (the always-loaded copy the hover tooltip reads), so
-  // this sets activeMetricId on whichever group(s) actually have points
-  // carrying that metric (in practice just the mol/MOL group, wherever it
-  // happens to live — see the sub-layer AND static-layer loop in
-  // applyMetricSelection() below), leaving every other group's
-  // activeMetricId cleared. `slices`/`allIds` are unused here — membership
-  // is decided per-point (metrics[selectedId] present or not), not by group
-  // id list; they only exist on MapDonutSelection for shape-parity with
-  // DonutSelectionEvent.
-  //
-  // Every point already carries its own reading for every metric
-  // (MapPoint.metrics, loaded once as part of the normal group fetch) — a
-  // donut selection just re-keys THIS metric's readings by point id from
-  // data already on hand, no separate per-metric endpoint/file needed. A
-  // null/unset donutSelection, or one with selectedId: null, clears every
-  // group's activeMetricId/activeMetricValues.
+  // donutSelection.selectedId is a metric id — no longer any metric a point
+  // statically carries (see MapPoint's own history: metrics used to be
+  // baked into config JSON; that was app-specific and has been removed).
+  // Every reading now comes from nxAppConfig.metricDataApiUrl, fetched
+  // fresh on every click. `slices`/`allIds` are unused here — they only
+  // exist on MapDonutSelection for shape-parity with DonutSelectionEvent.
+  // A null/unset donutSelection, or one with selectedId: null, clears
+  // every group's activeMetricId/activeMetricValues (and any unanchored
+  // points from the previous selection) with no fetch at all.
   private applyDonutSelectionChange(): void {
     const selectedId = this.donutSelection?.selectedId ?? null;
     if (!selectedId) {
-      this.applyMetricSelection(null, null);
+      this.applyMetricSelection(null, []);
       return;
     }
-    this.applyMetricSelection(selectedId, this.extractMetricValues(selectedId));
+    const url = this.nxAppConfig.metricDataApiUrl;
+    if (!url) {
+      this.reportMetricOverlayProblem(`donut "${selectedId}" selected but no MetricDataAPIURL is configured for this map`);
+      return;
+    }
+    this.configService.loadMetricOverlay(url, selectedId).subscribe(records => this.applyMetricSelection(selectedId, records));
   }
 
-  // Walks every group's ORIGINAL points (both sub-layer and static-layer
-  // snapshots) and picks out this one metric's reading per point id —
-  // mirrors the shape a real "give me this metric's values" endpoint would
-  // return (Record<pointId, PointMetric>), just sourced from the points'
-  // own already-loaded metrics instead of a second round-trip.
-  private extractMetricValues(selectedId: string): Record<string, PointMetric> {
-    const values: Record<string, PointMetric> = {};
-    const collectFrom = (groups: MapGroup[]) => {
-      for (const g of groups) {
-        for (const p of g.markerConfig?.points ?? []) {
-          const metric = p.metrics?.[selectedId];
-          if (metric && p.id) {
-            values[p.id] = metric;
-          }
+  // Recursively collects every MapPoint.id in a layer's own ORIGINAL
+  // groups (including nested MapPoint.points children — see its own
+  // comment on why those exist) — the id universe applyMetricSelection()
+  // checks a record's markerId against for THIS layer.
+  private collectPointIds(groups: MapGroup[]): Set<string> {
+    const ids = new Set<string>();
+    const visit = (points: MapPoint[]) => {
+      for (const p of points) {
+        if (p.id) {
+          ids.add(p.id);
+        }
+        if (p.points?.length) {
+          visit(p.points);
         }
       }
     };
-    this.staticLayerGroupsOriginal.forEach(collectFrom);
-    return values;
+    groups.forEach(g => visit(g.markerConfig?.points ?? []));
+    return ids;
   }
 
-  // Shared by applyDonutSelectionChange()'s clear (selectedId: null, no fetch
-  // needed) and fetched-response paths — stamps activeMetricId/
-  // activeMetricValues onto whichever groups actually have a point carrying
-  // `selectedId`, deriving from each layer's own ORIGINAL groups snapshot
-  // (staticLayerGroupsOriginal) so a second selection never builds on top of
-  // the previous one's stamped fields.
-  private applyMetricSelection(selectedId: string | null, fetchedValues: Record<string, PointMetric> | null): void {
-    const applyToGroup = (g: MapGroup): MapGroup => {
-      const hasMetric = !!selectedId && (g.markerConfig?.points ?? []).some(p => p.metrics?.[selectedId] !== undefined);
-      return { ...g, activeMetricId: hasMetric ? selectedId : null, activeMetricValues: hasMetric ? fetchedValues : null };
-    };
+  // console.error + a visible toast (existing mechanism, already used for
+  // marker/shape click confirmations) — one bad MetricOverlayRecord is
+  // loud but never blocks the rest of the array from still plotting.
+  private reportMetricOverlayProblem(reason: string): void {
+    const message = `[NXMap] Metric overlay: ${reason}.`;
+    console.error(message);
+    this.showToast(message);
+  }
 
-    this.staticLayerResults = this.staticLayerResults.map((s, i) => ({
-      ...s,
-      config: { ...s.config, groups: (this.staticLayerGroupsOriginal[i] ?? []).map(applyToGroup) }
-    }));
+  // Fixed id/name for the synthetic group applyMetricSelection() maintains
+  // on every layer — holds whichever of this click's records ended up
+  // "unanchored" (no resolving markerId, plotted fresh from their own
+  // lat/long instead). Always present (even empty) so a layer's own group
+  // COUNT never changes click to click, only this one group's contents —
+  // same "never destabilize Syncfusion's own bookkeeping" reasoning
+  // buildLayers()'s own comment on `visible: true` documents for layers
+  // themselves.
+  private static readonly METRIC_OVERLAY_GROUP_ID = "__metric_overlay__";
+
+  // Shared by applyDonutSelectionChange()'s clear (selectedId: null, no
+  // fetch needed) and the fetched-response path — matches each
+  // MetricOverlayRecord to (or plots it as a new point on) a layer, then
+  // stamps activeMetricId/activeMetricValues onto every layer's groups,
+  // deriving from each layer's own ORIGINAL groups snapshot
+  // (staticLayerGroupsOriginal / baseConfig.groups, which rebuildMap()
+  // never mutates) so a second selection never builds on top of the
+  // previous one's stamped fields or accumulates old unanchored points.
+  //
+  // Matching rules per record — deliberately NOT a fallback chain anymore:
+  // giving a layerId commits a record to an EXACT match on that one layer,
+  // it never silently falls through to plotting a new point elsewhere.
+  // 1. layerId given but doesn't match any known layer -> error, record
+  //    skipped. (unchanged)
+  // 2. layerId given AND matches a known layer -> markerId MUST resolve to
+  //    an existing point on THAT layer. Resolves -> anchor: the existing
+  //    point gets this reading as an overlay. Doesn't resolve (missing, or
+  //    just doesn't match anything on that layer) -> error, record
+  //    skipped — this used to silently create a new point on that layer
+  //    instead; it no longer does, so a mistyped/wrong markerId next to a
+  //    real layerId always surfaces as an error rather than quietly
+  //    plotting a duplicate.
+  // 3. layerId omitted (null/undefined) -> no existing-point search at all
+  //    (a bare markerId with no layerId used to be matched against EVERY
+  //    layer; it no longer is) — always a brand-new point instead, using
+  //    `id` (or markerId, or an auto-generated one) as its own identity,
+  //    added to the last static/fixed layer (fallbackTarget below), which
+  //    Syncfusion actually gives native marker DOM to under any base-map
+  //    style (see fallbackTarget's own comment) — provided latitude/
+  //    longitude are present; missing those is still an error (nothing to
+  //    plot).
+  private applyMetricSelection(selectedId: string | null, records: MetricOverlayRecord[]): void {
+    if (!this.baseConfig) {
+      return;
+    }
+    interface LayerTarget {
+      name: string;
+      groupsOriginal: MapGroup[];
+      pointIds: Set<string>;
+      // Keyed by markerId — the FULL matched record, not just its
+      // PointMetric fields (MetricOverlayRecord extends PointMetric, so
+      // this is still assignable everywhere a PointMetric map is expected —
+      // see MapGroup.activeMetricValues below), so applyToGroup() can also
+      // reach each match's own `.tooltip` map for the point's always-on
+      // hover tooltip, not just its single active-metric value/status.
+      anchored: Record<string, MetricOverlayRecord>;
+      unanchored: { point: MapPoint; record: MetricOverlayRecord }[];
+    }
+    const toTarget = (name: string, groupsOriginal: MapGroup[]): LayerTarget => ({
+      name,
+      groupsOriginal,
+      pointIds: this.collectPointIds(groupsOriginal),
+      anchored: {},
+      unanchored: []
+    });
+    const targets: LayerTarget[] = [
+      toTarget(this.baseConfig.layerName, this.baseConfig.groups ?? []),
+      ...this.staticLayerResults.map((s, i) => toTarget(s.config.layerName, this.staticLayerGroupsOriginal[i] ?? []))
+    ];
+    const mainTarget = targets[0];
+    // The LAST target (declared-order) that already has at least one real,
+    // config-authored point of its own (t.pointIds.size > 0) — deliberately
+    // NOT just targets[targets.length - 1]. NXMapBuilderService.buildLayers()
+    // stable-sorts marker-bearing layers to paint in their ORIGINAL declared
+    // order (main first, unchanged), so whichever ALREADY-marker-bearing
+    // layer is declared last is the one Syncfusion actually gives native
+    // marker DOM to under a raster tile ("osm"/"satellite") base map —
+    // every earlier marker-bearing layer silently gets none (confirmed
+    // live: MOL). Confirmed live the naive "just take the last target"
+    // version breaks this: appending ad hoc points to a layer that had NO
+    // points of its own (e.g. a trailing marker-less static layer) makes
+    // THAT layer newly marker-bearing, which — being declared after MOL —
+    // then steals the native-render slot MOL relied on, so MOL's own real
+    // markers (maf, Nizwa, ...) silently lose their native SVG too. Picking
+    // the last layer that's marker-bearing INDEPENDENT of our own addition
+    // guarantees we're riding along on a layer whose paint-order standing
+    // our own points can't perturb. Falls back to mainTarget only when NO
+    // static layer has any points at all.
+    const fallbackTarget = [...targets].reverse().find(t => t.pointIds.size > 0) ?? mainTarget;
+
+    records.forEach((record, i) => {
+      if (record.layerId) {
+        const namedTarget = targets.find(t => t.name === record.layerId);
+        if (!namedTarget) {
+          this.reportMetricOverlayProblem(`layerId "${record.layerId}" doesn't match any known layer (markerId: ${record.markerId ?? "—"})`);
+          return;
+        }
+        if (!record.markerId || !namedTarget.pointIds.has(record.markerId)) {
+          this.reportMetricOverlayProblem(
+            `markerId "${record.markerId ?? "—"}" doesn't match any existing point on layer "${record.layerId}"`
+          );
+          return;
+        }
+        namedTarget.anchored[record.markerId] = record;
+        return;
+      }
+      if (record.latitude !== undefined && record.longitude !== undefined) {
+        const id = record.id ?? record.markerId ?? `metric-overlay-${i}`;
+        fallbackTarget.unanchored.push({
+          // shape/color/width/height forwarded straight from the record —
+          // see MetricOverlayRecord's own comment — so one ad hoc point can
+          // override the group's theme-derived style (buildOverlayGroup()
+          // below) same as any config-authored point already can; omitted
+          // when the record doesn't set them, which just inherits the
+          // group's theme like every other ad hoc point.
+          point: {
+            id,
+            latitude: record.latitude,
+            longitude: record.longitude,
+            name: record.name ?? record.markerId,
+            shape: record.shape,
+            color: record.color,
+            width: record.width,
+            height: record.height,
+            tooltipMetrics: record.tooltip
+          },
+          record
+        });
+        return;
+      }
+      this.reportMetricOverlayProblem(`record has no layerId and no latitude/longitude to plot (markerId: ${record.markerId ?? "—"})`);
+    });
+
+    // Also rebuilds this group's OWN points (a shallow clone, never
+    // mutating g.markerConfig.points — same "always derive from the
+    // original snapshot" rule as groupsOriginal itself), stamping each
+    // matched point's tooltipMetrics from its own record's `.tooltip` map —
+    // independent of `selectedId`/hasMetric below, which only ever govern
+    // the SEPARATE on-map overlay label/color for the one active metric.
+    // A point with no match this round (or a record with no `.tooltip` of
+    // its own) keeps whatever tooltipMetrics it already had — starts
+    // undefined, same as before this existed.
+    const applyToGroup = (g: MapGroup, anchored: Record<string, MetricOverlayRecord>): MapGroup => {
+      const hasMetric = !!selectedId && (g.markerConfig?.points ?? []).some(p => p.id && anchored[p.id] !== undefined);
+      const points = g.markerConfig?.points;
+      const markerConfig =
+        points && points.some(p => p.id && anchored[p.id]?.tooltip)
+          ? { ...g.markerConfig, points: points.map(p => (p.id && anchored[p.id]?.tooltip ? { ...p, tooltipMetrics: anchored[p.id].tooltip } : p)) }
+          : g.markerConfig;
+      return { ...g, markerConfig, activeMetricId: hasMetric ? selectedId : null, activeMetricValues: hasMetric ? anchored : null };
+    };
+    // hostGroupsOriginal is the layer's own real, config-authored groups
+    // (e.g. MOL's "mol" group) — its markerConfig.style (shape/color/
+    // width/height) is reused verbatim for this ad hoc group's own base
+    // marker, rather than falling back to the layer's theme, so an ad hoc
+    // point renders visually IDENTICAL to maf/Nizwa/etc. on the same
+    // layer (confirmed live: MOL's own points get their small 6x6 circle
+    // size from ITS group's style, not from its theme, which defaults to
+    // 24x24 — matching only the theme wouldn't have matched the actual
+    // marker size). Falls back to no explicit style (theme-derived) only
+    // when the host layer has no group with its own style at all — e.g.
+    // the main layer, mainTarget's own edge case when there's no static
+    // layer to host on at all.
+    const buildOverlayGroup = (entries: LayerTarget["unanchored"], hostGroupsOriginal: MapGroup[]): MapGroup => ({
+      id: NxMapDemoComponent.METRIC_OVERLAY_GROUP_ID,
+      name: "Metric Overlay",
+      visible: true,
+      markerConfig: {
+        style: hostGroupsOriginal.find(g => g.markerConfig?.style)?.markerConfig?.style,
+        points: entries.map(e => e.point)
+      },
+      activeMetricId: entries.length ? selectedId : null,
+      activeMetricValues: entries.length ? Object.fromEntries(entries.map(e => [e.point.id as string, e.record])) : null
+    });
+    const rebuildGroups = (t: LayerTarget): MapGroup[] => [
+      ...t.groupsOriginal.map(g => applyToGroup(g, t.anchored)),
+      buildOverlayGroup(t.unanchored, t.groupsOriginal)
+    ];
+
+    this.baseConfig = { ...this.baseConfig, groups: rebuildGroups(mainTarget) };
+    this.staticLayerResults = this.staticLayerResults.map((s, i) => ({ ...s, config: { ...s.config, groups: rebuildGroups(targets[i + 1]) } }));
     this.rebuildMap();
   }
 
@@ -458,7 +646,10 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     // this.baseConfig MUST be first — NXMapBuilderService.initialize()
     // always treats configs[0] as the main/base layer, purely positionally
     // (see MapConfig's own comment); there's no isMainLayer flag to set
-    // here anymore.
+    // here anymore. Ad hoc metric-overlay points (see
+    // applyMetricSelection()'s own comment on fallbackTarget) ride along on
+    // an existing static layer's own groups rather than a dedicated layer
+    // of their own — no extra config entry needed here for them at all.
     this.configs = [this.baseConfig, ...this.staticLayerResults.map(s => s.config)];
 
     const shapeDataByLayer: Record<string, any> = {
@@ -1122,11 +1313,10 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // anything.
   //
   // ${name} is the marker's own name (bound from toMarker()'s dataSource
-  // object). Every tile below is real per-marker data — toMarker() in
-  // nx-map-builder.service.ts precomputes v_/u_/c_/v2_/u2_/d2_/v3_/u3_/
-  // d3_<key> fields for each of the 7 known metric ids, since Syncfusion's
-  // ${field} template substitution can't loop over MapPoint.metrics
-  // directly. `config` (MapConfig.tooltipTemplate, or
+  // object). toMarker() in nx-map-builder.service.ts precomputes
+  // v_/u_/c_/v2_/u2_/d2_/v3_/u3_/d3_<key> fields for each of the 7 known
+  // metric ids, since Syncfusion's ${field} template substitution has no
+  // loop construct of its own. `config` (MapConfig.tooltipTemplate, or
   // NXMapBuilderService.DEFAULT_TOOLTIP_TEMPLATE) decides which metrics
   // appear, in what order, under what title, and how many tiles per row —
   // rebuilding this element's innerHTML is enough to change the tooltip's
@@ -1389,6 +1579,21 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
           if (geo && geo.latitude != null && geo.longitude != null) {
             liveCenter = { latitude: geo.latitude, longitude: geo.longitude };
           }
+        }
+
+        // Feeds this zoom's real level into MapGroup.minZoomLevel/
+        // MapPoint.minZoomLevel's own threshold check
+        // (NXMapBuilderService.buildMarkerPoints()) — builder.refresh()
+        // regenerates mapOptions.layers[i].markerSettings from the
+        // builder's own state (same pattern every other runtime toggle in
+        // this component already uses — toggleGroup/toggleLayer/etc.),
+        // which is what actually adds/drops a marker across a threshold;
+        // the mapInstance.refresh() right after just repaints from that
+        // freshly rebuilt mapOptions, same as it always did for the
+        // marker-vanishing-after-zoom bug this handler already exists for.
+        if (typeof liveZoomFactor === "number" && this.mapOptions) {
+          this.builder.setZoomLevel(liveZoomFactor);
+          this.builder.refresh(this.mapOptions);
         }
 
         this.mapInstance.refresh();

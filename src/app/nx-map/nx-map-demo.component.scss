@@ -331,6 +331,44 @@
   min-width: 0;
 }
 
+/* Example second tile style — selected per-point via
+   MetricOverlayRecord.tooltip's reserved "template" key (MapPoint.
+   tooltipLayout, see its own comment), or map-wide via a static layer's
+   MapConfig.tooltipTemplate.layout. Same tile markup as the default
+   style throughout this file (.mtt-label/.mtt-value/...) — this ONLY
+   restyles it: label and value sit side by side on one line instead of
+   stacked, tighter spacing overall, smaller card. Add another
+   `.mtt-layout-<name>` block here (scoped the same way) for any further
+   variant — nothing else in the pipeline (key derivation, marker field
+   population, matching rules, even the columns override) needs to know
+   it exists. */
+::ng-deep .marker-tooltip.mtt-layout-compact {
+  min-width: 180px;
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+
+::ng-deep .marker-tooltip.mtt-layout-compact .mtt-grid {
+  gap: 6px 12px;
+  margin-top: 8px;
+}
+
+::ng-deep .marker-tooltip.mtt-layout-compact .mtt-stat {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+::ng-deep .marker-tooltip.mtt-layout-compact .mtt-label {
+  font-size: 9px;
+}
+
+::ng-deep .marker-tooltip.mtt-layout-compact .mtt-value {
+  font-size: 13px;
+  margin-top: 0;
+}
+
 ::ng-deep .marker-tooltip .mtt-label {
   font-size: 10px;
   font-weight: 700;

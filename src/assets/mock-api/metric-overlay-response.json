@@ -25,6 +25,7 @@
     "status": "normal",
     "color": "#c94a3f",
     "tooltip": {
+      "template": "compact",
       "tvp": { "color": "#c94a3f", "value": 96.87, "unit": "kPa", "status": "normal" },
       "salt": { "color": "#3fbfbf", "value": 3.8, "unit": "%", "status": "normal" },
       "bsw": { "label": "BS&W", "color": "#c9a63f", "value": 0.9, "unit": "%", "status": "normal" },

@@ -277,6 +277,21 @@ export class NXMapBuilderService {
     this.defaultTooltipColumns = columns;
   }
 
+  // The map-wide hover-tooltip tile style variant name — set via
+  // setDefaultTooltipLayout(), called alongside setDefaultTooltipColumns()
+  // with deriveTooltipTemplate()'s own resolved `layout` (a static
+  // layer's MapConfig.tooltipTemplate.layout when set, otherwise
+  // "default"). toMarker() uses this ONLY for a point that doesn't set
+  // its own MapPoint.tooltipLayout — see that field's own comment for the
+  // per-point override and why it's a CSS class name, not a different
+  // render function, unlike TooltipTemplateConfig.layout's own (config-
+  // level, chosen once at template-build time) role.
+  private defaultTooltipLayout = "default";
+
+  setDefaultTooltipLayout(layout: string): void {
+    this.defaultTooltipLayout = layout;
+  }
+
   // One lookup array per layer, each aligned with that layer's flat
   // `polygons` array from buildPolygon() (circles pushed first, then real
   // polygons — built in that exact order so indexes always match).
@@ -547,6 +562,10 @@ export class NXMapBuilderService {
       // comment for why this is genuinely per-marker despite every
       // marker sharing the same underlying template element.
       columns: point.tooltipColumns ?? this.defaultTooltipColumns,
+      // Consumed as a CSS class on the tooltip's own outer element (see
+      // MapPoint.tooltipLayout's own comment) — same per-marker
+      // substitution trick as `columns` above.
+      layoutClass: `mtt-layout-${point.tooltipLayout ?? this.defaultTooltipLayout}`,
       __lookupKey: lookupKey
     };
 

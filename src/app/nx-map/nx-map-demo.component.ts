@@ -60,6 +60,33 @@ import { buildAppConfig, RawLayerNode } from "./services/parent-config-transform
 // original "Module Selection is not available" warning and a dead click).
 Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon, Selection);
 
+// Named tooltip-tile HTML layouts — selected via TooltipTemplateConfig.layout
+// (see its own comment), defaulting to "default" below. Every renderer gets
+// the exact same per-item Syncfusion ${field} placeholders to work with —
+// v_/u_/c_/v2_/u2_/d2_/v3_/u3_/d3_<metricId>, populated by
+// NXMapBuilderService.toMarker() for whatever metric ids
+// deriveTooltipTemplate() (below) ends up with — only the HTML/CSS
+// wrapping them differs between layouts. Ship a different tile shape for
+// another deployment (a different card design, a compact single-line
+// tile, whatever) by adding a new entry here and pointing
+// tooltipTemplate.layout at its key — nothing about key derivation,
+// marker field population, or matching rules needs to change alongside
+// it, all of that is layout-agnostic.
+const TOOLTIP_TILE_LAYOUTS: Record<string, (item: TooltipTemplateItem) => string> = {
+  default: item => {
+    const key = item.metricId;
+    const title = item.title ?? key.toUpperCase();
+    return `
+      <div class="mtt-stat">
+        <div class="mtt-label">${title}</div>
+        <div class="mtt-value" style="color: \${c_${key}};">\${v_${key}} <span class="mtt-unit">\${u_${key}}</span></div>
+        <div class="mtt-value2" style="display: \${d2_${key}};">\${v2_${key}} <span class="mtt-unit">\${u2_${key}}</span></div>
+        <div class="mtt-value3" style="display: \${d3_${key}};">\${v3_${key}} <span class="mtt-unit">\${u3_${key}}</span></div>
+      </div>
+    `;
+  }
+};
+
 @Component({
   selector: "app-nx-map-demo",
   templateUrl: "./nx-map-demo.component.html",
@@ -195,6 +222,13 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // parentConfig actually arrives (ngOnChanges), never at construction.
   private nxAppConfig!: NXMapAppConfig;
   private configs: MapConfig[] = [];
+
+  // The main/static layers' own explicitly-authored tooltip layout, if
+  // any (see loadMap()'s own comment on where this comes from) — undefined
+  // when no layer sets one at all. Purely the "pin these titles/this
+  // order/this many columns" override; NEVER the only source of which
+  // metric ids get a tile at all — see deriveTooltipTemplate().
+  private staticTooltipTemplate: TooltipTemplateConfig | undefined;
 
   // Kept as fields (rather than only local variables inside loadMap()) so
   // applyDonutSelectionChange()/applyMetricSelection() can re-derive from
@@ -354,19 +388,17 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
         // layer (MOL is a static layer under "oman", not the main layer
         // itself — see MapConfig.tooltipTemplate's own comment, now
         // updated to reflect this) — first one found wins, main layer
-        // checked first.
-        const tooltipTemplate =
-          baseConfig.tooltipTemplate ??
-          staticLayers.map((s: { config: MapConfig }) => s.config.tooltipTemplate).find((t: any) => !!t) ??
-          DEFAULT_TOOLTIP_TEMPLATE;
-        this.injectMarkerTooltipTemplate(tooltipTemplate);
-        // Same items list the template above was just built from — keeps
-        // NXMapBuilderService.toMarker()'s populated v_/u_/c_<key> fields
-        // in exact lockstep with the template's own ${v_<key>} placeholders
-        // (see setTooltipMetricKeys()'s own comment), so a layer's own
-        // tooltipTemplate.items is genuinely the only place this list is
-        // declared.
-        this.builder.setTooltipMetricKeys(tooltipTemplate.items.map((item: TooltipTemplateItem) => item.metricId));
+        // checked first. Entirely optional now — see
+        // deriveTooltipTemplate()'s own comment for what actually decides
+        // the tooltip's tile list when this is unset (or doesn't already
+        // cover every metric id the data mentions).
+        this.staticTooltipTemplate =
+          baseConfig.tooltipTemplate ?? staticLayers.map((s: { config: MapConfig }) => s.config.tooltipTemplate).find((t: any) => !!t);
+        // No records yet at initial load — this renders whatever the
+        // static config alone provides (or nothing, if it doesn't set one
+        // either), same "empty until a donut fetch actually happens" state
+        // as before deriveTooltipTemplate() existed.
+        this.applyTooltipTemplate([]);
         this.rebuildMap();
       });
   }
@@ -479,6 +511,12 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     if (!this.baseConfig) {
       return;
     }
+    // Rebuilds the tooltip's tile list/DOM template from THIS fetch's own
+    // records before anything below stamps tooltipMetrics onto any point —
+    // see deriveTooltipTemplate()'s own comment. A clear (selectedId: null,
+    // records: []) collapses the tooltip back to whatever the static
+    // config alone provides, same as the very first pre-fetch paint.
+    this.applyTooltipTemplate(records);
     interface LayerTarget {
       name: string;
       groupsOriginal: MapGroup[];
@@ -1295,6 +1333,48 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     this.layerGroupObserver.observe(host, { childList: true, subtree: true });
   }
 
+  // Builds this click's effective tooltip layout — the ONLY place any
+  // metric id's tile gets decided app-wide, no hardcoded metric-id list
+  // involved anywhere in this pipeline. Starts from
+  // this.staticTooltipTemplate's own items (if any — a layer's explicit
+  // MapConfig.tooltipTemplate pins that metric id's title/position), then
+  // adds one auto-generated item for every OTHER key any of `records`' own
+  // MetricOverlayRecord.tooltip maps mention (title from that metric's own
+  // PointMetric.label, falling back to the key itself uppercased) — so a
+  // metric id NO config anywhere has ever declared still gets a working
+  // tile the very first time the fetched data mentions it, exactly what
+  // "tomorrow it might be a different name/different count" needs. Column
+  // count/layout name always come from the static config when one exists,
+  // the built-in DEFAULT_TOOLTIP_TEMPLATE otherwise (empty items, 2
+  // columns — see its own comment).
+  private deriveTooltipTemplate(records: MetricOverlayRecord[]): TooltipTemplateConfig {
+    const items = new Map<string, TooltipTemplateItem>();
+    (this.staticTooltipTemplate?.items ?? []).forEach(item => items.set(item.metricId, item));
+    records.forEach(record => {
+      Object.entries(record.tooltip ?? {}).forEach(([key, metric]) => {
+        if (!items.has(key)) {
+          items.set(key, { metricId: key, title: metric.label ?? key.toUpperCase() });
+        }
+      });
+    });
+    return {
+      columns: this.staticTooltipTemplate?.columns ?? DEFAULT_TOOLTIP_TEMPLATE.columns,
+      layout: this.staticTooltipTemplate?.layout,
+      items: Array.from(items.values())
+    };
+  }
+
+  // Shared by loadMap() (initial paint, records: []) and
+  // applyMetricSelection() (every donut fetch) — derives this click's
+  // tooltip layout, re-injects the DOM template, and keeps
+  // NXMapBuilderService.tooltipMetricKeys in the exact same lockstep
+  // deriveTooltipTemplate()'s own comment describes, all in one call.
+  private applyTooltipTemplate(records: MetricOverlayRecord[]): void {
+    const tooltipTemplate = this.deriveTooltipTemplate(records);
+    this.injectMarkerTooltipTemplate(tooltipTemplate);
+    this.builder.setTooltipMetricKeys(tooltipTemplate.items.map(item => item.metricId));
+  }
+
   // Builds the #marker-tooltip-template element that
   // nx-map-builder.service.ts's markerSettings.tooltipSettings.template
   // looks up by id, via plain DOM APIs rather than declaring it inline in
@@ -1314,16 +1394,20 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   //
   // ${name} is the marker's own name (bound from toMarker()'s dataSource
   // object). toMarker() in nx-map-builder.service.ts precomputes
-  // v_/u_/c_/v2_/u2_/d2_/v3_/u3_/d3_<key> fields for each of the 7 known
-  // metric ids, since Syncfusion's ${field} template substitution has no
-  // loop construct of its own. `config` (MapConfig.tooltipTemplate, or
-  // NXMapBuilderService.DEFAULT_TOOLTIP_TEMPLATE) decides which metrics
-  // appear, in what order, under what title, and how many tiles per row —
-  // rebuilding this element's innerHTML is enough to change the tooltip's
-  // whole layout, no other code path involved. Called again every time
-  // loadMap() resolves a fresh baseConfig (rebuildMap(), style switches,
-  // Reset...) — cheap (a handful of string concatenation) and keeps the
-  // template in sync if the config's tooltipTemplate ever changes.
+  // v_/u_/c_/v2_/u2_/d2_/v3_/u3_/d3_<key> fields for each of
+  // NXMapBuilderService's own tooltipMetricKeys, since Syncfusion's
+  // ${field} template substitution has no loop construct of its own.
+  // `config` (deriveTooltipTemplate()'s own output, or
+  // NXMapBuilderService.DEFAULT_TOOLTIP_TEMPLATE for the very first
+  // pre-load fallback) decides which metrics appear, in what order, under
+  // what title, how many tiles per row, and which TOOLTIP_TILE_LAYOUTS
+  // entry renders each one — rebuilding this element's innerHTML is
+  // enough to change the tooltip's whole layout, no other code path
+  // involved. Called again every time loadMap() resolves a fresh
+  // baseConfig (rebuildMap(), style switches, Reset...) AND on every donut
+  // fetch (applyTooltipTemplate() above) — cheap (a handful of string
+  // concatenation) and keeps the template in sync with whatever metric
+  // ids are actually live right now.
   private injectMarkerTooltipTemplate(config: TooltipTemplateConfig): void {
     let container = document.getElementById("marker-tooltip-template");
     if (!container) {
@@ -1333,13 +1417,13 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
       document.body.appendChild(container);
     }
 
+    // Which HTML shape each tile renders as — see TOOLTIP_TILE_LAYOUTS' own
+    // comment for how a different deployment plugs in an alternate one.
+    const renderTile = TOOLTIP_TILE_LAYOUTS[config.layout ?? "default"] ?? TOOLTIP_TILE_LAYOUTS["default"];
     const columns = Math.max(1, config.columns);
     const rows: string[] = [];
     for (let i = 0; i < config.items.length; i += columns) {
-      const cells = config.items
-        .slice(i, i + columns)
-        .map(item => this.tooltipTileHtml(item))
-        .join("");
+      const cells = config.items.slice(i, i + columns).map(renderTile).join("");
       rows.push(`<div class="mtt-row">${cells}</div>`);
     }
 
@@ -1349,22 +1433,6 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
           <span class="mtt-title">\${name}</span>
         </div>
         ${rows.join("")}
-      </div>
-    `;
-  }
-
-  // One tooltip tile — title is config-level (same text for every marker,
-  // baked in now), value/unit/color are per-marker ${field} placeholders
-  // resolved by Syncfusion at hover time.
-  private tooltipTileHtml(item: TooltipTemplateItem): string {
-    const key = item.metricId;
-    const title = item.title ?? key.toUpperCase();
-    return `
-      <div class="mtt-stat">
-        <div class="mtt-label">${title}</div>
-        <div class="mtt-value" style="color: \${c_${key}};">\${v_${key}} <span class="mtt-unit">\${u_${key}}</span></div>
-        <div class="mtt-value2" style="display: \${d2_${key}};">\${v2_${key}} <span class="mtt-unit">\${u2_${key}}</span></div>
-        <div class="mtt-value3" style="display: \${d3_${key}};">\${v3_${key}} <span class="mtt-unit">\${u3_${key}}</span></div>
       </div>
     `;
   }

@@ -48,11 +48,17 @@ export const EMPTY_PLACEHOLDER_SHAPE = {
   features: [{ type: "Feature", properties: {}, geometry: { type: "MultiPolygon", coordinates: [] } }]
 };
 
-// One fixed highlight color per donut/metric id — used ONLY for a point
-// whose metrics[activeMetricId].status is "high" once that metric's donut
-// is clicked (see buildMarkerPoints()'s activeMetricId branch). Unrelated
-// to a point's own base marker color, which keeps rendering normally
-// underneath regardless of any donut selection.
+// Optional highlight-color palette, by metric/donut id — used ONLY for a
+// point whose metrics[activeMetricId].status is "high" once that metric's
+// donut is clicked (see buildMarkerPoints()'s activeMetricId branch) and
+// for a "high" reading's tooltip tile color (toMarker()). A metric id
+// that isn't listed here (any brand-new one the fetched data introduces
+// tomorrow, not just these seven) just falls back to NORMAL_LABEL_COLOR
+// everywhere this is read — this is purely a nicer-looking extra, never a
+// gate on whether that metric's marker/tooltip actually works. Add an
+// entry here for a new metric id only if it deserves its own distinct
+// highlight color; unrelated to a point's own base marker color, which
+// keeps rendering normally underneath regardless of any donut selection.
 export const METRIC_COLORS: Record<string, string> = {
   tvp: "#c94a3f",
   salt: "#3fbfbf",
@@ -68,22 +74,17 @@ export const METRIC_COLORS: Record<string, string> = {
 // METRIC_COLORS entry.
 const NORMAL_LABEL_COLOR = "#5f6368";
 
-// Original 7-metric, 2-column tooltip layout — used whenever a MapConfig
-// doesn't set its own tooltipTemplate (see MapConfig.tooltipTemplate's own
-// comment). Kept here, not hardcoded into the template string, so a config
-// can override just the parts it cares about (a different column count,
-// a subset of metrics, custom titles) without losing this as the fallback.
+// Genuinely empty starting point — no metric ids baked in here at all.
+// Used only as the very first template before ANY layer's own
+// MapConfig.tooltipTemplate.columns is known (columns needs SOME number);
+// `items` stays empty because NxMapDemoComponent.deriveTooltipTemplate()
+// is what actually populates the tile list, straight from whatever the
+// fetched metric data (or a layer's own tooltipTemplate.items) contains —
+// see TooltipTemplateItem's own comment for why no fixed metric-id list
+// belongs here anymore.
 export const DEFAULT_TOOLTIP_TEMPLATE: TooltipTemplateConfig = {
   columns: 2,
-  items: [
-    { metricId: "tvp", title: "TVP" },
-    { metricId: "salt", title: "Salt" },
-    { metricId: "bsw", title: "BS&W" },
-    { metricId: "h2s", title: "Dissolved H2S" },
-    { metricId: "api", title: "API" },
-    { metricId: "flow", title: "Flow" },
-    { metricId: "other", title: "Other" }
-  ]
+  items: []
 };
 
 // Fallback icon shape per impact value when a group's own

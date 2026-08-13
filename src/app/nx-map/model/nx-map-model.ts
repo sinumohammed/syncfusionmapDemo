@@ -118,6 +118,18 @@ export interface PointMetric {
   unit2?: string;
   value3?: number;
   unit3?: string;
+  // This metric's own display name, straight from the data — only
+  // meaningful on an entry inside MetricOverlayRecord.tooltip (ignored
+  // everywhere else PointMetric is used, e.g. activeMetricValues).
+  // NxMapDemoComponent derives its hover-tooltip tile list from whatever
+  // keys show up across a fetch's own records — this is that tile's
+  // title, so a metric id NO config anywhere has ever declared still gets
+  // a real, human title instead of just the key itself uppercased (still
+  // the fallback when this is omitted). A layer's own MapConfig.
+  // tooltipTemplate.items entry for the same metricId, when one exists,
+  // wins over this — same "explicit config beats derived default"
+  // precedence as everywhere else in this app.
+  label?: string;
 }
 
 // One entry in the response NXMapConfigService.loadMetricOverlay() fetches
@@ -172,28 +184,47 @@ export interface MetricOverlayRecord extends PointMetric, ShapeStyle {
 }
 
 // One tile in the hover tooltip's metric grid — `metricId` can be any
-// string; NxMapDemoComponent.loadMap() feeds this same list straight into
-// NXMapBuilderService.setTooltipMetricKeys(), so whatever ids appear here
-// are exactly the ones toMarker() computes real template fields for — no
-// separate hardcoded metric-id list to keep in sync. `title` is the tile's
-// own small label (e.g. "TVP", "BS&W") — defaults to metricId.toUpperCase()
-// if omitted.
+// string. This full item list is never required to be authored by hand:
+// NxMapDemoComponent.deriveTooltipTemplate() auto-builds one entry per
+// distinct key found across a fetch's own MetricOverlayRecord.tooltip
+// maps (title from that metric's own PointMetric.label, or metricId
+// itself uppercased) — a config's own MapConfig.tooltipTemplate.items
+// (below) only needs an entry for a metricId at all when it wants to
+// PIN that tile's title/position explicitly; any key the data mentions
+// that config doesn't already know about still gets a tile automatically.
+// Whatever the FINAL merged list ends up being, NxMapDemoComponent feeds
+// it straight into NXMapBuilderService.setTooltipMetricKeys(), so it's
+// always exactly the set toMarker() computes real template fields for —
+// no separate hardcoded metric-id list anywhere has to stay in sync.
 export interface TooltipTemplateItem {
   metricId: string;
   title?: string;
 }
 
 // Drives the hover tooltip's whole layout — `columns` tiles per row,
-// `items` in display order (wraps to a new row every `columns` items).
-// Set on the MAIN layer's MapConfig (MapConfig.tooltipTemplate); omit to
-// fall back to NXMapBuilderService.DEFAULT_TOOLTIP_TEMPLATE. There's
-// exactly one tooltip template live at a time app-wide (see
-// NxMapDemoComponent.injectMarkerTooltipTemplate()'s own comment) — with
-// NxMapCollectionComponent looping over several maps, whichever map's
-// config resolves first wins for all of them.
+// `items` in display order (wraps to a new row every `columns` items,
+// then whatever the fetched data adds beyond that — see
+// TooltipTemplateItem's own comment). Set on the MAIN layer's MapConfig
+// (MapConfig.tooltipTemplate) to pin an explicit column count/tile
+// order/custom titles; entirely optional otherwise — omit it and
+// NxMapDemoComponent.deriveTooltipTemplate() builds a working tooltip
+// straight from whatever the fetched metric data contains, no static
+// declaration required at all. There's exactly one tooltip template live
+// at a time app-wide (see NxMapDemoComponent.injectMarkerTooltipTemplate()'s
+// own comment) — with NxMapCollectionComponent looping over several maps,
+// whichever map's config resolves first wins for all of them.
 export interface TooltipTemplateConfig {
   columns: number;
   items: TooltipTemplateItem[];
+  // Selects which HTML layout renders each tile — a key into
+  // NxMapDemoComponent's own TOOLTIP_TILE_LAYOUTS registry (see its own
+  // comment). Omit for "default" (today's title + value/unit + optional
+  // value2/value3 card). A different deployment that wants a differently
+  // shaped tile can add a new named entry to that registry and select it
+  // here — no changes needed anywhere else in this pipeline (key
+  // derivation, marker field population, matching rules all stay the
+  // same regardless of which layout renders the result).
+  layout?: string;
 }
 
 export interface MapLine extends BaseMapObject, LineStyle {

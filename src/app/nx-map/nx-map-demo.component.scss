@@ -369,6 +369,49 @@
   margin-top: 0;
 }
 
+/* A third example style, clearly distinct from both "default" and
+   "compact" so a hover makes the difference obvious at a glance — a
+   dark boxed card, each tile its own translucent tile/box instead of a
+   plain stacked row. Same underlying tile markup as every other layout;
+   only the CSS differs, same as "compact" above. Select it the same way:
+   MetricOverlayRecord.tooltip: { "template": "template2", ... } on
+   whichever point(s) should use it, or MapConfig.tooltipTemplate.layout
+   for a whole layer's default. */
+::ng-deep .marker-tooltip.mtt-layout-template2 {
+  min-width: 260px;
+  padding: 14px;
+  background: #1a1a1a;
+  border-radius: 14px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
+
+::ng-deep .marker-tooltip.mtt-layout-template2 .mtt-title {
+  color: #ffffff;
+}
+
+::ng-deep .marker-tooltip.mtt-layout-template2 .mtt-grid {
+  gap: 8px;
+}
+
+::ng-deep .marker-tooltip.mtt-layout-template2 .mtt-stat {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 8px 10px;
+  text-align: center;
+}
+
+::ng-deep .marker-tooltip.mtt-layout-template2 .mtt-label {
+  color: #9aa0a6;
+}
+
+::ng-deep .marker-tooltip.mtt-layout-template2 .mtt-value {
+  color: #ffffff;
+}
+
+::ng-deep .marker-tooltip.mtt-layout-template2 .mtt-unit {
+  color: #6b7280;
+}
+
 ::ng-deep .marker-tooltip .mtt-label {
   font-size: 10px;
   font-weight: 700;

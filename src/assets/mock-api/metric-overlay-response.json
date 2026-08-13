@@ -59,6 +59,8 @@
     "impact": "non-customer",
     "color": "#c94a3f",
     "tooltip": {
+      "template": "template2",
+      "columns": 3,
       "tvp": { "color": "#c94a3f", "value": 82.33, "unit": "kPa", "status": "high", "impact": "non-customer" },
       "salt": { "color": "#3fbfbf", "value": 6.7, "unit": "%", "status": "high", "impact": "non-customer" },
       "bsw": { "label": "BS&W", "color": "#c9a63f", "value": 2.3, "unit": "%", "status": "normal" },

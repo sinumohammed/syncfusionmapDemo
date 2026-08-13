@@ -180,7 +180,16 @@ export interface MetricOverlayRecord extends PointMetric, ShapeStyle {
   // placeholder in place. Forwarded onto the matched (or brand-new)
   // point's own tooltipMetrics in NxMapDemoComponent.applyMetricSelection()
   // — omit entirely to leave the point's tooltip untouched by this record.
-  tooltip?: Record<string, PointMetric>;
+  //
+  // One reserved key: "columns" (a plain number, not a PointMetric reading)
+  // — how many tiles per row the tooltip grid renders, read by
+  // NxMapDemoComponent.deriveTooltipTemplate(). Same "first record that
+  // sets it wins" precedence as everything else derived from this map
+  // (see deriveTooltipTemplate()'s own comment) — only needs setting on
+  // one record, not every one. Omit to fall back to a static layer's own
+  // MapConfig.tooltipTemplate.columns when set, then the built-in default
+  // (NXMapBuilderService.DEFAULT_TOOLTIP_TEMPLATE.columns, 2).
+  tooltip?: Record<string, PointMetric | number>;
 }
 
 // One tile in the hover tooltip's metric grid — `metricId` can be any

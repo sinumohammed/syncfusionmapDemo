@@ -94,12 +94,30 @@ Unchecking every leaf/group under a layer does **not** hide that layer's own sha
 ## Config-level features (`MapConfig`)
 
 - No `isMainLayer` flag — which config is "main" is purely positional: `NXMapBuilderService.initialize()` always treats `configs[0]` as the base/main layer, whichever the caller puts first (`nx-map-demo.component.ts`'s `rebuildMap()` always puts the merged base config first; `parent-config-transform.ts`'s `buildAppConfig()` always treats its `root` node as the base). The main layer can't be hidden from the layer panel or via `setLayerVisible()`.
-- `baseMapType: "shape" | "osm"` — renders a layer from `shapeData` (default) or OpenStreetMap tiles. **OSM is only honored on the main layer** — a SubLayer requesting OSM falls back to shape rendering with a console warning. Combining an OSM main layer with a marker-bearing SubLayer has also been observed to cause the two layers' markers to fight over visibility — prefer `"shape"` on the main layer when SubLayers have markers.
-- `mapCenter` / `zoomFactor` — initial center/zoom, mainly needed when the main layer is `"osm"` (no shapeData bounding box to auto-fit against).
+- `baseMapType: "shape" | "osm" | "satellite"` — renders a layer from `shapeData` (default) or raster tiles (OpenStreetMap streets / Esri World Imagery). **Tile types are only honored on the main layer** — a SubLayer requesting one falls back to shape rendering with a console warning. `availableBaseMapTypes` controls which of the three the base-map style dropdown offers (and in what order); `"simple"` is accepted everywhere as a friendlier alias for `"shape"`.
+- `mapCenter` / `zoomFactor` — initial center/zoom, needed when the main layer is a tile type (no shapeData bounding box to auto-fit against). A `"shape"` main layer always starts at `zoomFactor: 1` regardless of this, for the same auto-fit reason.
+- `maxZoomFactor` (default 18) — how far in a tile (`osm`/`satellite`) main layer can zoom. Syncfusion's own `ZoomSettingsModel.maxZoom` defaults to 10, which silently capped zooming well before real detail (a well/station) became visible — confirmed live that 18, not 19, is the deepest level that stays inside real ArcGIS World Imagery tiles for a typical location; 19 landed one click past available imagery. Only matters for tile base map types.
 - `visible` (default `true`) — set to `false` to exclude a layer entirely at build time: it won't render on the map **and** won't appear in the layer panel's filter tree. Ignored (with a warning) on the main layer. Distinct from `participateInFilter` (map yes, filter no) and the runtime `setLayerVisible()` toggle (keeps a layer in the tree but hidden).
 - `parentLayerName` / `participateInFilter` — see "Static layers" above.
 - `theme` — see "Themes" above.
+- `tooltipTemplate` — pins an explicit column count / tile order / custom titles for the hover tooltip. Entirely optional now — see "Metric overlay & hover tooltip" below for what drives the tooltip when this is unset.
 - `MapGroup.heading` / `MapGroup.theme` — see "Sub-layer API config" / "Themes" above.
+- `MapGroup.minZoomLevel` / `MapPoint.minZoomLevel` (point overrides group) — hides a marker entirely below this map zoom factor, e.g. well/station points that shouldn't clutter a zoomed-out view. Omit to ignore zoom entirely (always visible). See "Metric overlay & hover tooltip" below for how a `MetricOverlayRecord` sets this per ad hoc point.
+
+## Metric overlay & hover tooltip
+
+`NXMapAppConfig.metricDataApiUrl` (set on the main layer or any static layer) points at a `MetricOverlayRecord[]` endpoint (`NXMapConfigService.loadMetricOverlay()`), fetched fresh on every donut-panel click and applied by `NxMapDemoComponent.applyMetricSelection()`. Each record either **anchors** to an existing marker or **creates a brand-new one**, matched by these rules (deliberately not a fallback chain):
+
+- `layerId` given and matches a known layer → `markerId` MUST resolve to an existing point on that exact layer (anchor) or it's an **error** — it never silently plots a new point on that layer instead.
+- `layerId` given but matches no known layer → error.
+- `layerId` omitted → no existing-point search at all; always a brand-new point (using `id`/`markerId`/an auto-generated id), provided `latitude`/`longitude` are present, plotted on whichever static layer is already reliably marker-bearing (needed because Syncfusion only gives native SVG markers to one marker-bearing layer under a tile main layer type — see `NxMapDemoComponent.applyMetricSelection()`'s own `fallbackTarget` comment).
+
+A record's `MetricOverlayRecord.tooltip?: Record<string, PointMetric | number | string>` is the **entire** source of the always-on hover tooltip — no hardcoded metric-id list exists anywhere in `nx-map-builder.service.ts`. Whatever metric keys show up across a fetch's records become the tooltip's tiles (`NxMapDemoComponent.deriveTooltipTemplate()`), each tile's title from that metric's own `PointMetric.label` (falling back to the key uppercased) unless a layer's `MapConfig.tooltipTemplate.items` already names it. Two further reserved keys inside `tooltip`, both **per-point** (forwarded onto just the one point that record matches/creates, not broadcast to every point):
+
+- `"columns"` (number) — this point's own tile-grid column count, overriding the map-wide default.
+- `"template"` (string) — this point's own tile CSS style variant (a class name into `nx-map-demo.component.ts`'s `TOOLTIP_TILE_LAYOUTS`-adjacent `.mtt-layout-<name>` rules in `nx-map-demo.component.scss`), overriding the map-wide default. Only works for layouts that are CSS-only restylings of the same shared tile markup — a genuinely different HTML structure per tile is `TooltipTemplateConfig.layout` instead, a config-level (not per-point) choice.
+
+Both work via Syncfusion's own per-marker `${field}` template substitution (`NXMapBuilderService.toMarker()`'s `columns`/`layoutClass` fields) into one shared `#marker-tooltip-template` DOM element — every marker renders from the exact same template HTML but can still end up with a different column count and/or CSS class each.
 
 ## Known limitations / unverified DOM selectors
 

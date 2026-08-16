@@ -986,30 +986,52 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     if (!this.filterText.trim()) {
       return true;
     }
-    return this.matchesSearch(item.region) || item.layers.some(l => this.layerMatchesSearch(l));
+    return this.matchesSearch(item.region) || item.layers.some(l => this.layerOrRegionMatchesSearch(l));
   }
 
   // Tri-state checkbox for a LayerRegionNode — same combineStates()
   // convention as every other parent level, derived purely from its
-  // layers' own layerState() (a region has no visibility of its own).
+  // layers' own state (a region has no visibility of its own). Recurses
+  // into any nested LayerRegionNode (a "PDO Assets.North"-style path),
+  // same as layerOrRegionMatchesSearch() above.
   layerRegionState(region: LayerRegionNode): "checked" | "unchecked" | "indeterminate" {
-    return this.combineStates(region.layers.map(l => this.layerState(l)));
+    return this.combineStates(region.layers.map(l => (this.isRegionNode(l) ? this.layerRegionState(l) : this.layerState(l))));
   }
 
-  // Cascades show/hide to every layer inside the region — same "click an
-  // indeterminate/unchecked folder -> select all" convention as
-  // toggleHeading()/toggleShapeFeatureGroup().
+  // Cascades show/hide to every layer inside the region, however deeply
+  // nested — same "click an indeterminate/unchecked folder -> select
+  // all" convention as toggleHeading()/toggleShapeFeatureGroup().
   toggleLayerRegion(region: LayerRegionNode): void {
     const shouldShow = this.layerRegionState(region) !== "checked";
-    region.layers.forEach(layer => {
+    this.setRegionTreeVisibility(region, shouldShow);
+    this.builder.refresh(this.mapOptions);
+    this.render();
+  }
+
+  // Visits every LEAF layer inside a region, however deeply nested
+  // through intermediate folders (a "PDO Assets.North"-style path) —
+  // shared by setLayerTreeVisibility()'s own nested-region cascade
+  // (tree-state only) and setRegionTreeVisibility() below (which also
+  // pushes each leaf's actual builder-level visibility), so the two
+  // don't drift apart on how they walk the nesting.
+  private forEachRegionLeaf(region: LayerRegionNode, fn: (leaf: LayerTreeNode) => void): void {
+    region.layers.forEach(item => (this.isRegionNode(item) ? this.forEachRegionLeaf(item, fn) : fn(item)));
+  }
+
+  // Cascade for toggleLayerRegion() specifically: unlike
+  // setLayerTreeVisibility()'s own nested-region handling (tree state
+  // only — see its comment), a region checkbox click IS the direct
+  // toggle target, so it also has to push each affected leaf's actual
+  // builder-level visibility, same as toggleLayer() does for a single
+  // layer.
+  private setRegionTreeVisibility(region: LayerRegionNode, visible: boolean): void {
+    this.forEachRegionLeaf(region, layer => {
       if (layer.isMainLayer) {
         return;
       }
-      this.setLayerTreeVisibility(layer, shouldShow);
-      this.builder.setLayerVisible(layer.layerIndex, shouldShow);
+      this.setLayerTreeVisibility(layer, visible);
+      this.builder.setLayerVisible(layer.layerIndex, visible);
     });
-    this.builder.refresh(this.mapOptions);
-    this.render();
   }
 
   private combineStates(states: ("checked" | "unchecked" | "indeterminate")[]): "checked" | "unchecked" | "indeterminate" {
@@ -1068,7 +1090,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     layer.headings.forEach(heading => heading.groups.forEach(entry => this.setGroupVisibility(entry, visible)));
     layer.children.forEach(child => {
       if (this.isRegionNode(child)) {
-        child.layers.forEach(l => this.setLayerTreeVisibility(l, visible));
+        this.forEachRegionLeaf(child, l => this.setLayerTreeVisibility(l, visible));
       } else {
         this.setLayerTreeVisibility(child, visible);
       }

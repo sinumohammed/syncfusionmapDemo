@@ -421,7 +421,7 @@
     "title": {
       "text": "Surface"
     },
-    "region": "PDO Assets",
+    "region": "PDO Assets.North",
     "dataLabel": {
       "visible": true,
       "color": "beige",

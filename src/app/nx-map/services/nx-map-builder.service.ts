@@ -194,9 +194,16 @@ export interface LayerTreeNode {
 // its own independent visibility/state; a region node has no state of its
 // own beyond what's derived from its `layers` (see the demo component's
 // layerRegionState()/toggleLayerRegion()).
+//
+// `layers` can itself hold nested LayerRegionNodes, not just leaf
+// LayerTreeNodes — a MapConfig.region of "PDO Assets.North" (dot-
+// delimited path, see groupLayersByRegion()) buckets that layer under a
+// "North" folder nested inside a "PDO Assets" folder, arbitrarily deep.
+// A region with no dots behaves exactly as before nesting existed — one
+// flat folder of leaf layers.
 export interface LayerRegionNode {
   region: string;
-  layers: LayerTreeNode[];
+  layers: (LayerTreeNode | LayerRegionNode)[];
 }
 
 // Discriminates a getLayerTree()/LayerTreeNode.children entry — a
@@ -1028,28 +1035,59 @@ export class NXMapBuilderService {
     return this.groupLayersByRegion(roots);
   }
 
+  // "." splits a MapConfig.region into a nesting path — "PDO Assets.North"
+  // buckets under a "North" folder nested inside "PDO Assets", arbitrarily
+  // deep. A region with no "." is just a one-segment path, same flat
+  // folder as before this existed.
+  private static readonly REGION_PATH_SEPARATOR = ".";
+
+  private static regionPath(region: string | undefined): string[] {
+    return (region ?? "")
+      .split(NXMapBuilderService.REGION_PATH_SEPARATOR)
+      .map(segment => segment.trim())
+      .filter(segment => segment.length > 0);
+  }
+
   // Buckets a flat sibling list into LayerRegionNode folders wherever
   // MapConfig.region is set, in first-seen region order — same pattern as
   // buildTreeNode()'s heading/shapeFeatureGroup bucketing, one level up. A
   // node whose layer has no `region` stays a direct entry, in its original
   // position, exactly as before regions existed.
   private groupLayersByRegion(nodes: LayerTreeNode[]): (LayerTreeNode | LayerRegionNode)[] {
+    return this.bucketByRegionPath(nodes.map(node => ({ node, path: NXMapBuilderService.regionPath(this.layers[node.layerIndex].config.region) })));
+  }
+
+  // Recursively buckets (node, remaining-path) pairs into nested
+  // LayerRegionNodes, one folder per path segment — first-seen order
+  // preserved at every level, same as the single-level version this
+  // replaced (identical output whenever every path has length <= 1). A
+  // regionNode's own `layers` array is created eagerly (so its position
+  // in `result` matches its first-seen spot, interleaved correctly with
+  // ungrouped siblings) and filled in via recursion once every entry's
+  // been bucketed by ITS OWN first path segment.
+  private bucketByRegionPath(entries: { node: LayerTreeNode; path: string[] }[]): (LayerTreeNode | LayerRegionNode)[] {
     const result: (LayerTreeNode | LayerRegionNode)[] = [];
     const regionNodes = new Map<string, LayerRegionNode>();
+    const pending = new Map<string, { node: LayerTreeNode; path: string[] }[]>();
 
-    nodes.forEach(node => {
-      const region = this.layers[node.layerIndex].config.region;
-      if (!region) {
-        result.push(node);
+    entries.forEach(entry => {
+      if (entry.path.length === 0) {
+        result.push(entry.node);
         return;
       }
-      let regionNode = regionNodes.get(region);
+      const [head, ...rest] = entry.path;
+      let regionNode = regionNodes.get(head);
       if (!regionNode) {
-        regionNode = { region, layers: [] };
-        regionNodes.set(region, regionNode);
+        regionNode = { region: head, layers: [] };
+        regionNodes.set(head, regionNode);
+        pending.set(head, []);
         result.push(regionNode);
       }
-      regionNode.layers.push(node);
+      pending.get(head)!.push({ node: entry.node, path: rest });
+    });
+
+    regionNodes.forEach((regionNode, head) => {
+      regionNode.layers = this.bucketByRegionPath(pending.get(head)!);
     });
 
     return result;

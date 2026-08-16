@@ -296,6 +296,22 @@
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
 }
 
+/* No donut metric selected -> injectMarkerTooltipTemplate() omits
+   .mtt-grid entirely and adds this class instead of the metrics-card
+   sizing above, so a bare marker name doesn't get stretched to the same
+   240px/14-16px card meant for a multi-tile metrics tooltip. */
+::ng-deep .marker-tooltip.mtt-name-only {
+  min-width: 0;
+  width: max-content;
+  max-width: 220px;
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+::ng-deep .marker-tooltip.mtt-name-only .mtt-title {
+  font-size: 13px;
+}
+
 ::ng-deep .marker-tooltip .mtt-header {
   display: flex;
   align-items: center;

@@ -1509,6 +1509,16 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     // comment for how a different deployment plugs in an alternate one.
     const renderTile = TOOLTIP_TILE_LAYOUTS[config.layout ?? "default"] ?? TOOLTIP_TILE_LAYOUTS["default"];
     const tiles = config.items.map(renderTile).join("");
+    // No donut metric selected (or a static-only point with nothing to
+    // show) -> zero tiles for EVERY marker, since `tiles` is built once
+    // here from the map-wide derived template, not per-marker. Omitting
+    // .mtt-grid entirely (rather than rendering it empty) drops both its
+    // margin-top gap and the outer card's min-width, below, so a
+    // name-only tooltip sizes to the name instead of the metrics-card
+    // dimensions.
+    const grid = tiles
+      ? `<div class="mtt-grid" style="grid-template-columns: repeat(\${columns}, 1fr);">${tiles}</div>`
+      : "";
 
     // A single CSS grid, not pre-split into fixed `columns`-many-wide rows
     // at build time — `grid-template-columns` itself comes from
@@ -1526,13 +1536,11 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     // nx-map-demo.component.scss) onto just THIS marker's tooltip
     // instance, still built from this exact same shared markup.
     container.innerHTML = `
-      <div class="marker-tooltip \${layoutClass}">
+      <div class="marker-tooltip \${layoutClass}${tiles ? "" : " mtt-name-only"}">
         <div class="mtt-header">
           <span class="mtt-title">\${name}</span>
         </div>
-        <div class="mtt-grid" style="grid-template-columns: repeat(\${columns}, 1fr);">
-          ${tiles}
-        </div>
+        ${grid}
       </div>
     `;
   }

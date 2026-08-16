@@ -326,28 +326,46 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
               of(appConfig.layerInlineConfig ?? [])
             ]).pipe(
               map(([fileLayers, apiLayers, inlineLayers]) =>
-                [...fileLayers, ...apiLayers, ...inlineLayers].map(envelope => ({
-                  config: {
-                    ...envelope.layerConfig,
-                    // Defaults to nesting under the base layer in the filter
-                    // popup — the envelope's OWN value (set directly inside
-                    // its own file/API response/inline block) always wins.
-                    parentLayerName: envelope.layerConfig.parentLayerName ?? baseConfig.layerName,
-                    participateInFilter: envelope.layerConfig.participateInFilter ?? true,
-                    // appConfig.defaultSelectedLayerNames (LayersDefaultSelected),
-                    // when set, OVERRIDES the envelope's own `selected` —
-                    // it's an explicit "only these start checked" list for
-                    // the whole map, not a per-layer default. Unset leaves
-                    // the envelope's own `selected` (or true) in charge.
-                    selected: appConfig.defaultSelectedLayerNames
-                      ? appConfig.defaultSelectedLayerNames.includes(envelope.layerConfig.layerName)
-                      : envelope.layerConfig.selected
-                  },
-                  // Present + non-null shapeData => a real boundary; omitted
-                  // => a points/groups layer (MOL-style), synthesized here —
-                  // see LayerFileEnvelope's own comment.
-                  shape: envelope.shapeData ?? EMPTY_PLACEHOLDER_SHAPE
-                }))
+                [...fileLayers, ...apiLayers, ...inlineLayers]
+                  // A layer file/API entry with no `layerConfig` (e.g. a
+                  // shape file that only ever needed `shapeData` for the
+                  // MAIN layer's own resolveShapeData() lookup, mistakenly
+                  // reused here as a LayerFileLists/LayerAPIURL/
+                  // LayerInlineConfig entry) has nothing to build a
+                  // LayerTarget from — report it once and drop it rather
+                  // than crash the whole map load on `envelope.layerConfig
+                  // .parentLayerName` below.
+                  .filter(envelope => {
+                    if (!envelope.layerConfig) {
+                      this.reportLayerProblem(
+                        `layer entry has no "layerConfig" (layerName unknown) — skipping it. This field is only optional for the MAIN/base layer's own shape file.`
+                      );
+                      return false;
+                    }
+                    return true;
+                  })
+                  .map(envelope => ({
+                    config: {
+                      ...envelope.layerConfig,
+                      // Defaults to nesting under the base layer in the filter
+                      // popup — the envelope's OWN value (set directly inside
+                      // its own file/API response/inline block) always wins.
+                      parentLayerName: envelope.layerConfig.parentLayerName ?? baseConfig.layerName,
+                      participateInFilter: envelope.layerConfig.participateInFilter ?? true,
+                      // appConfig.defaultSelectedLayerNames (LayersDefaultSelected),
+                      // when set, OVERRIDES the envelope's own `selected` —
+                      // it's an explicit "only these start checked" list for
+                      // the whole map, not a per-layer default. Unset leaves
+                      // the envelope's own `selected` (or true) in charge.
+                      selected: appConfig.defaultSelectedLayerNames
+                        ? appConfig.defaultSelectedLayerNames.includes(envelope.layerConfig.layerName)
+                        : envelope.layerConfig.selected
+                    },
+                    // Present + non-null shapeData => a real boundary; omitted
+                    // => a points/groups layer (MOL-style), synthesized here —
+                    // see LayerFileEnvelope's own comment.
+                    shape: envelope.shapeData ?? EMPTY_PLACEHOLDER_SHAPE
+                  }))
               )
             )
           })
@@ -497,6 +515,16 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // loud but never blocks the rest of the array from still plotting.
   private reportMetricOverlayProblem(reason: string): void {
     const message = `[NXMap] Metric overlay: ${reason}.`;
+    console.error(message);
+    this.showToast(message);
+  }
+
+  // Same console.error + toast mechanism as reportMetricOverlayProblem(),
+  // for problems found while building the static layer list itself (as
+  // opposed to a metric overlay record) — currently just the missing-
+  // layerConfig guard in loadMap().
+  private reportLayerProblem(reason: string): void {
+    const message = `[NXMap] Layer: ${reason}.`;
     console.error(message);
     this.showToast(message);
   }

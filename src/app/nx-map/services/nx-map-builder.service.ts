@@ -1008,7 +1008,7 @@ export class NXMapBuilderService {
     // Flat (ungrouped) children per node, keyed by layerName — nestedLayerNames
     // below needs the raw layer names before groupLayersByRegion() folds some
     // of them into LayerRegionNode buckets that no longer carry a layerName.
-    const flatChildren = new Map<string, LayerTreeNode[]>(nodes.map(node => [node.layerName, []]));
+    const flatChildren = new Map<string, LayerTreeNode[]>(nodes.map((node): [string, LayerTreeNode[]] => [node.layerName, []]));
 
     nodes.forEach(node => {
       const parentName = this.layers[node.layerIndex].config.parentLayerName;

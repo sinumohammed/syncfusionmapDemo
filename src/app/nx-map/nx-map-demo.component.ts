@@ -323,7 +323,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
               appConfig.layerApiUrl
                 ? this.configService.resolve<LayerFileEnvelope[]>({ source: "api", url: appConfig.layerApiUrl })
                 : of([] as LayerFileEnvelope[]),
-              of(appConfig.layerInlineConfig ?? [])
+              of(appConfig.layerInlineJSON ?? [])
             ]).pipe(
               map(([fileLayers, apiLayers, inlineLayers]) =>
                 [...fileLayers, ...apiLayers, ...inlineLayers]
@@ -436,7 +436,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // donutSelection.selectedId is a metric id — no longer any metric a point
   // statically carries (see MapPoint's own history: metrics used to be
   // baked into config JSON; that was app-specific and has been removed).
-  // Every reading now comes from nxAppConfig.metricDataApiUrl, fetched
+  // Every reading now comes from nxAppConfig.dataApiUrl, fetched
   // fresh on every click. `slices`/`allIds` are unused here — they only
   // exist on MapDonutSelection for shape-parity with DonutSelectionEvent.
   // A null/unset donutSelection, or one with selectedId: null, clears
@@ -448,12 +448,12 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
       this.applyMetricSelection(null, []);
       return;
     }
-    const url = this.nxAppConfig.metricDataApiUrl;
+    const url = this.nxAppConfig.dataApiUrl;
     if (!url) {
       this.reportDataOverlayProblem(`donut "${selectedId}" selected but no DataAPIURL is configured for this map`);
       return;
     }
-    this.configService.loadMetricOverlay(url, selectedId).subscribe(records => this.applyMetricSelection(selectedId, records));
+    this.configService.loadDataOverlay(url, selectedId).subscribe(records => this.applyMetricSelection(selectedId, records));
   }
 
   // Recursively collects every MapPoint.id in a layer's own ORIGINAL

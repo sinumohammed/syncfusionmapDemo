@@ -44,14 +44,14 @@ export class NXMapConfigService {
     );
   }
 
-  // Fetches NXMapAppConfig.metricDataApiUrl fresh on every donut click —
+  // Fetches NXMapAppConfig.dataApiUrl fresh on every donut click —
   // `metricId` (the clicked donut's own id) goes as a query param, same
   // "static-asset-backed mock still works over real HTTP, a live backend
   // reads the query string" pattern the rest of this service already uses.
   // See MetricOverlayRecord's own comment for the response shape and
   // NxMapDemoComponent.applyDonutSelectionChange() for how each entry gets
   // matched to (or plotted as) a marker.
-  loadMetricOverlay(url: string, metricId: string): Observable<MetricOverlayRecord[]> {
+  loadDataOverlay(url: string, metricId: string): Observable<MetricOverlayRecord[]> {
     return this.http.get<MetricOverlayRecord[]>(url, { params: new HttpParams({ fromObject: { metricId } }) });
   }
 }

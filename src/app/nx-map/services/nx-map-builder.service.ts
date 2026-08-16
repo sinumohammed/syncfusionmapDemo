@@ -608,7 +608,7 @@ export class NXMapBuilderService {
   // from THIS metric's own reading rather than the point's generic
   // value/color, per buildMarkerPoints()'s comment. `fetchedValues` is
   // MapGroup.activeMetricValues — the freshly-fetched response from
-  // NXMapConfigService.loadMetricOverlay(), keyed by point id — the only
+  // NXMapConfigService.loadDataOverlay(), keyed by point id — the only
   // source, no static fallback (a point with no entry here just renders
   // with no overlay reading, same as any other absent value).
   private toMetricOverlayMarker(

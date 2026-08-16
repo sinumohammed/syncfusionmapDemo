@@ -173,8 +173,8 @@ export interface PointMetric {
   color?: string;
 }
 
-// One entry in the response NXMapConfigService.loadMetricOverlay() fetches
-// on a donut click (NXMapAppConfig.metricDataApiUrl) — a PointMetric reading
+// One entry in the response NXMapConfigService.loadDataOverlay() fetches
+// on a donut click (NXMapAppConfig.dataApiUrl) — a PointMetric reading
 // plus enough to find (or create) the marker it belongs on. Matched by
 // NxMapDemoComponent's own algorithm (see applyDonutSelectionChange()):
 // `markerId` resolving to an existing point (scoped to `layerId`'s own
@@ -363,7 +363,7 @@ export interface MapGroup {
   // nothing is selected.
   activeMetricId?: string | null;
   // The freshly-fetched per-point values for activeMetricId — see
-  // NXMapConfigService.loadMetricOverlay() and
+  // NXMapConfigService.loadDataOverlay() and
   // NxMapDemoComponent.applyDonutSelectionChange()'s own comment. Keyed by
   // point id (MapPoint.id via BaseMapObject, or a synthesized id for a
   // brand-new unanchored point). toMetricOverlayMarker() in

@@ -450,7 +450,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     }
     const url = this.nxAppConfig.metricDataApiUrl;
     if (!url) {
-      this.reportMetricOverlayProblem(`donut "${selectedId}" selected but no MetricDataAPIURL is configured for this map`);
+      this.reportDataOverlayProblem(`donut "${selectedId}" selected but no DataAPIURL is configured for this map`);
       return;
     }
     this.configService.loadMetricOverlay(url, selectedId).subscribe(records => this.applyMetricSelection(selectedId, records));
@@ -513,13 +513,13 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // console.error + a visible toast (existing mechanism, already used for
   // marker/shape click confirmations) — one bad MetricOverlayRecord is
   // loud but never blocks the rest of the array from still plotting.
-  private reportMetricOverlayProblem(reason: string): void {
+  private reportDataOverlayProblem(reason: string): void {
     const message = `[NXMap] Metric overlay: ${reason}.`;
     console.error(message);
     this.showToast(message);
   }
 
-  // Same console.error + toast mechanism as reportMetricOverlayProblem(),
+  // Same console.error + toast mechanism as reportDataOverlayProblem(),
   // for problems found while building the static layer list itself (as
   // opposed to a metric overlay record) — currently just the missing-
   // layerConfig guard in loadMap().
@@ -629,11 +629,11 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
       if (record.layerId) {
         const namedTarget = targets.find(t => t.name === record.layerId);
         if (!namedTarget) {
-          this.reportMetricOverlayProblem(`layerId "${record.layerId}" doesn't match any known layer (markerId: ${record.markerId ?? "—"})`);
+          this.reportDataOverlayProblem(`layerId "${record.layerId}" doesn't match any known layer (markerId: ${record.markerId ?? "—"})`);
           return;
         }
         if (!record.markerId || !namedTarget.pointIds.has(record.markerId)) {
-          this.reportMetricOverlayProblem(
+          this.reportDataOverlayProblem(
             `markerId "${record.markerId ?? "—"}" doesn't match any existing point on layer "${record.layerId}"`
           );
           return;
@@ -667,7 +667,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
         });
         return;
       }
-      this.reportMetricOverlayProblem(`record has no layerId and no latitude/longitude to plot (markerId: ${record.markerId ?? "—"})`);
+      this.reportDataOverlayProblem(`record has no layerId and no latitude/longitude to plot (markerId: ${record.markerId ?? "—"})`);
     });
 
     // Also rebuilds this group's OWN points (a shallow clone, never

@@ -31,7 +31,7 @@ export interface RawLayerNode {
   // etc. (no groups, no shape source) — a JSON-encoded string, always
   // inline (no file/api option; unlike the three fields below, there is no
   // remote-fetch variant of a map's own settings).
-  MapSettings: string;
+  MainLayerSettings: string;
   // Comma-separated layer names, e.g. "MOL,AlWusta,Surface,Sub Surface" —
   // each resolved (via slugifyLayerFileName()) to its own file at
   // `${LAYER_FILES_BASE_PATH}/<slug>.json`, fetched at runtime and parsed
@@ -43,7 +43,7 @@ export interface RawLayerNode {
   LayerAPIURL?: string | null;
   // Same LayerFileEnvelope[] shape as LayerAPIURL's response, provided
   // directly — no fetch needed. A JSON-ENCODED STRING, same convention as
-  // MapSettings (the real upstream payload never sends this field as an
+  // MainLayerSettings (the real upstream payload never sends this field as an
   // actual array) — buildAppConfig() below JSON.parses it.
   LayerInlineJSON?: string | null;
   // Comma-separated layer names (matched against each child layer's own
@@ -113,7 +113,7 @@ function layerFileSourcesOf(node: RawLayerNode): DataSource<LayerFileEnvelope>[]
 export function buildAppConfig(root: RawLayerNode): NXMapAppConfig {
   const defaultSelectedLayerNames = parseCommaList(root.LayersDefaultSelected);
   return {
-    baseLayerConfigSource: { source: "inline", value: JSON.parse(root.MapSettings) },
+    baseLayerConfigSource: { source: "inline", value: JSON.parse(root.MainLayerSettings) },
     layerFileSources: layerFileSourcesOf(root),
     layerApiUrl: root.LayerAPIURL ?? undefined,
     layerInlineJSON: root.LayerInlineJSON ? JSON.parse(root.LayerInlineJSON) : undefined,

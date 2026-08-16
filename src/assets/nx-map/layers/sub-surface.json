@@ -210,8 +210,7 @@
         "properties": {
           "source": "https://simplemaps.com",
           "id": "Lekhwair",
-          "name": "Lekhwair Cluster",
-          "region": "Al Wusta North"
+          "name": "Lekhwair Cluster"
         },
         "id": 1
       },
@@ -411,8 +410,7 @@
         "properties": {
           "source": "https://simplemaps.com",
           "id": "Qarn_Alam",
-          "name": "Qarn Alam Cluster",
-          "region": "Al Wusta South"
+          "name": "Qarn Alam Cluster"
         },
         "id": 2
       }
@@ -423,7 +421,7 @@
     "title": {
       "text": "Sub Surface"
     },
-    "region": "Zones",
+    "region": "PDO Assets",
     "dataLabel": {
       "visible": true,
       "color": "beige",

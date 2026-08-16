@@ -414,4 +414,11 @@
     {{ toastMessage }}
   </div>
 
+  <!-- Brand watermark, pinned to the map's own bottom-left corner (not
+       the page) — a sibling of .map-container, so it sits outside
+       Syncfusion's own SVG/zoom-pan transform entirely and stays fixed
+       in the viewport on every zoom/pan instead of scaling or drifting
+       with the map content underneath it. -->
+  <img class="nx-map-watermark" src="assets/branding/nibras-logo.png" alt="NIBRAS" />
+
 </div>

@@ -68,41 +68,7 @@
       "LayersDefaultSelected": "MOL",
       "MetricDataAPIURL": "assets/mock-api/metric-overlay-response.json",
       "LayerAPIURL": "assets/mock-api/layer-api-response.json",
-      "LayerInlineConfig": [
-        {
-          "shapeData": {
-            "type": "FeatureCollection",
-            "features": [
-              {
-                "type": "Feature",
-                "properties": { "name": "Muscat (Inline)" },
-                "geometry": {
-                  "type": "Polygon",
-                  "coordinates": [
-                    [
-                      [58.05, 23.35],
-                      [58.05, 23.55],
-                      [58.35, 23.55],
-                      [58.35, 23.35],
-                      [58.05, 23.35]
-                    ]
-                  ]
-                }
-              }
-            ]
-          },
-          "layerConfig": {
-            "layerName": "muscat-inline",
-            "title": { "text": "Muscat (Inline)" },
-            "region": "Zones",
-            "dataLabel": { "visible": true, "color": "beige", "opacity": 0.9 },
-            "background": "rgba(76,175,80,0.35)",
-            "borderColor": "#2e7d32",
-            "borderWidth": 1.5,
-            "shapeFeaturesSelectable": true
-          }
-        }
-      ],
+      "LayerInlineJSON": "[{\"shapeData\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"properties\":{\"name\":\"Muscat (Inline)\"},\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[58.05,23.35],[58.05,23.55],[58.35,23.55],[58.35,23.35],[58.05,23.35]]]}}]},\"layerConfig\":{\"layerName\":\"muscat-inline\",\"title\":{\"text\":\"Muscat (Inline)\"},\"region\":\"Zones\",\"dataLabel\":{\"visible\":true,\"color\":\"beige\",\"opacity\":0.9},\"background\":\"rgba(76,175,80,0.35)\",\"borderColor\":\"#2e7d32\",\"borderWidth\":1.5,\"shapeFeaturesSelectable\":true}}]",
       "ComponentType": 7118,
       "ElementType": 7118,
       "Configuration": [],

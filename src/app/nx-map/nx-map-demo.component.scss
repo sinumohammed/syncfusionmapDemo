@@ -226,6 +226,28 @@
   border-radius: 4px;
 }
 
+/* Bottom-left corner watermark. z-index above .map-container (0) so it
+   always sits over the map's own tiles/shapes/markers, but below the
+   toast (200) and the layer/basemap panels (100) so it never blocks an
+   actual control. pointer-events: none so it can't intercept map clicks
+   (marker/shape selection) or drag/zoom gestures underneath it. Sized in
+   viewport-relative units (vw), not a fixed px width, so it stays a
+   sensible fraction of the map at any zoom/pan/fullscreen state — it's
+   a fixed screen-space overlay, not part of Syncfusion's own zoomable
+   SVG, so it never itself scales with the map's zoom level. */
+.nx-map .nx-map-watermark {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 50;
+  width: 10vw;
+  min-width: 72px;
+  max-width: 160px;
+  opacity: 0.85;
+  pointer-events: none;
+  user-select: none;
+}
+
 /* Centered near the top of the map, above the layer control/toolbar
    (z-index higher than both), so it's never covered by either. */
 .nx-map .click-toast {

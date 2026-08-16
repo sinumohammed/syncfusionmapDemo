@@ -19,7 +19,7 @@ export const LAYER_FILES_BASE_PATH = "assets/nx-map/layers";
 
 // Real upstream shape — one node per map (root = base layer). A map's own
 // child layers no longer live inline here at all (see LayerFileLists/
-// LayerAPIURL/LayerInlineConfig below) — `Configuration` is only ever read
+// LayerAPIURL/LayerInlineJSON below) — `Configuration` is only ever read
 // by buildMapCollectionConfig() (root's own Configuration[] = one map per
 // entry), never by buildAppConfig(). Deliberately typed loosely (only the
 // fields this transform actually reads) — a real node carries many other
@@ -42,11 +42,13 @@ export interface RawLayerNode {
   // any other "api" DataSource, via NXMapConfigService.resolve().
   LayerAPIURL?: string | null;
   // Same LayerFileEnvelope[] shape as LayerAPIURL's response, provided
-  // directly — no fetch needed.
-  LayerInlineConfig?: LayerFileEnvelope[] | null;
+  // directly — no fetch needed. A JSON-ENCODED STRING, same convention as
+  // MapSettings (the real upstream payload never sends this field as an
+  // actual array) — buildAppConfig() below JSON.parses it.
+  LayerInlineJSON?: string | null;
   // Comma-separated layer names (matched against each child layer's own
   // resolved `layerName`, e.g. "MOL" — same names LayerFileLists/
-  // LayerAPIURL/LayerInlineConfig's own layerConfig.layerName use, NOT
+  // LayerAPIURL/LayerInlineJSON's own layerConfig.layerName use, NOT
   // necessarily the LayerFileLists name before slugifying) — when present,
   // ONLY these child layers start checked/visible on load; every other
   // child layer this map brings in (from any of the three sources) still
@@ -97,7 +99,7 @@ function parseCommaList(value: string | null | undefined): string[] {
 
 // A node's LayerFileLists -> one DataSource<LayerFileEnvelope> per name, in
 // list order. Each resolves (NXMapConfigService.resolve()) to a single
-// layer's full envelope — unlike LayerAPIURL/LayerInlineConfig, which each
+// layer's full envelope — unlike LayerAPIURL/LayerInlineJSON, which each
 // carry several layers at once, one file is always exactly one layer.
 function layerFileSourcesOf(node: RawLayerNode): DataSource<LayerFileEnvelope>[] {
   return parseCommaList(node.LayerFileLists).map(name => ({
@@ -114,7 +116,7 @@ export function buildAppConfig(root: RawLayerNode): NXMapAppConfig {
     baseLayerConfigSource: { source: "inline", value: JSON.parse(root.MapSettings) },
     layerFileSources: layerFileSourcesOf(root),
     layerApiUrl: root.LayerAPIURL ?? undefined,
-    layerInlineConfig: root.LayerInlineConfig ?? undefined,
+    layerInlineConfig: root.LayerInlineJSON ? JSON.parse(root.LayerInlineJSON) : undefined,
     // Empty (LayersDefaultSelected unset) -> undefined, not [] — loadMap()
     // treats an empty array and "unset" identically today, but undefined
     // reads more honestly as "no restriction" than an empty list of names.

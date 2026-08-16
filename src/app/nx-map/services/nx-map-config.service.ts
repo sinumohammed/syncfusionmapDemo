@@ -27,7 +27,7 @@ export class NXMapConfigService {
   // fetches assets/nx-map/layers/<slug(layerName)>.json (the same
   // convention/folder LayerFileLists uses) and reads its `.shapeData`. Any
   // other layer carries its own shapeData directly in its own
-  // LayerFileEnvelope (see LayerFileLists/LayerAPIURL/LayerInlineConfig in
+  // LayerFileEnvelope (see LayerFileLists/LayerAPIURL/LayerInlineJSON in
   // parent-config-transform.ts) and never calls this. A missing file is a
   // loud console.error (not a throw) — the base layer still builds, just
   // with no shapeData (no boundary/shape drawn for it).

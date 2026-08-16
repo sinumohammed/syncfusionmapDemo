@@ -311,7 +311,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
             baseConfig: of(baseConfig),
             baseShape: this.configService.resolveShapeData(baseConfig.layerName),
             // Every child layer this map brings in, from all three sources
-            // (LayerFileLists/LayerAPIURL/LayerInlineConfig), resolved and
+            // (LayerFileLists/LayerAPIURL/LayerInlineJSON), resolved and
             // concatenated into one list — the "union" — then each mapped to
             // the same { config, shape } shape staticLayerResults already
             // used before this layer-file mechanism existed, so
@@ -331,7 +331,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
                   // shape file that only ever needed `shapeData` for the
                   // MAIN layer's own resolveShapeData() lookup, mistakenly
                   // reused here as a LayerFileLists/LayerAPIURL/
-                  // LayerInlineConfig entry) has nothing to build a
+                  // LayerInlineJSON entry) has nothing to build a
                   // LayerTarget from — report it once and drop it rather
                   // than crash the whole map load on `envelope.layerConfig
                   // .parentLayerName` below.

@@ -648,7 +648,7 @@ export interface DataSource<T> {
 }
 
 // What a child layer brought in via LayerFileLists/LayerAPIURL/
-// LayerInlineConfig (parent-config-transform.ts) resolves to — one per
+// LayerInlineJSON (parent-config-transform.ts) resolves to — one per
 // layer. `shapeData` present + non-null means a real GeoJSON boundary
 // (Al Wusta/Surface/Sub Surface-style); omitted/null means a points/
 // groups layer (MOL-style), and NxMapDemoComponent.loadMap() synthesizes

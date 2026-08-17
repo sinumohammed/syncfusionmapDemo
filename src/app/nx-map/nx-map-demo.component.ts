@@ -174,11 +174,31 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     return this.layerBtnRight + 36 + 8;
   }
 
-  // Furthest-left of the three controls — same chained-offset pattern as
-  // basemapBtnRight above.
+  // Furthest-left of the four controls now — same chained-offset pattern
+  // as basemapBtnRight above.
   get maximizeBtnRight(): number {
     return this.basemapBtnRight + 36 + 8;
   }
+
+  // Furthest-left control — the coordinate-picker toggle.
+  get coordinatePickerBtnRight(): number {
+    return this.maximizeBtnRight + 36 + 8;
+  }
+
+  // Dev-tool toggle: while true, clicking empty map area (anywhere
+  // resolveClickedGraphic() doesn't already resolve to an existing
+  // marker/shape — see onMapClick()) drops a temporary marker labeled
+  // with that click's own lat/long, so an existing marker's exact
+  // position can be judged/adjusted by clicking right next to it and
+  // comparing. Off by default so normal map clicks/panning are
+  // unaffected until deliberately turned on.
+  coordinatePickerActive = false;
+
+  // Whether the toolbar button shows at all — driven by MainLayerSettings'
+  // own coordinatePickerEnabled (see MapConfig's own comment), set in
+  // loadMap()'s subscribe. Defaults false (opt-in) until a config
+  // resolves.
+  coordinatePickerEnabled = false;
 
   // Real source of truth is document.fullscreenElement (kept in sync by
   // onFullscreenChange() below) — this is just what the button's icon/title
@@ -392,6 +412,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
         }
         this.baseConfig = baseConfig;
         this.baseShape = baseShape;
+        this.coordinatePickerEnabled = baseConfig.coordinatePickerEnabled ?? false;
         this.staticLayerResults = staticLayers;
         this.staticLayerGroupsOriginal = staticLayers.map((s: { config: MapConfig; shape: any }) => s.config.groups ?? []);
         // The config's OWN zoomFactor — tuned for whatever raster tile view
@@ -788,6 +809,14 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     this.mapOptions = this.builder.buildMap(this.configs, shapeDataByLayer, this.nxAppConfig.theme);
     this.layerTree = this.builder.getLayerTree();
     this.mapStyle = this.builder.getBaseMapType() ?? "shape";
+    // Coordinate picking isn't supported in "shape" mode (see
+    // dropCoordinatePin()'s own comment) — a full rebuild already
+    // regenerates mapOptions.layers[0].markerSettings from scratch,
+    // dropping any pin the manual overlay added, but the toggle's own
+    // active/highlighted state wouldn't otherwise turn itself back off.
+    if (this.mapStyle === "shape") {
+      this.coordinatePickerActive = false;
+    }
     this.render();
   }
 
@@ -1270,10 +1299,125 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   onMapClick(args: any): void {
     const graphic = this.builder.resolveClickedGraphic(args.target);
     if (!graphic) {
+      if (this.coordinatePickerActive) {
+        this.dropCoordinatePin(args);
+      }
       return;
     }
     console.log(`You selected ${graphic.groupName}`, graphic);
     this.showToast(`You clicked "${graphic.object.name || "Item"}" in "${graphic.groupName}"`);
+  }
+
+  toggleCoordinatePicker(): void {
+    // "shape" mode never resolves a coordinate (see dropCoordinatePin()'s
+    // own comment) — the template already disables the button then, but
+    // this guards the same rule against a click landing anyway (e.g. a
+    // disabled attribute not fully suppressing every input path).
+    if (this.mapStyle === "shape") {
+      return;
+    }
+    this.coordinatePickerActive = !this.coordinatePickerActive;
+    if (!this.coordinatePickerActive) {
+      this.clearCoordinatePin();
+    }
+  }
+
+  // UNVERIFIED live: getTileGeoLocation() is Syncfusion's own pixel->geo
+  // conversion, already confirmed working for a TILE (osm/satellite) main
+  // layer elsewhere in this file (onZoomComplete()'s own correction) —
+  // whether it also returns a meaningful location for a "shape" main
+  // layer hasn't been confirmed against a real render. args.clientX/
+  // clientY are read defensively (a couple of likely field names) since
+  // Syncfusion's own (click) args shape for <ejs-maps> isn't documented
+  // here beyond the .target field resolveClickedGraphic() already uses.
+  private dropCoordinatePin(args: any): void {
+    if (!this.mapInstance) {
+      return;
+    }
+    const inst = this.mapInstance as any;
+    const hostRect = (this.elRef.nativeElement.querySelector(".map-container") as HTMLElement | null)?.getBoundingClientRect();
+    const clientX = args.clientX ?? args.pageX ?? args.originalEvent?.clientX;
+    const clientY = args.clientY ?? args.pageY ?? args.originalEvent?.clientY;
+    if (!hostRect || typeof clientX !== "number" || typeof clientY !== "number") {
+      this.showToast("Couldn't read click position for coordinate picking.");
+      return;
+    }
+    if (typeof inst.getTileGeoLocation !== "function") {
+      this.showToast("Coordinate picking isn't available on this map instance.");
+      return;
+    }
+    const geo = inst.getTileGeoLocation(clientX - hostRect.left, clientY - hostRect.top);
+    if (!geo || geo.latitude == null || geo.longitude == null) {
+      this.showToast("Couldn't resolve a coordinate for that click — try Map/Satellite mode.");
+      return;
+    }
+    this.setCoordinatePin(geo.latitude, geo.longitude);
+    const label = `Lat ${geo.latitude.toFixed(5)}, Lng ${geo.longitude.toFixed(5)}`;
+    // Clipboard API needs a secure context (https, or localhost) and can
+    // reject (permissions, insecure origin) — the toast still lands
+    // either way, just without "— copied" appended, rather than the
+    // whole pick silently failing over a clipboard permission issue.
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard
+        .writeText(`${geo.latitude}, ${geo.longitude}`)
+        .then(() => this.showToast(`${label} — copied to clipboard`))
+        .catch(() => this.showToast(label));
+    } else {
+      this.showToast(label);
+    }
+  }
+
+  // Adds (replacing any previous one) a single temporary marker directly
+  // onto mapOptions.layers[0]'s own markerSettings array — deliberately
+  // bypassing NXMapBuilderService entirely, since this is a throwaway
+  // dev-tool overlay, not real map data: it never needs to survive a
+  // config reload, and doesn't touch anything builder.refresh() would
+  // need to know about. mapInstance.refresh() alone (Syncfusion's own
+  // native repaint, not the builder's) is what actually picks up this
+  // manual mapOptions.layers mutation, same as every other Angular-bound
+  // @Input change to <ejs-maps>. A LATER real builder.refresh() call
+  // (any layer toggle, donut click, etc.) rebuilds markerSettings from
+  // the builder's own canonical state and silently drops this pin along
+  // with it — acceptable for a temporary marker, but worth knowing if it
+  // unexpectedly disappears after some other interaction.
+  private readonly coordinatePinFlag = "__coordinatePin";
+
+  private setCoordinatePin(latitude: number, longitude: number): void {
+    if (!this.mapOptions?.layers?.length) {
+      return;
+    }
+    const pinEntry = {
+      [this.coordinatePinFlag]: true,
+      visible: true,
+      animationDuration: 0,
+      dataSource: [{ latitude, longitude, name: `Lat ${latitude.toFixed(5)}, Lng ${longitude.toFixed(5)}` }],
+      shape: "Pentagon",
+      fill: "#ff3d00",
+      height: 16,
+      width: 16,
+      latitudeValuePath: "latitude",
+      longitudeValuePath: "longitude",
+      tooltipSettings: { visible: true, valuePath: "name" }
+    };
+    this.mapOptions.layers = this.mapOptions.layers.map((layer: any, i: number) =>
+      i === 0
+        ? { ...layer, markerSettings: [...(layer.markerSettings ?? []).filter((m: any) => !m[this.coordinatePinFlag]), pinEntry] }
+        : layer
+    );
+    this.mapInstance.refresh();
+  }
+
+  private clearCoordinatePin(): void {
+    if (!this.mapOptions?.layers?.length) {
+      return;
+    }
+    this.mapOptions.layers = this.mapOptions.layers.map((layer: any) => ({
+      ...layer,
+      markerSettings: (layer.markerSettings ?? []).filter((m: any) => !m[this.coordinatePinFlag])
+    }));
+    if (this.mapInstance) {
+      this.mapInstance.refresh();
+    }
   }
 
   // Fires on a click landing on ANY layer's raw shapeData feature (not

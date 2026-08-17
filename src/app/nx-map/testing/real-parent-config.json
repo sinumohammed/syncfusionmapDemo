@@ -63,7 +63,7 @@
       "Replicate": 0,
       "Version": "1",
       "HeaderCssClass": 0,
-      "MainLayerSettings": "{\"layerName\":\"oman\",\"baseMapType\":\"shape\",\"availableBaseMapTypes\":\"simple,osm,satellite\",\"mapCenter\":{\"latitude\":21.6,\"longitude\":57},\"zoomFactor\":7,\"title\":{\"text\":\"\"},\"dataLabel\":{\"visible\":true,\"color\":\"#b5b5b5\",\"opacity\":0.9},\"participateInFilter\":false}",
+      "MainLayerSettings": "{\"layerName\":\"oman\",\"baseMapType\":\"shape\",\"availableBaseMapTypes\":\"simple,osm,satellite\",\"mapCenter\":{\"latitude\":21.6,\"longitude\":57},\"zoomFactor\":7,\"title\":{\"text\":\"\"},\"dataLabel\":{\"visible\":true,\"color\":\"#b5b5b5\",\"opacity\":0.9},\"participateInFilter\":false,\"coordinatePickerEnabled\":false}",
       "LayerFileLists": "MOL,AlWusta,Surface,Sub Surface",
       "LayersDefaultSelected": "MOL",
       "DataAPIURL": "assets/mock-api/metric-overlay-response.json",

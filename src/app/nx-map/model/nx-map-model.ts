@@ -612,6 +612,15 @@ export interface MapConfig {
   // toggle offered for it, so a deployment can bake in a layer without
   // exposing it as a user-facing option.
   participateInFilter?: boolean;
+  // Only meaningful on the MAIN layer's own config (MainLayerSettings) —
+  // shows/hides the coordinate-picker toolbar button (click empty map
+  // area to drop a temporary lat/long marker, see
+  // NxMapDemoComponent.dropCoordinatePin()'s own comment). Default false
+  // (hidden) when unset — a deployment has to explicitly opt in. Also
+  // hidden outright in "shape" base-map mode regardless of this setting
+  // (coordinate picking isn't supported there — see
+  // dropCoordinatePin()'s own comment).
+  coordinatePickerEnabled?: boolean;
   // Default false. When true AND this layer's shapeData is a multi-feature
   // FeatureCollection (e.g. Al Wusta's "Lekhwair"/"Qarn Alam" clusters), the
   // filter tree lists each feature as its own checkbox row (with a

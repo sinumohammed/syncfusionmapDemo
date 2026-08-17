@@ -77,6 +77,37 @@
     </button>
   </div>
 
+  <!-- Coordinate-picker toggle — a dev tool, not a real map feature:
+       while active, clicking empty map area drops a temporary marker
+       labeled with that click's own lat/long (see
+       NxMapDemoComponent.dropCoordinatePin()'s own comment), so an
+       existing marker's exact position can be judged by clicking right
+       next to it and comparing. -->
+  <div
+    class="coordinate-picker-control"
+    *ngIf="coordinatePickerEnabled && mapStyle !== 'shape'"
+    [style.top.px]="layerBtnTop"
+    [style.right.px]="coordinatePickerBtnRight"
+  >
+    <button
+      type="button"
+      class="layer-btn"
+      [class.active]="coordinatePickerActive"
+      [title]="coordinatePickerActive ? 'Stop picking coordinates' : 'Pick coordinates (click the map)'"
+      (click)="toggleCoordinatePicker()"
+    >
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
+        <path
+          d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21Z"
+          stroke="#5f6368"
+          stroke-width="1.8"
+          stroke-linejoin="round"
+        />
+        <circle cx="12" cy="9.5" r="2.3" stroke="#5f6368" stroke-width="1.8" />
+      </svg>
+    </button>
+  </div>
+
   <!-- Layer LIST button — sits between the base-map control above and
        the zoom toolbar (i.e. closest to the toolbar), opening the same
        filter-tree panel this used to be bound to directly. -->

@@ -270,6 +270,14 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   private suppressZoomCenterOverride = false;
   private suppressZoomCenterOverrideTimer: ReturnType<typeof setTimeout> | undefined;
 
+  // Anchor onZoomComplete() re-derives from Syncfusion's own instance
+  // whenever a reading looks plausible, and falls back to whenever one
+  // doesn't — see its own comment for why this is needed. Seeded by
+  // onMapLoaded() to the CONFIGURED center/zoomFactor, since a fresh
+  // rebuild is confirmed (live, console-verified) to always land there
+  // correctly regardless of base-map style.
+  private lastKnownGoodZoom: { center: { latitude: number; longitude: number }; zoomFactor: number } | undefined;
+
   constructor(
     private builder: NXMapBuilderService,
     private configService: NXMapConfigService,
@@ -819,6 +827,11 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // toggles the user made before switching style (or hitting Reset) are not
   // preserved.
   private applyBaseMapStyle(style: "shape" | "osm" | "satellite"): void {
+    // TEMP DIAGNOSTIC — see wireResetButton()'s own comment. Remove once
+    // confirmed either way whether this is running (unexpectedly) during
+    // a double-click.
+    // eslint-disable-next-line no-console
+    console.log("[applyBaseMapStyle] called", style, new Error().stack);
     if (!this.baseConfig) {
       return;
     }
@@ -1686,6 +1699,13 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     // for unrelated reasons.
     this.syncLayerDomVisibility();
     this.animateNavigationLines();
+    // See lastKnownGoodZoom's own comment — re-anchored on every rebuild,
+    // since a fresh rebuild is confirmed to always land on the configured
+    // view correctly (only a later zoom GESTURE can drift onto a bad
+    // Syncfusion-reported value, never the rebuild itself).
+    if (this.baseConfig?.mapCenter && typeof this.configuredZoomFactor === "number") {
+      this.lastKnownGoodZoom = { center: this.baseConfig.mapCenter, zoomFactor: this.configuredZoomFactor };
+    }
     // See suppressZoomCenterOverride's own comment. NOT cleared immediately
     // here — confirmed live that a late zoomComplete can still fire (and
     // onZoomComplete()'s own 250ms settle delay adds more room for one)
@@ -1766,7 +1786,19 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
         // (not just the derivation, the whole override) while a style
         // switch/Reset's destroy-recreate cycle is in flight, so this
         // fix doesn't fight over the view with that correct rebuild.
-        const isTileMap = !this.suppressZoomCenterOverride && !!inst.isTileMap;
+        //
+        // Deliberately NOT `inst.isTileMap` (Syncfusion's own instance
+        // flag) — confirmed live that it reads false on the very FIRST
+        // zoomComplete after any rebuild even for a genuine tile
+        // (osm/satellite) main layer, which was silently skipping the
+        // zoomByPosition() correction below on exactly the one event
+        // that most needed it (the plausibility check further down
+        // already runs unconditionally and computes the right corrected
+        // value regardless, but it never got applied to the camera
+        // without this). this.mapStyle is our own tracked config, always
+        // correct regardless of Syncfusion's own internal readiness.
+        const expectingTileMap = this.mapStyle === "osm" || this.mapStyle === "satellite";
+        const isTileMap = !this.suppressZoomCenterOverride && expectingTileMap;
         let liveCenter: { latitude: number; longitude: number } | null = null;
         const liveZoomFactor = inst.zoomSettings?.zoomFactor;
 
@@ -1779,6 +1811,38 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
           }
         }
 
+        // Confirmed live (console-verified against the running instance,
+        // not theorized): Syncfusion's own zoomSettings.zoomFactor AND
+        // tileZoomLevel — two independent fields that otherwise always
+        // agree with each other — can BOTH simultaneously report an
+        // implausible reading on some zoom events (observed: a jump from
+        // 8 straight to 2 on the very next double-click after a perfectly
+        // correct Reset, no legitimate interaction that large). This is
+        // Syncfusion's own internal zoom-tracking glitching, not a wrong-
+        // field misread on our side — both fields being wrong the same
+        // way rules that out. A single double-click/wheel zoom step only
+        // ever moves the level by ~1, so anything further than that from
+        // lastKnownGoodZoom (itself only ever updated from a reading we
+        // judged plausible, seeded fresh and correct on every rebuild by
+        // onMapLoaded()) is rejected — falling back to reapplying the
+        // last GOOD center/zoom via zoomByPosition() below instead of the
+        // bad reading, which actively corrects Syncfusion's own already-
+        // corrupted internal state rather than just leaving it broken.
+        const plausible =
+          typeof liveZoomFactor === "number" &&
+          (!this.lastKnownGoodZoom || Math.abs(liveZoomFactor - this.lastKnownGoodZoom.zoomFactor) <= 2);
+        // TEMP DIAGNOSTIC — confirms the rejection branch actually fires.
+        // Remove once confirmed.
+        if (isTileMap && !plausible) {
+          // eslint-disable-next-line no-console
+          console.log("[zoom] REJECTED implausible reading", { liveZoomFactor, lastKnownGoodZoom: this.lastKnownGoodZoom });
+        }
+        const effectiveZoomFactor = plausible ? liveZoomFactor : this.lastKnownGoodZoom?.zoomFactor;
+        const effectiveCenter = plausible ? liveCenter : this.lastKnownGoodZoom?.center ?? liveCenter;
+        if (isTileMap && plausible && liveCenter && typeof liveZoomFactor === "number") {
+          this.lastKnownGoodZoom = { center: liveCenter, zoomFactor: liveZoomFactor };
+        }
+
         // Feeds this zoom's real level into MapGroup.minZoomLevel/
         // MapPoint.minZoomLevel's own threshold check
         // (NXMapBuilderService.buildMarkerPoints()) — builder.refresh()
@@ -1789,8 +1853,8 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
         // the mapInstance.refresh() right after just repaints from that
         // freshly rebuilt mapOptions, same as it always did for the
         // marker-vanishing-after-zoom bug this handler already exists for.
-        if (typeof liveZoomFactor === "number" && this.mapOptions) {
-          this.builder.setZoomLevel(liveZoomFactor);
+        if (typeof effectiveZoomFactor === "number" && this.mapOptions) {
+          this.builder.setZoomLevel(effectiveZoomFactor);
           this.builder.refresh(this.mapOptions);
         }
 
@@ -1804,8 +1868,8 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
         // is needed here regardless of how many times the toolbar DOM gets
         // replaced.
 
-        if (isTileMap && liveCenter && typeof inst.zoomByPosition === "function") {
-          inst.zoomByPosition(liveCenter, liveZoomFactor);
+        if (isTileMap && effectiveCenter && typeof effectiveZoomFactor === "number" && typeof inst.zoomByPosition === "function") {
+          inst.zoomByPosition(effectiveCenter, effectiveZoomFactor);
         }
       }
     }, 250);
@@ -1836,7 +1900,14 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     const host = this.elRef.nativeElement;
     host.addEventListener("click", (event: Event) => {
       const target = event.target as Element | null;
-      if (target?.closest('[id*="_Reset"], [title="Reset"]')) {
+      const matched = !!target?.closest('[id*="_Reset"], [title="Reset"]');
+      // TEMP DIAGNOSTIC — checking whether a double-click's second click
+      // is landing on/near the toolbar and matching this delegated
+      // selector, silently triggering an unwanted Reset. Remove once
+      // confirmed either way.
+      // eslint-disable-next-line no-console
+      console.log("[reset] host click", { tag: target?.tagName, id: target?.id, matched });
+      if (matched) {
         setTimeout(() => this.resetToConfiguredView(), 50);
       }
     });

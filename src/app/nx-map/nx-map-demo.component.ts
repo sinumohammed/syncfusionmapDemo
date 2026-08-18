@@ -1537,6 +1537,26 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     // was toggling visibility on whichever layer happened to render at
     // position i, not the one actually checked/unchecked in the panel.
     const renderOrder = this.builder.getRenderOrder();
+    // See NXMapBuilderService.markerRenderTargetIndex's own comment — every
+    // marker-bearing layer's markers physically render as DOM children
+    // INSIDE this one layer's own "_LayerIndex_<n>" group (Syncfusion's
+    // native marker DOM only ever goes to one Syncfusion layer under a
+    // raster base map). Confirmed live: blanket display:none-ing that whole
+    // group whenever the render-target layer itself gets unchecked also
+    // hides every OTHER still-checked layer's markers aggregated onto it
+    // (e.g. unchecking MOL made SOGL's own markers vanish too, even though
+    // SOGL's own checkbox stayed checked and its data was still correctly
+    // being fed in). The per-layer marker dataSource already correctly
+    // includes/excludes each source layer's own markers (buildMarkerPoints'
+    // `layer.visible` gate) — the display:none workaround was only ever
+    // needed because Syncfusion doesn't hide a layer's SHAPE boundary via
+    // its `visible` flag/data changes (see this method's own top comment),
+    // so for the render-target layer specifically, only its shape/polygon
+    // children ("_shapeIndex_" in their id, confirmed against Syncfusion's
+    // own polygon-rendering source) get hidden — never the whole group,
+    // which would blow away other layers' correctly-computed marker DOM
+    // sitting alongside those shapes.
+    const markerRenderTargetIndex = this.builder.getMarkerRenderTargetIndex();
     this.mapOptions.layers.forEach((_layerSettings, i) => {
       const group = host.querySelector(`[id$="_LayerIndex_${i}"]`) as HTMLElement | null;
       if (group) {
@@ -1547,7 +1567,13 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
         // handed to Syncfusion, specifically so its layersCollection never
         // drops/renumbers an entry and desyncs this index-based lookup.
         const originalIndex = renderOrder[i] ?? i;
-        group.style.display = this.builder.getLayerVisible(originalIndex) ? "" : "none";
+        const visible = this.builder.getLayerVisible(originalIndex);
+        if (originalIndex === markerRenderTargetIndex) {
+          const shapeElements = group.querySelectorAll('[id*="_shapeIndex_"]') as NodeListOf<HTMLElement>;
+          shapeElements.forEach(el => (el.style.display = visible ? "" : "none"));
+        } else {
+          group.style.display = visible ? "" : "none";
+        }
       }
     });
   }

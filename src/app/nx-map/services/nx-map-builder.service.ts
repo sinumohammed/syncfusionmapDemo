@@ -257,6 +257,13 @@ export class NXMapBuilderService {
   // changes, not who owns it. undefined when no layer has any markers.
   private markerRenderTargetIndex: number | undefined;
 
+  // Read-only accessor for syncLayerDomVisibility()'s own fix — see its
+  // comment for why the render-target layer's DOM group can't just be
+  // blanket display:none'd like every other layer's.
+  getMarkerRenderTargetIndex(): number | undefined {
+    return this.markerRenderTargetIndex;
+  }
+
   // Which metric ids the always-on hover tooltip currently has a tile for —
   // set via setTooltipMetricKeys(), called by NxMapDemoComponent.loadMap()
   // with the SAME TooltipTemplateConfig.items list it feeds into

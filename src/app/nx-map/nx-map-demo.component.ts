@@ -10,7 +10,7 @@ import {
   ViewChild
 } from "@angular/core";
 import { forkJoin, of } from "rxjs";
-import { map, switchMap } from "rxjs/operators";
+import { catchError, map, switchMap } from "rxjs/operators";
 import {
   Maps,
   MapsComponent,
@@ -49,7 +49,7 @@ import {
   isLayerRegionNode
 } from "./services/nx-map-builder.service";
 import { NXMapConfigService } from "./services/nx-map-config.service";
-import { buildAppConfig, RawLayerNode } from "./services/parent-config-transform";
+import { buildAppConfig, RawLayerNode, slugifyLayerFileName } from "./services/parent-config-transform";
 
 // Marker clustering needs no separate module — it's part of Marker, driven
 // entirely by each marker group's `clusterSettings` (see the builder
@@ -346,24 +346,57 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
             // rebuildMap()/buildMap()/getLayerTree() need zero changes.
             staticLayers: forkJoin([
               appConfig.layerFileSources.length
-                ? forkJoin(appConfig.layerFileSources.map(source => this.configService.resolve<LayerFileEnvelope>(source)))
-                : of([] as LayerFileEnvelope[]),
+                ? forkJoin(
+                    appConfig.layerFileSources.map(source =>
+                      this.configService.resolve<LayerFileEnvelope>(source).pipe(
+                        // A single missing/broken LayerFileLists file used
+                        // to take the WHOLE map down with it — forkJoin
+                        // errors the instant any one of its inner
+                        // observables errors, and the outer .subscribe()
+                        // below has no error handler, so the success
+                        // callback (baseConfig/mapOptions/everything) just
+                        // never ran, leaving the page blank with only an
+                        // HTTP 404 in the console to explain why. Catching
+                        // per-source here means one bad file reports
+                        // itself loudly (via the existing toast mechanism,
+                        // same as the missing-layerConfig guard below) and
+                        // gets dropped, while every other file/layer still
+                        // loads normally.
+                        catchError(() => {
+                          this.reportLayerProblem(`layer file "${source.url}" not found — skipping it`);
+                          return of(null);
+                        })
+                      )
+                    )
+                  )
+                : of([] as (LayerFileEnvelope | null)[]),
               appConfig.layerApiUrl
-                ? this.configService.resolve<LayerFileEnvelope[]>({ source: "api", url: appConfig.layerApiUrl })
+                ? this.configService.resolve<LayerFileEnvelope[]>({ source: "api", url: appConfig.layerApiUrl }).pipe(
+                    // Same reasoning as the LayerFileLists catchError above.
+                    catchError(() => {
+                      this.reportLayerProblem(`layer API "${appConfig.layerApiUrl}" failed to load — skipping it`);
+                      return of([] as LayerFileEnvelope[]);
+                    })
+                  )
                 : of([] as LayerFileEnvelope[]),
               of(appConfig.layerInlineJSON ?? [])
             ]).pipe(
               map(([fileLayers, apiLayers, inlineLayers]) =>
                 [...fileLayers, ...apiLayers, ...inlineLayers]
-                  // A layer file/API entry with no `layerConfig` (e.g. a
-                  // shape file that only ever needed `shapeData` for the
-                  // MAIN layer's own resolveShapeData() lookup, mistakenly
-                  // reused here as a LayerFileLists/LayerAPIURL/
-                  // LayerInlineJSON entry) has nothing to build a
-                  // LayerTarget from — report it once and drop it rather
-                  // than crash the whole map load on `envelope.layerConfig
-                  // .parentLayerName` below.
-                  .filter(envelope => {
+                  // A failed LayerFileLists fetch (caught above) leaves a
+                  // `null` placeholder here, already reported at the catch
+                  // site — just drop it silently. A layer file/API entry
+                  // with no `layerConfig` (e.g. a shape file that only
+                  // ever needed `shapeData` for the MAIN layer's own
+                  // resolveShapeData() lookup, mistakenly reused here as a
+                  // LayerFileLists/LayerAPIURL/LayerInlineJSON entry) has
+                  // nothing to build a LayerTarget from — report it once
+                  // and drop it rather than crash the whole map load on
+                  // `envelope.layerConfig.parentLayerName` below.
+                  .filter((envelope): envelope is LayerFileEnvelope => {
+                    if (!envelope) {
+                      return false;
+                    }
                     if (!envelope.layerConfig) {
                       this.reportLayerProblem(
                         `layer entry has no "layerConfig" (layerName unknown) — skipping it. This field is only optional for the MAIN/base layer's own shape file.`
@@ -385,8 +418,20 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
                       // it's an explicit "only these start checked" list for
                       // the whole map, not a per-layer default. Unset leaves
                       // the envelope's own `selected` (or true) in charge.
+                      // Matched via slugifyLayerFileName() on BOTH sides —
+                      // same normalization LayerFileLists already uses to
+                      // resolve a name to its file (lowercase, punctuation
+                      // collapsed to "-") — so "sogl"/"Sogl"/"SOGL" and
+                      // "Sub Surface"/"sub-surface" all match regardless of
+                      // case/spacing, instead of the exact-string match this
+                      // used to require (confirmed live: a case mismatch
+                      // between LayersDefaultSelected and the layer's own
+                      // layerConfig.layerName silently left it unchecked,
+                      // with nothing in the UI to explain why).
                       selected: appConfig.defaultSelectedLayerNames
-                        ? appConfig.defaultSelectedLayerNames.includes(envelope.layerConfig.layerName)
+                        ? appConfig.defaultSelectedLayerNames.some(
+                            name => slugifyLayerFileName(name) === slugifyLayerFileName(envelope.layerConfig.layerName)
+                          )
                         : envelope.layerConfig.selected
                     },
                     // Present + non-null shapeData => a real boundary; omitted

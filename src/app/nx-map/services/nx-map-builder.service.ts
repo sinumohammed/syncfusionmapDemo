@@ -240,6 +240,23 @@ export class NXMapBuilderService {
   // and the layerIndex prefix keeps two layers' same-named groups distinct.
   private markerLookup = new Map<string, GraphicLookup>();
 
+  // Syncfusion only ever grants native marker DOM to ONE marker-bearing
+  // layer under a raster tile (osm/satellite) base map — confirmed live:
+  // adding a second, independently marker-bearing static layer (e.g. a
+  // new "SOGL"-style layer alongside MOL) makes the LATER-declared one
+  // steal that slot, and the earlier layer's own markers silently stop
+  // rendering even though nothing about ITS OWN config changed. This is
+  // the FIRST layer (declared order) with at least one marker-bearing
+  // group — buildMarkerPoints() (below) routes EVERY marker-bearing
+  // layer's groups through this ONE layerIndex's own Syncfusion
+  // markerSettings instead of each layer building its own, so there's
+  // only ever one physical marker-bearing layer for Syncfusion to grant
+  // the slot to, regardless of how many LOGICAL layers declare markers.
+  // Each group still belongs to (and is toggled via) its own ACTUAL
+  // owning layer in the filter tree — only where it physically PAINTS
+  // changes, not who owns it. undefined when no layer has any markers.
+  private markerRenderTargetIndex: number | undefined;
+
   // Which metric ids the always-on hover tooltip currently has a tile for —
   // set via setTooltipMetricKeys(), called by NxMapDemoComponent.loadMap()
   // with the SAME TooltipTemplateConfig.items list it feeds into
@@ -430,6 +447,14 @@ export class NXMapBuilderService {
         }))
       };
     });
+
+    // See markerRenderTargetIndex's own comment. Recomputed fresh on
+    // every initialize() (a fresh page load, or a full rebuildMap() —
+    // e.g. a style switch or Reset), same as this.layers itself.
+    this.markerRenderTargetIndex = this.layers.findIndex(layer => layer.groups.some(g => (g.markerConfig?.points ?? []).length > 0));
+    if (this.markerRenderTargetIndex === -1) {
+      this.markerRenderTargetIndex = undefined;
+    }
   }
 
   // Looks up a theme by name for a layer's config.theme — "default" for an
@@ -657,10 +682,51 @@ export class NXMapBuilderService {
   // toMetricOverlayMarker()). flatMap rather than map so a group can
   // contribute either one or two MarkerSettingsModel entries.
   private buildMarkerPoints(layerIndex: number): MarkerSettingsModel[] {
+    // See markerRenderTargetIndex's own comment. A marker-bearing layer
+    // OTHER than the pinned target contributes NO markerSettings of its
+    // own here — its groups/tree/toggle state are completely untouched;
+    // only WHERE they physically paint changes. A layer with no markers
+    // at all was already returning [] before this existed (visibleGroups()
+    // -> flatMap over zero marker-bearing groups), so this only changes
+    // behavior for a genuinely marker-bearing NON-target layer.
+    if (this.markerRenderTargetIndex !== undefined && layerIndex !== this.markerRenderTargetIndex) {
+      return [];
+    }
+    // The render target aggregates EVERY marker-bearing layer's groups
+    // here (itself included, in its own original position) rather than
+    // just its own — each group still resolves via its own TRUE owning
+    // layerIndex (buildMarkerPointsForGroup's own `layerIndex` param), so
+    // markerLookup keys/click-resolution/theme resolution stay anchored
+    // to wherever that group is actually configured, unaffected by which
+    // layer it happens to physically paint through.
+    //
+    // `layer.visible` is checked per SOURCE layer here — confirmed live
+    // this is required, not just visibleGroups()'s own group-level
+    // filter: a layer's initial checked/unchecked state (config.selected/
+    // LayersDefaultSelected) only ever sets THIS layer-level flag at
+    // initialize() time, never each group's own `visible` (that field is
+    // config-authored, independent of layer selection — e.g. MOL's own
+    // group hardcodes `"visible": true` in its data regardless of
+    // whether MOL itself starts checked). Before this aggregation
+    // existed, an unchecked layer's markers were hidden by hiding its
+    // OWN entire Syncfusion DOM group (syncLayerDomVisibility(), layer-
+    // level, in nx-map-demo.component.ts) — which no longer has anything
+    // to hide once this layer's markers physically live in a DIFFERENT
+    // layer's DOM group instead. Gating on `layer.visible` here restores
+    // that behavior for the initial/default-selected state, matching
+    // what a runtime toggle already gets right via setLayerVisible()
+    // (which sets this exact same field).
+    if (this.markerRenderTargetIndex !== undefined) {
+      return this.layers.flatMap((layer, sourceIndex) =>
+        layer.visible ? this.visibleGroups(layer).flatMap(g => this.buildMarkerPointsForGroup(g, layer, sourceIndex)) : []
+      );
+    }
     const layer = this.layers[layerIndex];
+    return this.visibleGroups(layer).flatMap(g => this.buildMarkerPointsForGroup(g, layer, layerIndex));
+  }
 
-    return this.visibleGroups(layer).flatMap(g => {
-      // Each group resolves its OWN theme (falling back to the layer's) —
+  private buildMarkerPointsForGroup(g: MapGroup, layer: LayerState, layerIndex: number): MarkerSettingsModel[] {
+    // Each group resolves its OWN theme (falling back to the layer's) —
       // not just the layer's theme directly — so a sub-layer API group
       // carrying its own `theme` field picks its own look independent of
       // whatever layer it got merged into. See resolveGroupTheme().
@@ -748,7 +814,6 @@ export class NXMapBuilderService {
       };
 
       return [baseLayer, overlayLayer];
-    });
   }
 
   // Shallow-merges a group's own clusterConfig over the layer theme's
@@ -1153,7 +1218,12 @@ export class NXMapBuilderService {
     return {
       layerIndex,
       layerName: layer.config.layerName,
-      displayName: layer.config.title?.text ?? layer.config.layerName,
+      // `||`, not `??` — confirmed live: a config that explicitly sets
+      // title.text to "" (as opposed to omitting title entirely) left
+      // this blank instead of falling back to layerName, since "" is
+      // nullish-coalescing's own idea of "already set" even though
+      // there's nothing to actually display.
+      displayName: layer.config.title?.text || layer.config.layerName,
       visible: layer.visible,
       isMainLayer: layerIndex === this.mainLayerIndex,
       groups,
@@ -1392,7 +1462,18 @@ export class NXMapBuilderService {
       return {
         isMain,
         layerIndex,
-        hasMarkers: layer.groups.some(g => (g.markerConfig?.points ?? []).length > 0),
+        // See markerRenderTargetIndex's own comment — with a render
+        // target pinned, ONLY it ever actually paints markers now
+        // (buildMarkerPoints() returns [] for every other layer), so
+        // this must match that, not each layer's own raw config, or the
+        // paint-order stable-sort below would still treat every
+        // originally marker-bearing layer as a contender for the "last
+        // marker-bearing layer" slot even though only one of them has
+        // anything left to paint there.
+        hasMarkers:
+          this.markerRenderTargetIndex !== undefined
+            ? layerIndex === this.markerRenderTargetIndex
+            : layer.groups.some(g => (g.markerConfig?.points ?? []).length > 0),
         layer: {
           ...this.buildBaseMapFields(layer, isMain),
           shapePropertyPath: "name",

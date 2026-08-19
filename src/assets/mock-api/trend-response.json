@@ -1,0 +1,306 @@
+[
+  {
+    "Name": "PDO Trends",
+    "TrendsList": [
+      {
+        "Name": "Well Metrics",
+        "TrendsList": [
+          {
+            "TrendID": "1",
+            "TrendName": "TVP",
+            "Status": "OK",
+            "StatusMessage": "",
+            "Series": [
+              {
+                "TrendID": "1",
+                "SeriesID": "1-1",
+                "SeriesName": "Customer impact",
+                "LegendName": "Customer impact",
+                "Color": "#1f4e79",
+                "ChartType": "Pie",
+                "StackName": "",
+                "HeaderSummary": "",
+                "YAxisID": "",
+                "YAxisName": "",
+                "ShowLegend": true,
+                "Data": [
+                  { "SeriesID": "1-1", "XValue": "Customer impact", "YValue": "3", "ToolTip": "", "ItemStyle": { "color": "#1f4e79" }, "ItemStyleJson": "", "ReportDate": "2026-08-18" }
+                ]
+              },
+              {
+                "TrendID": "1",
+                "SeriesID": "1-2",
+                "SeriesName": "Non-customer impact",
+                "LegendName": "Non-customer impact",
+                "Color": "#e07b39",
+                "ChartType": "Pie",
+                "StackName": "",
+                "HeaderSummary": "",
+                "YAxisID": "",
+                "YAxisName": "",
+                "ShowLegend": true,
+                "Data": [
+                  { "SeriesID": "1-2", "XValue": "Non-customer impact", "YValue": "2", "ToolTip": "", "ItemStyle": { "color": "#e07b39" }, "ItemStyleJson": "", "ReportDate": "2026-08-18" }
+                ]
+              }
+            ],
+            "AxisCollection": {},
+            "ShowLegend": true
+          },
+          {
+            "TrendID": "2",
+            "TrendName": "SALT",
+            "Status": "OK",
+            "StatusMessage": "",
+            "Series": [
+              {
+                "TrendID": "2",
+                "SeriesID": "2-1",
+                "SeriesName": "Customer impact",
+                "LegendName": "Customer impact",
+                "Color": "#1f4e79",
+                "ChartType": "Pie",
+                "StackName": "",
+                "HeaderSummary": "",
+                "YAxisID": "",
+                "YAxisName": "",
+                "ShowLegend": true,
+                "Data": [
+                  { "SeriesID": "2-1", "XValue": "Customer impact", "YValue": "3", "ToolTip": "Customer impact: 3 wells over salt threshold", "ItemStyle": { "color": "#1f4e79" }, "ItemStyleJson": "", "ReportDate": "2026-08-18" }
+                ]
+              },
+              {
+                "TrendID": "2",
+                "SeriesID": "2-2",
+                "SeriesName": "Non-customer impact",
+                "LegendName": "Non-customer impact",
+                "Color": "#e07b39",
+                "ChartType": "Pie",
+                "StackName": "",
+                "HeaderSummary": "",
+                "YAxisID": "",
+                "YAxisName": "",
+                "ShowLegend": true,
+                "Data": [
+                  { "SeriesID": "2-2", "XValue": "Non-customer impact", "YValue": "2", "ToolTip": "Non-customer impact: 2 wells over salt threshold", "ItemStyle": { "color": "#e07b39" }, "ItemStyleJson": "", "ReportDate": "2026-08-18" }
+                ]
+              }
+            ],
+            "AxisCollection": {},
+            "ShowLegend": true
+          },
+          {
+            "TrendID": "3",
+            "TrendName": "BSW",
+            "Status": "OK",
+            "StatusMessage": "",
+            "Series": [
+              {
+                "TrendID": "3",
+                "SeriesID": "3-1",
+                "SeriesName": "Customer impact",
+                "LegendName": "Customer impact",
+                "Color": "#1f4e79",
+                "ChartType": "Pie",
+                "StackName": "",
+                "HeaderSummary": "",
+                "YAxisID": "",
+                "YAxisName": "",
+                "ShowLegend": true,
+                "Data": [
+                  { "SeriesID": "3-1", "XValue": "Customer impact", "YValue": "3", "ToolTip": "", "ItemStyle": { "color": "#1f4e79" }, "ItemStyleJson": "", "ReportDate": "2026-08-18" }
+                ]
+              },
+              {
+                "TrendID": "3",
+                "SeriesID": "3-2",
+                "SeriesName": "Non-customer impact",
+                "LegendName": "Non-customer impact",
+                "Color": "#e07b39",
+                "ChartType": "Pie",
+                "StackName": "",
+                "HeaderSummary": "",
+                "YAxisID": "",
+                "YAxisName": "",
+                "ShowLegend": true,
+                "Data": [
+                  { "SeriesID": "3-2", "XValue": "Non-customer impact", "YValue": "3", "ToolTip": "", "ItemStyle": { "color": "#e07b39" }, "ItemStyleJson": "", "ReportDate": "2026-08-18" }
+                ]
+              }
+            ],
+            "AxisCollection": {},
+            "ShowLegend": true
+          },
+          {
+            "TrendID": "4",
+            "TrendName": "DISSOLVED",
+            "Status": "OK",
+            "StatusMessage": "",
+            "Series": [
+              {
+                "TrendID": "4",
+                "SeriesID": "4-1",
+                "SeriesName": "Customer impact",
+                "LegendName": "Customer impact",
+                "Color": "#1f4e79",
+                "ChartType": "Pie",
+                "StackName": "",
+                "HeaderSummary": "",
+                "YAxisID": "",
+                "YAxisName": "",
+                "ShowLegend": true,
+                "Data": [
+                  { "SeriesID": "4-1", "XValue": "Customer impact", "YValue": "1", "ToolTip": "", "ItemStyle": { "color": "#1f4e79" }, "ItemStyleJson": "", "ReportDate": "2026-08-18" }
+                ]
+              },
+              {
+                "TrendID": "4",
+                "SeriesID": "4-2",
+                "SeriesName": "Non-customer impact",
+                "LegendName": "Non-customer impact",
+                "Color": "#e07b39",
+                "ChartType": "Pie",
+                "StackName": "",
+                "HeaderSummary": "",
+                "YAxisID": "",
+                "YAxisName": "",
+                "ShowLegend": true,
+                "Data": [
+                  { "SeriesID": "4-2", "XValue": "Non-customer impact", "YValue": "0", "ToolTip": "", "ItemStyle": { "color": "#e07b39" }, "ItemStyleJson": "", "ReportDate": "2026-08-18" }
+                ]
+              }
+            ],
+            "AxisCollection": {},
+            "ShowLegend": true
+          },
+          {
+            "TrendID": "5",
+            "TrendName": "API",
+            "Status": "OK",
+            "StatusMessage": "",
+            "Series": [
+              {
+                "TrendID": "5",
+                "SeriesID": "5-1",
+                "SeriesName": "Customer impact",
+                "LegendName": "Customer impact",
+                "Color": "#1f4e79",
+                "ChartType": "Pie",
+                "StackName": "",
+                "HeaderSummary": "",
+                "YAxisID": "",
+                "YAxisName": "",
+                "ShowLegend": true,
+                "Data": [
+                  { "SeriesID": "5-1", "XValue": "Customer impact", "YValue": "1", "ToolTip": "", "ItemStyle": { "color": "#1f4e79" }, "ItemStyleJson": "", "ReportDate": "2026-08-18" }
+                ]
+              },
+              {
+                "TrendID": "5",
+                "SeriesID": "5-2",
+                "SeriesName": "Non-customer impact",
+                "LegendName": "Non-customer impact",
+                "Color": "#e07b39",
+                "ChartType": "Pie",
+                "StackName": "",
+                "HeaderSummary": "",
+                "YAxisID": "",
+                "YAxisName": "",
+                "ShowLegend": true,
+                "Data": [
+                  { "SeriesID": "5-2", "XValue": "Non-customer impact", "YValue": "0", "ToolTip": "", "ItemStyle": { "color": "#e07b39" }, "ItemStyleJson": "", "ReportDate": "2026-08-18" }
+                ]
+              }
+            ],
+            "AxisCollection": {},
+            "ShowLegend": true
+          },
+          {
+            "TrendID": "6",
+            "TrendName": "OTHER",
+            "Status": "OK",
+            "StatusMessage": "",
+            "Series": [
+              {
+                "TrendID": "6",
+                "SeriesID": "6-1",
+                "SeriesName": "Customer impact",
+                "LegendName": "Customer impact",
+                "Color": "#1f4e79",
+                "ChartType": "Pie",
+                "StackName": "",
+                "HeaderSummary": "",
+                "YAxisID": "",
+                "YAxisName": "",
+                "ShowLegend": true,
+                "Data": [
+                  { "SeriesID": "6-1", "XValue": "Customer impact", "YValue": "1", "ToolTip": "", "ItemStyle": { "color": "#1f4e79" }, "ItemStyleJson": "", "ReportDate": "2026-08-18" }
+                ]
+              },
+              {
+                "TrendID": "6",
+                "SeriesID": "6-2",
+                "SeriesName": "Non-customer impact",
+                "LegendName": "Non-customer impact",
+                "Color": "#e07b39",
+                "ChartType": "Pie",
+                "StackName": "",
+                "HeaderSummary": "",
+                "YAxisID": "",
+                "YAxisName": "",
+                "ShowLegend": true,
+                "Data": [
+                  { "SeriesID": "6-2", "XValue": "Non-customer impact", "YValue": "0", "ToolTip": "", "ItemStyle": { "color": "#e07b39" }, "ItemStyleJson": "", "ReportDate": "2026-08-18" }
+                ]
+              }
+            ],
+            "AxisCollection": {},
+            "ShowLegend": true
+          },
+          {
+            "TrendID": "7",
+            "TrendName": "FLOW",
+            "Status": "OK",
+            "StatusMessage": "",
+            "Series": [
+              {
+                "TrendID": "7",
+                "SeriesID": "7-1",
+                "SeriesName": "Customer impact",
+                "LegendName": "Customer impact",
+                "Color": "#1f4e79",
+                "ChartType": "Pie",
+                "StackName": "",
+                "HeaderSummary": "",
+                "YAxisID": "",
+                "YAxisName": "",
+                "ShowLegend": true,
+                "Data": [
+                  { "SeriesID": "7-1", "XValue": "Customer impact", "YValue": "0", "ToolTip": "", "ItemStyle": { "color": "#1f4e79" }, "ItemStyleJson": "", "ReportDate": "2026-08-18" }
+                ]
+              },
+              {
+                "TrendID": "7",
+                "SeriesID": "7-2",
+                "SeriesName": "Non-customer impact",
+                "LegendName": "Non-customer impact",
+                "Color": "#e07b39",
+                "ChartType": "Pie",
+                "StackName": "",
+                "HeaderSummary": "",
+                "YAxisID": "",
+                "YAxisName": "",
+                "ShowLegend": true,
+                "Data": [
+                  { "SeriesID": "7-2", "XValue": "Non-customer impact", "YValue": "0", "ToolTip": "", "ItemStyle": { "color": "#e07b39" }, "ItemStyleJson": "", "ReportDate": "2026-08-18" }
+                ]
+              }
+            ],
+            "AxisCollection": {},
+            "ShowLegend": true
+          }
+        ]
+      }
+    ]
+  }
+]

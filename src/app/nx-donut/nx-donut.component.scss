@@ -14,6 +14,25 @@
   background: #e6eef7;
   outline: 1px solid #1f4e79;
 }
+/* Neither the trend API nor this donut's own config Data had anything —
+   see buildDonutConfig()'s own comment. Purely a visual "no data yet" cue
+   — deliberately NOT cursor:not-allowed and NOT a hover/click override:
+   this card stays exactly as clickable/selectable as any other (confirmed
+   an all-zero donut is still a real selection — the map still needs to
+   show every one of its markers, just all in the normal/green color). */
+.nx-donut-card--disabled {
+  opacity: 0.7;
+}
+/* z-index: 0 on this and the two overlays below is deliberate, not
+   decorative — Syncfusion's own tooltip div sets z-index: 1 explicitly
+   (ej2-charts common/user-interaction/tooltip.js), and these three are the
+   only other absolutely-positioned elements inside .nx-donut-card. Without
+   an explicit z-index of their own, their paint order relative to that
+   tooltip is z-index:auto — NOT guaranteed to lose to a positive z-index in
+   every browser/nesting scenario, confirmed live it was covering the
+   tooltip on hover. Pinning all three to 0 makes Syncfusion's 1 win
+   unconditionally, per the CSS stacking rule that any positive z-index
+   always paints above a 0 in the same context. */
 .nx-donut-center {
   position: absolute;
   top: 50%;
@@ -25,6 +44,7 @@
   text-align: center;
   color: #222;
   max-width: 70%;
+  z-index: 0;
 }
 .nx-donut-badge {
   position: absolute;
@@ -38,19 +58,23 @@
   border-radius: 3px;
   padding: 0 3px;
   white-space: nowrap;
+  z-index: 0;
 }
-/* Flat placeholder ring for isEmpty — same footprint as the real
-   Syncfusion chart (height: 130px) so the card doesn't jump size
-   switching between the two, plain CSS border-circle rather than an
-   SVG pie since there's no data to divide into slices. */
+/* Flat placeholder ring for isEmpty, plain CSS border-circle rather than an
+   SVG pie since there's no data to divide into slices. width/height are set
+   inline from emptyRingSizePx() (nx-donut.component.ts) — NOT hardcoded
+   here — so this matches whatever radius% a real pie on this same card
+   would have used, rather than always filling the full 130px chart box
+   regardless of that setting (confirmed live: that mismatch made an
+   all-zero donut's ring visibly bigger than its populated neighbors'). */
 .nx-donut-empty-ring {
-  height: 130px;
-  width: 130px;
+  position: relative;
   max-width: 100%;
   margin: 0 auto;
   border-radius: 50%;
   border: 14px solid #e3e5e8;
   box-sizing: border-box;
+  z-index: 0;
 }
 .nx-donut-center--empty {
   color: #9aa0a6;

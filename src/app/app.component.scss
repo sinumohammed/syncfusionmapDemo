@@ -7,7 +7,21 @@
   flex: 0 0 320px;
   height: 100%;
   border-right: 1px solid #ddd;
-  overflow: hidden;
+  // Deliberately NOT overflow: hidden — same reasoning as
+  // nx-donut-panel's own comment (nx-donut-collection.component.scss):
+  // any non-visible overflow here clips a hovered slice's tooltip the
+  // moment it needs to extend past this pane's own 320px width, which is
+  // exactly what a tooltip near the panel's right edge does. Confirmed
+  // live this was the actual cause of the tooltip appearing to vanish
+  // rather than a z-index issue inside the donut card itself.
+  //
+  // position + z-index establishes its OWN stacking context, so anything
+  // escaping this pane's box (the tooltip) paints above .map-pane's
+  // entire subtree as one unit — without this, a tooltip overflowing past
+  // 320px has no guaranteed order against whatever the map itself renders
+  // at that same screen position, regardless of overflow being visible.
+  position: relative;
+  z-index: 1;
 }
 .map-pane {
   flex: 1 1 auto;

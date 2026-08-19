@@ -132,7 +132,7 @@ export interface PointMetric {
   status: "high" | "normal";
   // Only meaningful when status is "high" — which of a donut's two slices
   // this reading counts toward ("Customer impact" vs "Non-customer
-  // impact" in nx-donut-charts.json). The donut's total is the count of
+  // impact", nx-donut's own DonutSlice.x labels). The donut's total is the count of
   // "high" readings ONLY, split by this field — "normal" readings aren't
   // counted on the donut at all, even though they still render on the map
   // (labeled, in the neutral color) once that metric is selected. Unset on
@@ -673,9 +673,8 @@ export interface MapState {
 }
 
 // Mirrors DonutSelectionEvent (nx-donut-model.ts) in shape — same
-// independent-shape-mirroring convention as MapCollectionConfig/
-// DonutCollectionConfig above, so nx-map still shares nothing with nx-donut
-// at the type level. Bound as an @Input on NxMapCollectionComponent/
+// independent-shape-mirroring convention so nx-map still shares nothing with
+// nx-donut at the type level. Bound as an @Input on NxMapCollectionComponent/
 // NxMapDemoComponent (see NxMapDemoComponent.donutSelection) so a donut
 // selection flows down through the normal Angular @Input/ngOnChanges path
 // like any other config change, rather than the host reaching in and
@@ -687,9 +686,8 @@ export interface MapDonutSelection {
   slices?: { x: string; y: number; color?: string }[];
 }
 
-// Top-level collection config for NxMapCollectionComponent — mirrors
-// DonutCollectionConfig (nx-donut-model.ts) in shape: each entry is its own
-// independently-resolvable DataSource (inline/file/api), one
+// Top-level collection config for NxMapCollectionComponent — each entry is
+// its own independently-resolvable DataSource (inline/file/api), one
 // <app-nx-map-demo> rendered per resolved entry, looping purely off this
 // array's length/content. `T` is left generic here (rather than importing
 // RawLayerNode, which lives in services/parent-config-transform.ts, a layer

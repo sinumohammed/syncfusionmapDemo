@@ -2,12 +2,14 @@ import { Component } from "@angular/core";
 import * as realParentConfigJson from "./nx-map/testing/real-parent-config.json";
 import { RawLayerNode, buildMapCollectionConfig } from "./nx-map/services/parent-config-transform";
 import { MapCollectionConfig, MapDonutSelection } from "./nx-map/model/nx-map-model";
-import * as donutCollectionJson from "./nx-donut/config/nx-donut-charts.json";
-import { DonutCollectionConfig, DonutSelectionEvent } from "./nx-donut/model/nx-donut-model";
+import * as realDonutParentConfigJson from "./nx-donut/testing/real-donut-parent-config.json";
+import * as trendResponseJson from "../assets/mock-api/trend-response.json";
+import { DonutSelectionEvent, RawDonutCollectionNode, TrendGroup } from "./nx-donut/model/nx-donut-model";
 
 // Standalone-demo stand-in for a real host application binding its own
-// widget payloads onto NxDonutCollectionComponent's `config` @Input and
-// NxMapCollectionComponent's `config` @Input — neither component bundles a
+// widget payloads onto NxDonutCollectionComponent's `rawConfig`/
+// `trendResponse` @Input()s and NxMapCollectionComponent's `config` @Input —
+// neither component bundles a
 // default of its own, so something has to supply both for the demo to show
 // anything when run on its own. This is also the shared parent container the
 // two independent components sit side by side in: donut panel on the left,
@@ -28,7 +30,19 @@ export class AppComponent {
   mapCollectionConfig: MapCollectionConfig<RawLayerNode> = buildMapCollectionConfig(
     ((realParentConfigJson as any).default ?? realParentConfigJson) as RawLayerNode
   );
-  donutCollectionConfig = ((donutCollectionJson as any).default ?? donutCollectionJson) as DonutCollectionConfig;
+  // real-donut-parent-config.json is the upstream widget-payload shape (root
+  // = COMPONENT_NXCIRCULAR_COLLECTION, Configuration[] = one
+  // COMPONENT_NXCIRCULAR_CHART per donut) — passed straight through to
+  // NxDonutCollectionComponent's own `rawConfig` input, which runs the
+  // Name-vs-TrendName matching itself (see parent-donut-config-transform.ts).
+  // Bundled statically here purely as this demo's stand-in for whatever a
+  // real host fetches its widget config from.
+  donutRawConfig = ((realDonutParentConfigJson as any).default ?? realDonutParentConfigJson) as RawDonutCollectionNode;
+  // trend-response.json stands in for a live trend API's own response — a
+  // SEPARATE input from donutRawConfig above (see
+  // NxDonutCollectionComponent's own comment for why), bundled statically
+  // for the same reason.
+  donutTrendResponse = ((trendResponseJson as any).default ?? trendResponseJson) as TrendGroup[];
 
   // Bound straight onto <app-nx-map-collection>'s own donutSelection @Input
   // in the template (see app.component.html) — this is the only point of

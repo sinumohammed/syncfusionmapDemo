@@ -1,7 +1,8 @@
 <div class="app-shell">
   <app-nx-donut-collection
     class="donut-pane"
-    [config]="donutCollectionConfig"
+    [rawConfig]="donutRawConfig"
+    [trendResponse]="donutTrendResponse"
     (sublayersSelected)="onSublayersSelected($event)"
   ></app-nx-donut-collection>
   <app-nx-map-collection class="map-pane" [config]="mapCollectionConfig" [donutSelection]="donutSelection"></app-nx-map-collection>

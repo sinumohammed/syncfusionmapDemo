@@ -15,6 +15,20 @@ AccumulationChart.Inject(PieSeries, AccumulationTooltip);
 // own `color`.
 const DEFAULT_PALETTE = ["#1f4e79", "#e07b39", "#3fae5a", "#c94a3f", "#8e5ea2", "#3fbfbf"];
 
+// Shared by buildSeries() (the real Syncfusion pie's own `radius`) AND
+// emptyRingSize() below (the CSS placeholder's diameter) — see
+// emptyRingSize()'s own comment for why both need to agree on this.
+const DEFAULT_RADIUS_PERCENT = 80;
+// .nx-donut-empty-ring/the real <ejs-accumulationchart> both sit in the
+// same 130px-square box (see that chart's own height="130px" width="100%"
+// in the template, and .nx-donut-empty-ring's own comment).
+const CHART_BOX_PX = 130;
+
+// Fallback when a donut's own config.tooltipFormat (RawDonutNode.TooltipFormat
+// in real-donut-parent-config.json) is unset — same Syncfusion placeholder
+// syntax, used verbatim as AccumulationTooltipSettingsModel.format either way.
+const DEFAULT_TOOLTIP_FORMAT = "${point.x}: ${point.y}";
+
 // A plain-HTML value badge this component draws itself, positioned from the
 // chart's own (reliable) point angle — see buildSeries()'s comment for why.
 interface DonutBadge {
@@ -37,6 +51,12 @@ interface DonutBadge {
   styleUrls: ["./nx-donut.component.scss"]
 })
 export class NxDonutComponent implements OnChanges {
+  // A single merged DonutConfig — NxDonutCollectionComponent already builds
+  // one fully-resolved object per donut (buildDonutConfigs()), data included,
+  // so there's no separate values source left to split out at THIS
+  // boundary — unlike NxDonutCollectionComponent's own rawConfig/
+  // trendResponse inputs, which really do come from two different places
+  // upstream (see that component's own comment).
   @Input() config?: DonutConfig;
   @Input() selected = false;
 
@@ -54,11 +74,21 @@ export class NxDonutComponent implements OnChanges {
   // <ejs-accumulationchart> to ONE shared `{ visible: false }`-style object
   // corrupts every instance after the first: Syncfusion's chart attaches
   // its own internal state directly onto whatever settings object it's
-  // given. Built once in ngOnChanges(), not inline in the template — an
-  // inline object literal creates a NEW reference every change-detection
-  // cycle, and confirmed live that ALSO leaves charts never settling.
+  // given. Built once here, not inline in the template — an inline object
+  // literal creates a NEW reference every change-detection cycle, and
+  // confirmed live that ALSO leaves charts never settling.
+  //
+  // format is deliberately the FIXED literal "${point.tooltip}", not
+  // config.tooltipFormat directly — see resolveTooltipText()'s own comment
+  // for why: Syncfusion's own AccumulationTooltip.parseTemplate() only
+  // supports ONE format string per series (not per point), so this
+  // component pre-resolves each point's own final tooltip text itself
+  // (slice.tooltip when set, else config.tooltipFormat/the component
+  // default applied to that point's own x/y) and feeds it through
+  // tooltipMappingName below — this format string just has Syncfusion
+  // display that already-resolved text verbatim.
   legendSettings = { visible: false };
-  tooltipSettings = { enable: true, format: "${point.x}: ${point.y}", enableTextWrap: false, header: "" };
+  tooltipSettings = { enable: true, format: "${point.tooltip}", enableTextWrap: false, header: "" };
   margin = { top: 0, bottom: 0, left: 0, right: 0 };
 
   get chartElementId(): string {
@@ -76,6 +106,22 @@ export class NxDonutComponent implements OnChanges {
     return !!this.config && this.config.data.every(d => !d.y);
   }
 
+  // .nx-donut-empty-ring is a plain CSS border-circle, not a Syncfusion
+  // series — it never went through buildSeries()'s own `radius` at all, so
+  // it always rendered at a flat 130px regardless of what a real pie on
+  // this same card would have used. Confirmed live: with the real chart's
+  // own default reduced to 80% (see DEFAULT_RADIUS_PERCENT), that made an
+  // all-zero donut's empty ring look visibly BIGGER than every populated
+  // neighbor's actual pie — even a null/absent config.radius, since the two
+  // paths were never reading the same value. Deriving this ring's own
+  // diameter from the exact same config.radius (and the exact same
+  // default) as buildSeries() keeps them identical regardless of which one
+  // a given card ends up rendering.
+  get emptyRingSizePx(): number {
+    const percent = parseFloat(this.config?.radius ?? "") || DEFAULT_RADIUS_PERCENT;
+    return (CHART_BOX_PX * percent) / 100;
+  }
+
   ngOnChanges(changes: SimpleChanges): void {
     if (changes.config) {
       this.series = this.config && !this.isEmpty ? this.buildSeries(this.config) : [];
@@ -83,14 +129,49 @@ export class NxDonutComponent implements OnChanges {
     }
   }
 
+  // A slice's own tooltip (DonutSlice.tooltip — from the API's own
+  // Data[0].ToolTip, see parent-donut-config-transform.ts's buildSlices())
+  // wins outright whenever it's actually set (non-empty). Otherwise falls
+  // back to this donut's own config.tooltipFormat (RawDonutNode.TooltipFormat)
+  // or the component default, with that POINT's own x/y substituted in —
+  // same two placeholders parent-donut-config-transform.ts's own
+  // TooltipFormat comment documents, manually substituted here (rather than
+  // left for Syncfusion's own parseTemplate()) since this needs to run once
+  // per point, ahead of time, not once per series.
+  private resolveTooltipText(config: DonutConfig, slice: DonutConfig["data"][number]): string {
+    if (slice.tooltip?.trim()) {
+      return slice.tooltip;
+    }
+    return (config.tooltipFormat ?? DEFAULT_TOOLTIP_FORMAT)
+      .replace(/\$\{point\.x\}/g, slice.x)
+      .replace(/\$\{point\.y\}/g, String(slice.y));
+  }
+
   private buildSeries(config: DonutConfig): AccumulationSeriesModel[] {
     return [
       {
-        dataSource: config.data.map((d, i) => ({ x: d.x, y: d.y, color: d.color ?? DEFAULT_PALETTE[i % DEFAULT_PALETTE.length] })),
+        dataSource: config.data.map((d, i) => ({
+          x: d.x,
+          y: d.y,
+          color: d.color ?? DEFAULT_PALETTE[i % DEFAULT_PALETTE.length],
+          tooltip: this.resolveTooltipText(config, d)
+        })),
         xName: "x",
         yName: "y",
         pointColorMapping: "color",
-        innerRadius: config.innerRadius ?? "72%"
+        // See tooltipSettings' own comment — this is what actually gets
+        // each point's own pre-resolved tooltip text (dataSource[i].tooltip
+        // above) into Syncfusion's point.tooltip, which "${point.tooltip}"
+        // then just displays as-is.
+        tooltipMappingName: "tooltip",
+        innerRadius: config.innerRadius ?? "72%",
+        // Per-donut config.radius (DonutCardConfig, threaded from
+        // RawDonutNode.Radius in real-donut-parent-config.json) overrides
+        // DEFAULT_RADIUS_PERCENT when set — see emptyRingSizePx()'s own
+        // comment for why that same default (not Syncfusion's own, ~80% but
+        // computed differently) has to be shared with the empty-ring
+        // fallback rather than hardcoded separately in each place.
+        radius: config.radius ?? `${DEFAULT_RADIUS_PERCENT}%`
         // No `dataLabel` here — Syncfusion 29.2's AccumulationDataLabel
         // module (Outside AND Inside position alike) leaves labelRegion
         // permanently null for roughly a 25%-32%/68%-75% two-point split,

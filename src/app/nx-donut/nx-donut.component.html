@@ -1,4 +1,9 @@
-<div class="nx-donut-card" [class.nx-donut-card--selected]="selected" (click)="select.emit()">
+<div
+  class="nx-donut-card"
+  [class.nx-donut-card--selected]="selected"
+  [class.nx-donut-card--disabled]="isEmpty"
+  (click)="select.emit()"
+>
   <ejs-accumulationchart
     *ngIf="series.length"
     [id]="chartElementId"
@@ -11,12 +16,19 @@
     height="130px"
     width="100%"
   ></ejs-accumulationchart>
-  <!-- Every slice is 0 (no readings at all for this metric) — a real
-       Syncfusion pie has nothing to divide up in that case, so this
-       renders a plain CSS ring instead of attempting one (see isEmpty's
-       own comment). Still inside the same clickable .nx-donut-card, so
-       a click still reaches NxDonutCollectionComponent normally. -->
-  <div class="nx-donut-empty-ring" *ngIf="isEmpty"></div>
+  <!-- Every slice is 0 (no readings at all for this metric — neither the
+       trend API nor this donut's own config Data had anything, see
+       buildDonutConfig()'s own comment) — a real Syncfusion pie has
+       nothing to divide up in that case, so this renders a plain CSS ring
+       instead of attempting one (see isEmpty's own comment).
+       nx-donut-card--disabled is a VISUAL cue only (dimmed) — the click
+       itself stays live and behaves exactly like any other donut. An
+       all-zero donut (e.g. no "high" readings at all) is still a real,
+       meaningful selection: the map still needs to show every one of its
+       markers, just all in the normal/green color, same as any other
+       metric's own "normal" readings — confirmed this needs to work
+       identically to a populated donut's click, not be blocked. -->
+  <div class="nx-donut-empty-ring" *ngIf="isEmpty" [style.width.px]="emptyRingSizePx" [style.height.px]="emptyRingSizePx"></div>
   <div class="nx-donut-center" [class.nx-donut-center--empty]="isEmpty">
     {{ config?.label }}<ng-container *ngIf="isEmpty"><br /><span class="nx-donut-empty-text">No data</span></ng-container>
   </div>

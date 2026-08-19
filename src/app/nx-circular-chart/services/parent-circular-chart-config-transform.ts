@@ -1,17 +1,17 @@
 import {
-  DonutConfig,
-  DonutSlice,
-  RawDonutCollectionNode,
-  RawDonutNode,
+  CircularChartConfig,
+  CircularChartSlice,
+  RawCircularChartCollectionNode,
+  RawCircularChartNode,
   TrendGroup,
   TrendLeaf
-} from "../model/nx-donut-model";
+} from "../model/nx-circular-chart-model";
 
-// Real upstream discriminant for "this node is a collection of donuts, not
-// a donut itself" — mirrors nx-map's MAP_COLLECTION_COMPONENT_TYPE
+// Real upstream discriminant for "this node is a collection of circularCharts, not
+// a circular chart itself" — mirrors nx-map's MAP_COLLECTION_COMPONENT_TYPE
 // (parent-config-transform.ts), same convention, independent constant per
 // this component's own "shares nothing with nx-map" design.
-const DONUT_COLLECTION_COMPONENT_TYPE = 7121;
+const CIRCULAR_CHART_COLLECTION_COMPONENT_TYPE = 7121;
 
 // Same normalization nx-map's slugifyLayerFileName() uses for its own
 // name-matching (LayerFileLists/LayersDefaultSelected) — trim + lowercase +
@@ -45,12 +45,12 @@ function indexTrendLeaves(response: TrendGroup[] | null | undefined): Map<string
   return index;
 }
 
-// RawDonutNode.Data comes in as a JSON-encoded string on a real upstream
+// RawCircularChartNode.Data comes in as a JSON-encoded string on a real upstream
 // node (see its own comment) — parsed here, tolerant of a plain array
 // (inline/test callers) and of a malformed/absent string (falls back to
 // empty rather than throwing and taking down the whole collection over one
 // bad node).
-function parseNodeData(data: DonutSlice[] | string | null | undefined): DonutSlice[] {
+function parseNodeData(data: CircularChartSlice[] | string | null | undefined): CircularChartSlice[] {
   if (Array.isArray(data)) {
     return data;
   }
@@ -65,30 +65,30 @@ function parseNodeData(data: DonutSlice[] | string | null | undefined): DonutSli
   }
 }
 
-function buildSlices(leaf: TrendLeaf | undefined): DonutSlice[] {
+function buildSlices(leaf: TrendLeaf | undefined): CircularChartSlice[] {
   return (leaf?.Series ?? []).map(series => ({
     x: series.SeriesName ?? series.LegendName ?? "",
     y: Number(series.Data?.[0]?.YValue) || 0,
     color: series.Data?.[0]?.ItemStyle?.color || series.Color || undefined,
     // Per-slice tooltip text straight from the API's own Data[0].ToolTip —
-    // see DonutSlice.tooltip's own comment for how NxDonutComponent uses
+    // see CircularChartSlice.tooltip's own comment for how NxCircularChartComponent uses
     // this (wins outright over the format-based default when non-empty).
     tooltip: series.Data?.[0]?.ToolTip || undefined
   }));
 }
 
-// Converts one RawDonutNode + its matched trend leaf into the DonutConfig
-// shape NxDonutComponent already expects. Two independent sources for
+// Converts one RawCircularChartNode + its matched trend leaf into the CircularChartConfig
+// shape NxCircularChartComponent already expects. Two independent sources for
 // `data`, in priority order:
 //   1. The trend API response's own matched leaf, when it has at least one
 //      slice — always wins outright, never merged slice-by-slice with the
 //      node's own Data.
-//   2. node.Data — this donut's own hardcoded fallback, used whenever the
+//   2. node.Data — this circular chart's own hardcoded fallback, used whenever the
 //      API has no match for this Name (leaf undefined) OR matched a leaf
 //      with no usable Series (buildSlices() came back empty).
 // Both absent renders the existing empty-ring state (isEmpty), same as
 // before this fallback existed — no third "hardcoded zeros" tier needed.
-export function buildDonutConfig(node: RawDonutNode, leaf: TrendLeaf | undefined): DonutConfig {
+export function buildCircularChartConfig(node: RawCircularChartNode, leaf: TrendLeaf | undefined): CircularChartConfig {
   const apiSlices = buildSlices(leaf);
   return {
     id: normalizeName(node.Name) || String(node.Id ?? ""),
@@ -100,16 +100,16 @@ export function buildDonutConfig(node: RawDonutNode, leaf: TrendLeaf | undefined
 }
 
 // Converts the real upstream collection node + its trend API response into
-// one DonutConfig per Configuration[] entry, ordered by each entry's own
+// one CircularChartConfig per Configuration[] entry, ordered by each entry's own
 // Order (ascending; ties keep Configuration[]'s own declared relative order
 // — Array.sort() is stable) rather than that array's raw declaration order.
 //
-// Falls back to treating `root` itself as a single donut when it isn't
+// Falls back to treating `root` itself as a single circular chart when it isn't
 // actually a ComponentType 7121 (COMPONENT_NXCIRCULAR_COLLECTION) wrapper —
 // same fallback shape as nx-map's buildMapCollectionConfig().
-export function buildDonutConfigs(root: RawDonutCollectionNode, trendResponse: TrendGroup[]): DonutConfig[] {
-  const items = root.ComponentType === DONUT_COLLECTION_COMPONENT_TYPE ? root.Configuration ?? [] : [root as RawDonutNode];
+export function buildCircularChartConfigs(root: RawCircularChartCollectionNode, trendResponse: TrendGroup[]): CircularChartConfig[] {
+  const items = root.ComponentType === CIRCULAR_CHART_COLLECTION_COMPONENT_TYPE ? root.Configuration ?? [] : [root as RawCircularChartNode];
   const ordered = [...items].sort((a, b) => (a.Order ?? 0) - (b.Order ?? 0));
   const leaves = indexTrendLeaves(trendResponse);
-  return ordered.map(node => buildDonutConfig(node, leaves.get(normalizeName(node.Name))));
+  return ordered.map(node => buildCircularChartConfig(node, leaves.get(normalizeName(node.Name))));
 }

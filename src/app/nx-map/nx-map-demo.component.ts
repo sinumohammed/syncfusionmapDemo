@@ -26,7 +26,7 @@ import {
 import {
   LayerFileEnvelope,
   MapConfig,
-  MapDonutSelection,
+  MapCircularChartSelection,
   MapGroup,
   MapOptions,
   MapPoint,
@@ -102,15 +102,15 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // ngOnChanges (see below), never at construction time.
   @Input() parentConfig?: RawLayerNode;
 
-  // Set by an external donut/category panel (via the host — see
+  // Set by an external circular chart/category panel (via the host — see
   // app.component.ts) when it selects or deselects a metric card. Flows in
   // as a plain @Input, handled in ngOnChanges below, rather than the host
   // reaching in and calling a method on this component directly through a
   // @ViewChild/@ViewChildren reference — this component doesn't need to
-  // know what a "donut" is either way, it just reacts to its own Input
-  // changing like it does for parentConfig. See applyDonutSelectionChange()
+  // know what a "circular chart" is either way, it just reacts to its own Input
+  // changing like it does for parentConfig. See applyCircularChartSelectionChange()
   // for what a change here actually does.
-  @Input() donutSelection?: MapDonutSelection | null;
+  @Input() circularChartSelection?: MapCircularChartSelection | null;
 
   // Both assigned outside the constructor (mapInstance by Angular's
   // @ViewChild after view init, mapOptions asynchronously by rebuildMap()
@@ -213,7 +213,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
       return;
     }
     // .nx-map itself, not the whole page/host — this is the map plus
-    // its own layer/basemap controls, not any donut panel or other widget
+    // its own layer/basemap controls, not any circular chart panel or other widget
     // a parent component might be rendering alongside it.
     this.elRef.nativeElement.querySelector(".nx-map")?.requestFullscreen();
   }
@@ -252,7 +252,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   private staticTooltipTemplate: TooltipTemplateConfig | undefined;
 
   // Kept as fields (rather than only local variables inside loadMap()) so
-  // applyDonutSelectionChange()/applyMetricSelection() can re-derive from
+  // applyCircularChartSelectionChange()/applyMetricSelection() can re-derive from
   // them later without re-fetching the base layer/static layers all over
   // again.
   private baseConfig: MapConfig | undefined;
@@ -260,7 +260,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   private staticLayerResults: { config: MapConfig; shape: any }[] = [];
   // Snapshot of each static layer's groups exactly as last loaded (index-
   // aligned with staticLayerResults) — kept separately because
-  // applyDonutSelectionChange() below needs each group's ORIGINAL points as
+  // applyCircularChartSelectionChange() below needs each group's ORIGINAL points as
   // position/name/value anchors even after a prior selection has replaced
   // staticLayerResults' groups with synthetic ones; deriving from an
   // already-selection-mutated copy on a second click would lose the
@@ -305,8 +305,8 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // change too (e.g. the host swapping in a different widget's config),
   // not just the first one.
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes["donutSelection"]) {
-      this.applyDonutSelectionChange();
+    if (changes["circularChartSelection"]) {
+      this.applyCircularChartSelectionChange();
     }
     if (!changes["parentConfig"] || !this.parentConfig) {
       return;
@@ -481,42 +481,42 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
           baseConfig.tooltipTemplate ?? staticLayers.map((s: { config: MapConfig }) => s.config.tooltipTemplate).find((t: any) => !!t);
         // No records yet at initial load — this renders whatever the
         // static config alone provides (or nothing, if it doesn't set one
-        // either), same "empty until a donut fetch actually happens" state
+        // either), same "empty until a circular chart fetch actually happens" state
         // as before deriveTooltipTemplate() existed.
         this.applyTooltipTemplate([]);
         this.rebuildMap();
       });
   }
 
-  // Reacts to the donutSelection @Input changing (see ngOnChanges above) —
-  // fired whenever an external donut/category panel selects or deselects a
+  // Reacts to the circularChartSelection @Input changing (see ngOnChanges above) —
+  // fired whenever an external circular chart/category panel selects or deselects a
   // metric card, via the host binding its own selection state down through
   // NxMapCollectionComponent (see app.component.ts/nx-map-collection.
-  // component.ts). This component still has no idea what a "donut" is
-  // beyond MapDonutSelection's shape. Every marker stays visible on the map
+  // component.ts). This component still has no idea what a "circular chart" is
+  // beyond MapCircularChartSelection's shape. Every marker stays visible on the map
   // at all times, with its normal hover tooltip, whether or not anything is
   // selected — nothing here ever creates a marker or hides one, except the
   // brand-new unanchored points a fetch can introduce (see
   // applyMetricSelection() below).
   //
-  // donutSelection.selectedId is a metric id — no longer any metric a point
+  // circularChartSelection.selectedId is a metric id — no longer any metric a point
   // statically carries (see MapPoint's own history: metrics used to be
   // baked into config JSON; that was app-specific and has been removed).
   // Every reading now comes from nxAppConfig.dataApiUrl, fetched
   // fresh on every click. `slices`/`allIds` are unused here — they only
-  // exist on MapDonutSelection for shape-parity with DonutSelectionEvent.
-  // A null/unset donutSelection, or one with selectedId: null, clears
+  // exist on MapCircularChartSelection for shape-parity with CircularChartSelectionEvent.
+  // A null/unset circularChartSelection, or one with selectedId: null, clears
   // every group's activeMetricId/activeMetricValues (and any unanchored
   // points from the previous selection) with no fetch at all.
-  private applyDonutSelectionChange(): void {
-    const selectedId = this.donutSelection?.selectedId ?? null;
+  private applyCircularChartSelectionChange(): void {
+    const selectedId = this.circularChartSelection?.selectedId ?? null;
     if (!selectedId) {
       this.applyMetricSelection(null, []);
       return;
     }
     const url = this.nxAppConfig.dataApiUrl;
     if (!url) {
-      this.reportDataOverlayProblem(`donut "${selectedId}" selected but no DataAPIURL is configured for this map`);
+      this.reportDataOverlayProblem(`circular chart "${selectedId}" selected but no DataAPIURL is configured for this map`);
       return;
     }
     this.configService.loadDataOverlay(url, selectedId).subscribe(records => this.applyMetricSelection(selectedId, records));
@@ -605,7 +605,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // themselves.
   private static readonly METRIC_OVERLAY_GROUP_ID = "__metric_overlay__";
 
-  // Shared by applyDonutSelectionChange()'s clear (selectedId: null, no
+  // Shared by applyCircularChartSelectionChange()'s clear (selectedId: null, no
   // fetch needed) and the fetched-response path — matches each
   // MetricOverlayRecord to (or plots it as a new point on) a layer, then
   // stamps activeMetricId/activeMetricValues onto every layer's groups,
@@ -1408,7 +1408,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // native repaint, not the builder's) is what actually picks up this
   // manual mapOptions.layers mutation, same as every other Angular-bound
   // @Input change to <ejs-maps>. A LATER real builder.refresh() call
-  // (any layer toggle, donut click, etc.) rebuilds markerSettings from
+  // (any layer toggle, circular chart click, etc.) rebuilds markerSettings from
   // the builder's own canonical state and silently drops this pin along
   // with it — acceptable for a temporary marker, but worth knowing if it
   // unexpectedly disappears after some other interaction.
@@ -1687,7 +1687,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   // Shared by loadMap() (initial paint, records: []) and
-  // applyMetricSelection() (every donut fetch) — derives this click's
+  // applyMetricSelection() (every circular chart fetch) — derives this click's
   // tooltip layout, re-injects the DOM template, and keeps
   // NXMapBuilderService.tooltipMetricKeys/defaultTooltipColumns/
   // defaultTooltipLayout in the exact same lockstep deriveTooltipTemplate()'s
@@ -1729,7 +1729,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // entry renders each one — rebuilding this element's innerHTML is
   // enough to change the tooltip's whole layout, no other code path
   // involved. Called again every time loadMap() resolves a fresh
-  // baseConfig (rebuildMap(), style switches, Reset...) AND on every donut
+  // baseConfig (rebuildMap(), style switches, Reset...) AND on every circular chart
   // fetch (applyTooltipTemplate() above) — cheap (a handful of string
   // concatenation) and keeps the template in sync with whatever metric
   // ids are actually live right now.
@@ -1746,7 +1746,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     // comment for how a different deployment plugs in an alternate one.
     const renderTile = TOOLTIP_TILE_LAYOUTS[config.layout ?? "default"] ?? TOOLTIP_TILE_LAYOUTS["default"];
     const tiles = config.items.map(renderTile).join("");
-    // No donut metric selected (or a static-only point with nothing to
+    // No circular chart metric selected (or a static-only point with nothing to
     // show) -> zero tiles for EVERY marker, since `tiles` is built once
     // here from the map-wide derived template, not per-marker. Omitting
     // .mtt-grid entirely (rather than rendering it empty) drops both its

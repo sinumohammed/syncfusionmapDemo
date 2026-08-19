@@ -3,7 +3,7 @@
   height: 100%;
   width: 100%;
 }
-.nx-donut-panel {
+.nx-circular-chart-panel {
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -14,12 +14,12 @@
      axes non-visible together once either one is), confirmed live
      that was cutting the tooltip's text off. */
 }
-.nx-donut-grid {
+.nx-circular-chart-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 8px;
 }
-.nx-donut-legend {
+.nx-circular-chart-legend {
   margin-top: 12px;
   display: flex;
   flex-direction: column;
@@ -27,12 +27,12 @@
   font-size: 12px;
   color: #333;
 }
-.nx-donut-legend-item {
+.nx-circular-chart-legend-item {
   display: flex;
   align-items: center;
   gap: 6px;
 }
-.nx-donut-swatch {
+.nx-circular-chart-swatch {
   display: inline-block;
   width: 10px;
   height: 10px;

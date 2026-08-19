@@ -13,7 +13,7 @@ import { NXMapConfigService } from "./services/nx-map-config.service";
 // wherever you want a config-driven set of maps to render (or
 // <app-nx-map-demo></app-nx-map-demo> directly for a single, unmanaged map —
 // NxMapCollectionComponent is just a thin *ngFor loop over it, same
-// relationship as NxDonutCollectionComponent/NxDonutComponent).
+// relationship as NxCircularChartCollectionComponent/NxCircularChartComponent).
 @NgModule({
   declarations: [NxMapDemoComponent, NxMapCollectionComponent],
   imports: [CommonModule, MapsModule, HttpClientModule],

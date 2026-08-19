@@ -106,7 +106,7 @@ Unchecking every leaf/group under a layer does **not** hide that layer's own sha
 
 ## Metric overlay & hover tooltip
 
-`NXMapAppConfig.dataApiUrl` (set on the main layer or any static layer) points at a `MetricOverlayRecord[]` endpoint (`NXMapConfigService.loadDataOverlay()`), fetched fresh on every donut-panel click and applied by `NxMapDemoComponent.applyMetricSelection()`. Each record either **anchors** to an existing marker or **creates a brand-new one**, matched by these rules (deliberately not a fallback chain):
+`NXMapAppConfig.dataApiUrl` (set on the main layer or any static layer) points at a `MetricOverlayRecord[]` endpoint (`NXMapConfigService.loadDataOverlay()`), fetched fresh on every circular chart panel click and applied by `NxMapDemoComponent.applyMetricSelection()`. Each record either **anchors** to an existing marker or **creates a brand-new one**, matched by these rules (deliberately not a fallback chain):
 
 - `layerId` given and matches a known layer → `markerId` MUST resolve to an existing point on that exact layer (anchor) or it's an **error** — it never silently plots a new point on that layer instead.
 - `layerId` given but matches no known layer → error.

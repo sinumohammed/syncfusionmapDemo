@@ -683,7 +683,7 @@ export class NXMapBuilderService {
 
   // Creating marker points for Syncfusion — one base MarkerSettingsModel
   // entry per visible group in this layer (shape/color/cluster rendering,
-  // always present, unaffected by any donut selection), PLUS one extra
+  // always present, unaffected by any circular chart selection), PLUS one extra
   // overlay entry for a group whose activeMetricId is set (persistent
   // value labels for that metric, colored per point — see
   // toMetricOverlayMarker()). flatMap rather than map so a group can
@@ -798,9 +798,9 @@ export class NXMapBuilderService {
         return [baseLayer];
       }
 
-      // Overlay layer for the currently-selected donut metric — covers the
+      // Overlay layer for the currently-selected circular chart metric — covers the
       // SAME full point list (every mol point carries every metric), not a
-      // filtered subset, per applyDonutSelectionChange()'s "no new markers, no
+      // filtered subset, per applyCircularChartSelectionChange()'s "no new markers, no
       // markers dropped" design. `template` fully replaces Syncfusion's own
       // shape/color/cluster rendering for THIS second layer only — the base
       // layer above still renders normally underneath it. Clustering is

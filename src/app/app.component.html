@@ -1,9 +1,9 @@
 <div class="app-shell">
-  <app-nx-donut-collection
-    class="donut-pane"
-    [rawConfig]="donutRawConfig"
-    [trendResponse]="donutTrendResponse"
+  <app-nx-circular-chart-collection
+    class="circular-chart-pane"
+    [rawConfig]="circularChartRawConfig"
+    [trendResponse]="circularChartTrendResponse"
     (sublayersSelected)="onSublayersSelected($event)"
-  ></app-nx-donut-collection>
-  <app-nx-map-collection class="map-pane" [config]="mapCollectionConfig" [donutSelection]="donutSelection"></app-nx-map-collection>
+  ></app-nx-circular-chart-collection>
+  <app-nx-map-collection class="map-pane" [config]="mapCollectionConfig" [circularChartSelection]="circularChartSelection"></app-nx-map-collection>
 </div>

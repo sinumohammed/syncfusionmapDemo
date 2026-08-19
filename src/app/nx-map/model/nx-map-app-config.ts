@@ -30,12 +30,12 @@ export interface NXMapAppConfig {
   // and parent-config-transform.ts's RawLayerNode.LayersDefaultSelected for
   // where it comes from.
   defaultSelectedLayerNames?: string[];
-  // Fetched fresh on every donut click (NxMapDemoComponent.
-  // applyDonutSelectionChange()), with the clicked metric id sent as a
+  // Fetched fresh on every circular chart click (NxMapDemoComponent.
+  // applyCircularChartSelectionChange()), with the clicked metric id sent as a
   // `metricId` query param — see NXMapConfigService.loadDataOverlay()
   // and MetricOverlayRecord's own comment for the response shape and how
   // each entry gets matched to (or plotted as) a marker. Undefined (the
-  // default) means a donut click has nothing to fetch — logged loudly
+  // default) means a circular chart click has nothing to fetch — logged loudly
   // (console.error + toast) rather than silently doing nothing.
   dataApiUrl?: string;
   // App-wide default theme (a name into nx-map-themes.json) — every layer

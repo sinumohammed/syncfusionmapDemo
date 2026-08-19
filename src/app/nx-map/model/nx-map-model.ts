@@ -128,13 +128,13 @@ export interface PointMetric {
   // shared neutral label color when `color` is omitted); "normal" always
   // gets the shared neutral color regardless of `color`. Map coloring only
   // ever looks at THIS field — see impact's own comment for what actually
-  // drives a donut's two slices.
+  // drives a circular chart's two slices.
   status: "high" | "normal";
-  // Only meaningful when status is "high" — which of a donut's two slices
+  // Only meaningful when status is "high" — which of a circular chart's two slices
   // this reading counts toward ("Customer impact" vs "Non-customer
-  // impact", nx-donut's own DonutSlice.x labels). The donut's total is the count of
+  // impact", nx-circular-chart's own CircularChartSlice.x labels). The circular chart's total is the count of
   // "high" readings ONLY, split by this field — "normal" readings aren't
-  // counted on the donut at all, even though they still render on the map
+  // counted on the circular chart at all, even though they still render on the map
   // (labeled, in the neutral color) once that metric is selected. Unset on
   // a "normal" reading — nothing reads it in that case.
   impact?: "customer" | "non-customer";
@@ -167,16 +167,16 @@ export interface PointMetric {
   // toMarker() for the hover tooltip tile's value color, and by
   // toMetricOverlayMarker() (via a matched record's own top-level color,
   // MetricOverlayRecord also being a PointMetric) for the on-map overlay
-  // label color once that metric's donut is clicked. Omit to fall back to
+  // label color once that metric's circular chart is clicked. Omit to fall back to
   // the shared neutral label color, same as a "normal" reading always
   // gets regardless of this field.
   color?: string;
 }
 
 // One entry in the response NXMapConfigService.loadDataOverlay() fetches
-// on a donut click (NXMapAppConfig.dataApiUrl) — a PointMetric reading
+// on a circular chart click (NXMapAppConfig.dataApiUrl) — a PointMetric reading
 // plus enough to find (or create) the marker it belongs on. Matched by
-// NxMapDemoComponent's own algorithm (see applyDonutSelectionChange()):
+// NxMapDemoComponent's own algorithm (see applyCircularChartSelectionChange()):
 // `markerId` resolving to an existing point (scoped to `layerId`'s own
 // layer when given, or matched against every layer when omitted) anchors
 // the reading to that point, exactly like MapGroup.activeMetricValues
@@ -358,13 +358,13 @@ export interface MapGroup {
   // nx-map-builder.service.ts. Each point's label color is that reading's
   // own PointMetric.color when its status is "high", NORMAL_LABEL_COLOR
   // otherwise. Set by
-  // NxMapDemoComponent.donutSelection when an external panel (e.g. a
-  // donut/category chart) selects a metric — cleared (null) again once
+  // NxMapDemoComponent.circularChartSelection when an external panel (e.g. a
+  // circular chart/category chart) selects a metric — cleared (null) again once
   // nothing is selected.
   activeMetricId?: string | null;
   // The freshly-fetched per-point values for activeMetricId — see
   // NXMapConfigService.loadDataOverlay() and
-  // NxMapDemoComponent.applyDonutSelectionChange()'s own comment. Keyed by
+  // NxMapDemoComponent.applyCircularChartSelectionChange()'s own comment. Keyed by
   // point id (MapPoint.id via BaseMapObject, or a synthesized id for a
   // brand-new unanchored point). toMetricOverlayMarker() in
   // nx-map-builder.service.ts reads this for the overlay label/color — a
@@ -372,7 +372,7 @@ export interface MapGroup {
   // for that point id) renders with no overlay at all, same as a point
   // with no reading. Unset/null (no selection) clears every overlay.
   activeMetricValues?: Record<string, PointMetric> | null;
-  // Optional per-impact icon override for a "high" reading's donut-click
+  // Optional per-impact icon override for a "high" reading's circular chart click
   // overlay marker (see toMetricOverlayMarker() in
   // nx-map-builder.service.ts) — lets a deployment's own config JSON
   // differentiate "customer impact" from "non-customer impact" by SHAPE as
@@ -672,15 +672,15 @@ export interface MapState {
   groups: MapGroup[];
 }
 
-// Mirrors DonutSelectionEvent (nx-donut-model.ts) in shape — same
+// Mirrors CircularChartSelectionEvent (nx-circular-chart-model.ts) in shape — same
 // independent-shape-mirroring convention so nx-map still shares nothing with
-// nx-donut at the type level. Bound as an @Input on NxMapCollectionComponent/
-// NxMapDemoComponent (see NxMapDemoComponent.donutSelection) so a donut
+// nx-circular-chart at the type level. Bound as an @Input on NxMapCollectionComponent/
+// NxMapDemoComponent (see NxMapDemoComponent.circularChartSelection) so a circular chart
 // selection flows down through the normal Angular @Input/ngOnChanges path
 // like any other config change, rather than the host reaching in and
 // calling a component method directly through a @ViewChild/@ViewChildren
 // reference.
-export interface MapDonutSelection {
+export interface MapCircularChartSelection {
   selectedId: string | null;
   allIds: string[];
   slices?: { x: string; y: number; color?: string }[];

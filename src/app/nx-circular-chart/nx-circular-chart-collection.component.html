@@ -1,0 +1,17 @@
+<div class="nx-circular-chart-panel">
+  <div class="nx-circular-chart-grid">
+    <app-nx-circular-chart
+      *ngFor="let circularChart of circularCharts"
+      [config]="circularChart"
+      [selected]="selectedId === circularChart.id"
+      (select)="onCircularChartSelected(circularChart)"
+    ></app-nx-circular-chart>
+  </div>
+
+  <div class="nx-circular-chart-legend" *ngIf="legendItems.length">
+    <div class="nx-circular-chart-legend-item" *ngFor="let item of legendItems">
+      <span class="nx-circular-chart-swatch" [style.background]="item.color"></span>
+      {{ item.label }}
+    </div>
+  </div>
+</div>

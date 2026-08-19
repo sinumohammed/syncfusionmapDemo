@@ -62,9 +62,9 @@ export interface RawLayerNode {
   // layer, which always starts checked regardless (its checkbox is
   // disabled either way).
   LayersDefaultSelected?: string | null;
-  // A URL fetched fresh on every donut click, with the clicked metric id
+  // A URL fetched fresh on every circular chart click, with the clicked metric id
   // sent as a query param — see NXMapAppConfig.dataApiUrl's own
-  // comment. Null/absent means a donut click has nothing to fetch.
+  // comment. Null/absent means a circular chart click has nothing to fetch.
   DataAPIURL?: string | null;
   // App-wide default theme (NXMapAppConfig.theme) — null/absent keeps every
   // layer falling through to its own MapConfig.theme, then "default".

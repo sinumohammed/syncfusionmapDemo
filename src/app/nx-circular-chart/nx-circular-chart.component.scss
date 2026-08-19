@@ -1,39 +1,39 @@
 :host {
   display: block;
 }
-.nx-donut-card {
+.nx-circular-chart-card {
   position: relative;
   cursor: pointer;
   border-radius: 6px;
   padding: 4px;
 }
-.nx-donut-card:hover {
+.nx-circular-chart-card:hover {
   background: #f2f2f2;
 }
-.nx-donut-card--selected {
+.nx-circular-chart-card--selected {
   background: #e6eef7;
   outline: 1px solid #1f4e79;
 }
-/* Neither the trend API nor this donut's own config Data had anything —
-   see buildDonutConfig()'s own comment. Purely a visual "no data yet" cue
+/* Neither the trend API nor this circular chart's own config Data had anything —
+   see buildCircularChartConfig()'s own comment. Purely a visual "no data yet" cue
    — deliberately NOT cursor:not-allowed and NOT a hover/click override:
    this card stays exactly as clickable/selectable as any other (confirmed
-   an all-zero donut is still a real selection — the map still needs to
+   an all-zero circular chart is still a real selection — the map still needs to
    show every one of its markers, just all in the normal/green color). */
-.nx-donut-card--disabled {
+.nx-circular-chart-card--disabled {
   opacity: 0.7;
 }
 /* z-index: 0 on this and the two overlays below is deliberate, not
    decorative — Syncfusion's own tooltip div sets z-index: 1 explicitly
    (ej2-charts common/user-interaction/tooltip.js), and these three are the
-   only other absolutely-positioned elements inside .nx-donut-card. Without
+   only other absolutely-positioned elements inside .nx-circular-chart-card. Without
    an explicit z-index of their own, their paint order relative to that
    tooltip is z-index:auto — NOT guaranteed to lose to a positive z-index in
    every browser/nesting scenario, confirmed live it was covering the
    tooltip on hover. Pinning all three to 0 makes Syncfusion's 1 win
    unconditionally, per the CSS stacking rule that any positive z-index
    always paints above a 0 in the same context. */
-.nx-donut-center {
+.nx-circular-chart-center {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -46,7 +46,7 @@
   max-width: 70%;
   z-index: 0;
 }
-.nx-donut-badge {
+.nx-circular-chart-badge {
   position: absolute;
   transform: translate(-50%, -50%);
   pointer-events: none;
@@ -62,12 +62,12 @@
 }
 /* Flat placeholder ring for isEmpty, plain CSS border-circle rather than an
    SVG pie since there's no data to divide into slices. width/height are set
-   inline from emptyRingSizePx() (nx-donut.component.ts) — NOT hardcoded
+   inline from emptyRingSizePx() (nx-circular-chart.component.ts) — NOT hardcoded
    here — so this matches whatever radius% a real pie on this same card
    would have used, rather than always filling the full 130px chart box
    regardless of that setting (confirmed live: that mismatch made an
-   all-zero donut's ring visibly bigger than its populated neighbors'). */
-.nx-donut-empty-ring {
+   all-zero circular chart's ring visibly bigger than its populated neighbors'). */
+.nx-circular-chart-empty-ring {
   position: relative;
   max-width: 100%;
   margin: 0 auto;
@@ -76,10 +76,10 @@
   box-sizing: border-box;
   z-index: 0;
 }
-.nx-donut-center--empty {
+.nx-circular-chart-center--empty {
   color: #9aa0a6;
 }
-.nx-donut-empty-text {
+.nx-circular-chart-empty-text {
   font-weight: 500;
   font-size: 11px;
 }

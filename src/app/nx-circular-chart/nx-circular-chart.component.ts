@@ -1,17 +1,17 @@
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from "@angular/core";
 import { AccumulationChart, AccumulationSeriesModel, AccumulationTooltip, PieSeries } from "@syncfusion/ej2-angular-charts";
-import { DonutConfig } from "./model/nx-donut-model";
+import { CircularChartConfig } from "./model/nx-circular-chart-model";
 
 // Same registration pattern as nx-map-demo.component.ts's Maps.Inject(...)
 // — only the pieces this component actually renders (pie series, its
 // tooltip; no legend component needed — a shared legend, if the host wants
-// one, belongs in NxDonutCollectionComponent, not repeated per card).
+// one, belongs in NxCircularChartCollectionComponent, not repeated per card).
 // AccumulationDataLabel is deliberately NOT injected — see buildSeries()'s
 // own comment on why this component draws its own value badges instead of
 // using Syncfusion's.
 AccumulationChart.Inject(PieSeries, AccumulationTooltip);
 
-// Default palette, cycled by slice index when a DonutSlice doesn't set its
+// Default palette, cycled by slice index when a CircularChartSlice doesn't set its
 // own `color`.
 const DEFAULT_PALETTE = ["#1f4e79", "#e07b39", "#3fae5a", "#c94a3f", "#8e5ea2", "#3fbfbf"];
 
@@ -19,56 +19,56 @@ const DEFAULT_PALETTE = ["#1f4e79", "#e07b39", "#3fae5a", "#c94a3f", "#8e5ea2", 
 // emptyRingSize() below (the CSS placeholder's diameter) — see
 // emptyRingSize()'s own comment for why both need to agree on this.
 const DEFAULT_RADIUS_PERCENT = 80;
-// .nx-donut-empty-ring/the real <ejs-accumulationchart> both sit in the
+// .nx-circular-chart-empty-ring/the real <ejs-accumulationchart> both sit in the
 // same 130px-square box (see that chart's own height="130px" width="100%"
-// in the template, and .nx-donut-empty-ring's own comment).
+// in the template, and .nx-circular-chart-empty-ring's own comment).
 const CHART_BOX_PX = 130;
 
-// Fallback when a donut's own config.tooltipFormat (RawDonutNode.TooltipFormat
-// in real-donut-parent-config.json) is unset — same Syncfusion placeholder
+// Fallback when a circular chart's own config.tooltipFormat (RawCircularChartNode.TooltipFormat
+// in real-circular-chart-parent-config.json) is unset — same Syncfusion placeholder
 // syntax, used verbatim as AccumulationTooltipSettingsModel.format either way.
 const DEFAULT_TOOLTIP_FORMAT = "${point.x}: ${point.y}";
 
 // A plain-HTML value badge this component draws itself, positioned from the
 // chart's own (reliable) point angle — see buildSeries()'s comment for why.
-interface DonutBadge {
+interface CircularChartBadge {
   text: string;
   left: number;
   top: number;
 }
 
-// Single donut card — one Syncfusion accumulation chart plus a centered
+// Single circular chart card — one Syncfusion accumulation chart plus a centered
 // label and this component's own value badges. Deliberately dumb/
 // presentational: it renders whatever `config` it's given and emits
 // `select` on a click anywhere on the card; it has no idea it's one of a
 // list, what a "sub-layer" is, or what happens after a click — that's
-// NxDonutCollectionComponent's job (see nx-donut-collection.component.ts).
+// NxCircularChartCollectionComponent's job (see nx-circular-chart-collection.component.ts).
 // Sibling to nx-map, sharing nothing with it: own module, own config
 // schema, own Syncfusion package (ej2-angular-charts vs. ej2-angular-maps).
 @Component({
-  selector: "app-nx-donut",
-  templateUrl: "./nx-donut.component.html",
-  styleUrls: ["./nx-donut.component.scss"]
+  selector: "app-nx-circular-chart",
+  templateUrl: "./nx-circular-chart.component.html",
+  styleUrls: ["./nx-circular-chart.component.scss"]
 })
-export class NxDonutComponent implements OnChanges {
-  // A single merged DonutConfig — NxDonutCollectionComponent already builds
-  // one fully-resolved object per donut (buildDonutConfigs()), data included,
+export class NxCircularChartComponent implements OnChanges {
+  // A single merged CircularChartConfig — NxCircularChartCollectionComponent already builds
+  // one fully-resolved object per circular chart (buildCircularChartConfigs()), data included,
   // so there's no separate values source left to split out at THIS
-  // boundary — unlike NxDonutCollectionComponent's own rawConfig/
+  // boundary — unlike NxCircularChartCollectionComponent's own rawConfig/
   // trendResponse inputs, which really do come from two different places
   // upstream (see that component's own comment).
-  @Input() config?: DonutConfig;
+  @Input() config?: CircularChartConfig;
   @Input() selected = false;
 
   // Fired on a click anywhere on the card — no payload, since the
-  // collection component already has this donut's own config/id in scope
-  // (it's iterating `donuts` when it binds `[config]` here in the first
+  // collection component already has this circular chart's own config/id in scope
+  // (it's iterating `circularCharts` when it binds `[config]` here in the first
   // place) and knows what to do with a selection; this component doesn't
   // need to know what a "sub-layer" is to report "I was clicked".
   @Output() select = new EventEmitter<void>();
 
   series: AccumulationSeriesModel[] = [];
-  badges: DonutBadge[] = [];
+  badges: CircularChartBadge[] = [];
 
   // Own copies, not shared across cards — confirmed live that binding every
   // <ejs-accumulationchart> to ONE shared `{ visible: false }`-style object
@@ -92,7 +92,7 @@ export class NxDonutComponent implements OnChanges {
   margin = { top: 0, bottom: 0, left: 0, right: 0 };
 
   get chartElementId(): string {
-    return `nx-donut-${this.config?.id ?? "unknown"}`;
+    return `nx-circular-chart-${this.config?.id ?? "unknown"}`;
   }
 
   // True when every slice is 0 — this metric has no readings at all on the
@@ -101,17 +101,17 @@ export class NxDonutComponent implements OnChanges {
   // 100%-filled pie same as any other split). A genuinely all-zero
   // dataSource has nothing for Syncfusion's pie series to divide up, so
   // ngOnChanges() below skips building a series for it entirely and the
-  // template swaps in .nx-donut-empty-ring instead.
+  // template swaps in .nx-circular-chart-empty-ring instead.
   get isEmpty(): boolean {
     return !!this.config && this.config.data.every(d => !d.y);
   }
 
-  // .nx-donut-empty-ring is a plain CSS border-circle, not a Syncfusion
+  // .nx-circular-chart-empty-ring is a plain CSS border-circle, not a Syncfusion
   // series — it never went through buildSeries()'s own `radius` at all, so
   // it always rendered at a flat 130px regardless of what a real pie on
   // this same card would have used. Confirmed live: with the real chart's
   // own default reduced to 80% (see DEFAULT_RADIUS_PERCENT), that made an
-  // all-zero donut's empty ring look visibly BIGGER than every populated
+  // all-zero circular chart's empty ring look visibly BIGGER than every populated
   // neighbor's actual pie — even a null/absent config.radius, since the two
   // paths were never reading the same value. Deriving this ring's own
   // diameter from the exact same config.radius (and the exact same
@@ -129,16 +129,16 @@ export class NxDonutComponent implements OnChanges {
     }
   }
 
-  // A slice's own tooltip (DonutSlice.tooltip — from the API's own
-  // Data[0].ToolTip, see parent-donut-config-transform.ts's buildSlices())
+  // A slice's own tooltip (CircularChartSlice.tooltip — from the API's own
+  // Data[0].ToolTip, see parent-circular-chart-config-transform.ts's buildSlices())
   // wins outright whenever it's actually set (non-empty). Otherwise falls
-  // back to this donut's own config.tooltipFormat (RawDonutNode.TooltipFormat)
+  // back to this circular chart's own config.tooltipFormat (RawCircularChartNode.TooltipFormat)
   // or the component default, with that POINT's own x/y substituted in —
-  // same two placeholders parent-donut-config-transform.ts's own
+  // same two placeholders parent-circular-chart-config-transform.ts's own
   // TooltipFormat comment documents, manually substituted here (rather than
   // left for Syncfusion's own parseTemplate()) since this needs to run once
   // per point, ahead of time, not once per series.
-  private resolveTooltipText(config: DonutConfig, slice: DonutConfig["data"][number]): string {
+  private resolveTooltipText(config: CircularChartConfig, slice: CircularChartConfig["data"][number]): string {
     if (slice.tooltip?.trim()) {
       return slice.tooltip;
     }
@@ -147,7 +147,7 @@ export class NxDonutComponent implements OnChanges {
       .replace(/\$\{point\.y\}/g, String(slice.y));
   }
 
-  private buildSeries(config: DonutConfig): AccumulationSeriesModel[] {
+  private buildSeries(config: CircularChartConfig): AccumulationSeriesModel[] {
     return [
       {
         dataSource: config.data.map((d, i) => ({
@@ -165,8 +165,8 @@ export class NxDonutComponent implements OnChanges {
         // then just displays as-is.
         tooltipMappingName: "tooltip",
         innerRadius: config.innerRadius ?? "72%",
-        // Per-donut config.radius (DonutCardConfig, threaded from
-        // RawDonutNode.Radius in real-donut-parent-config.json) overrides
+        // Per-circular-chart config.radius (CircularChartCardConfig, threaded from
+        // RawCircularChartNode.Radius in real-circular-chart-parent-config.json) overrides
         // DEFAULT_RADIUS_PERCENT when set — see emptyRingSizePx()'s own
         // comment for why that same default (not Syncfusion's own, ~80% but
         // computed differently) has to be shared with the empty-ring

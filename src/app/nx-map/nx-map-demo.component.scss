@@ -316,7 +316,7 @@
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
 }
 
-/* No donut metric selected -> injectMarkerTooltipTemplate() omits
+/* No circular chart metric selected -> injectMarkerTooltipTemplate() omits
    .mtt-grid entirely and adds this class instead of the metrics-card
    sizing above, so a bare marker name doesn't get stretched to the same
    240px/14-16px card meant for a multi-tile metrics tooltip. */
@@ -591,7 +591,7 @@
    divs (including a completely different layer's, e.g. a static
    layer's own markers sharing the same screen position) never got
    Syncfusion's mouseover far enough to open its tooltip — this
-   wrapper was eating the event first. Only meaningful once a donut
+   wrapper was eating the event first. Only meaningful once a circular chart
    selection actually adds the overlay layer (buildMarkerPoints() in
    nx-map-builder.service.ts); harmless no-op otherwise. */
 ::ng-deep [class*="_marker_template_element"] {

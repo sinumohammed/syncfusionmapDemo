@@ -160,7 +160,22 @@
                 "YAxisName": "",
                 "ShowLegend": true,
                 "Data": [
-                  { "SeriesID": "4-2", "XValue": "Non-customer impact", "YValue": "0", "ToolTip": "", "ItemStyle": { "color": "#e07b39" }, "ItemStyleJson": "", "ReportDate": "2026-08-18" }
+                  { "SeriesID": "4-2", "XValue": "Non-customer impact", "YValue": "2", "ToolTip": "", "ItemStyle": { "color": "#e07b39" }, "ItemStyleJson": "", "ReportDate": "2026-08-18" }
+                ]
+              },
+              {
+                "TrendID": "4",
+                "SeriesID": "4-3",
+                "SeriesName": "Other impact",
+                "LegendName": "Other impact",
+                "Color": "#e07b39",
+                "StackName": "",
+                "HeaderSummary": "",
+                "YAxisID": "",
+                "YAxisName": "",
+                "ShowLegend": true,
+                "Data": [
+                  { "SeriesID": "4-3", "XValue": "Other impact", "YValue": "3", "ToolTip": "", "ItemStyle": { "color": "#3fae5a" }, "ItemStyleJson": "", "ReportDate": "2026-08-18" }
                 ]
               }
             ],

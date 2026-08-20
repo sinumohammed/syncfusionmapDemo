@@ -128,3 +128,43 @@ A few pieces of DOM-dependent logic in `nx-map-demo.component.ts`/`nx-map-builde
 - `NxMapDemoComponent.animateNavigationLines()` — finds rendered line `<path>` elements via `path[id*="NavigationLineIndex"]` to apply a start-to-end stroke-draw animation.
 
 Feeding Syncfusion's own per-layer `visible` flag from app state is deliberately avoided (`nx-map-builder.service.ts`'s `refresh()`/`buildLayers()` always pass `true`) — confirmed live that Syncfusion drops an invisible layer from its internal `layersCollection` and renumbers every later layer's rendered `_LayerIndex_<n>` DOM id, desyncing any code (like the layer panel's show/hide) that maps a layer index to that id. Layer show/hide is instead a plain DOM `display:none` toggle (`syncLayerDomVisibility()`), keyed off `NXMapBuilderService.getLayerVisible()`.
+
+# nx-circular-chart
+
+Angular + Syncfusion Charts (`@syncfusion/ej2-angular-charts`, `AccumulationChart`/`PieSeries`) sibling demo — a collection of small Pie/Doughnut/SemiCircle cards, independent of nx-map (own module, own config schema, own Syncfusion package). Renders one `<app-nx-circular-chart>` per item, click-to-select feeding `NxMapCollectionComponent`'s own `circularChartSelection` input in the shared demo shell (`app.component.ts`).
+
+## Structure
+
+- `app/nx-circular-chart/model/nx-circular-chart-model.ts` — `CircularChartConfig`/`CircularChartCardConfig`/`CircularChartSlice` (what the component renders), `CircularChartTypes` (Pie/Doughnut/SemiCircle enum), `DEFAULT_PALETTE`, the upstream widget payload shape (`RawCircularChartNode`/`RawCircularChartCollectionNode`), and the trend API response shape (`TrendGroup`/`TrendNode`/`TrendLeaf`/`TrendSeries`/`TrendDataPoint`).
+- `app/nx-circular-chart/services/parent-circular-chart-config-transform.ts` — `buildCircularChartConfigs()`/`buildCircularChartConfig()`: merges one `RawCircularChartNode` + its matched `TrendLeaf` into one `CircularChartConfig`.
+- `app/nx-circular-chart/nx-circular-chart-collection.component.ts` — takes `rawConfig`/`trendResponse`, builds the `CircularChartConfig[]`, owns which card is selected, emits `sublayersSelected` (a `CircularChartSelectionEvent`) on click.
+- `app/nx-circular-chart/nx-circular-chart.component.ts` — single card: one Syncfusion accumulation chart + centered label + this component's own value badges (see "Value badges" below).
+- `app/nx-circular-chart/testing/real-circular-chart-parent-config.json` — example `RawCircularChartCollectionNode` payload.
+- `assets/mock-api/trend-response.json` — example trend API response.
+
+## Config merge (widget config + trend API)
+
+Each card's final `CircularChartConfig` comes from two independent sources, matched by `Name` (widget config) vs. innermost `TrendName` (trend response), case/spacing-insensitively (`normalizeName()`):
+
+- **Slice data** (`data`) — the matched `TrendLeaf`'s own `Series[]` wins outright whenever it has at least one usable series; otherwise falls back to the widget node's own hardcoded `Data` (a JSON-encoded `CircularChartSlice[]` string). Both absent/empty renders the empty (no-data) state, still fully clickable (not blocked — an all-zero card is still a real, meaningful selection on the map's own green-marker path).
+- **`chartType`** (`RawCircularChartNode.ChartType`, same numeric values as `CircularChartTypes`) — the matched leaf's own `ChartType` (sitting at the leaf level alongside `TrendID`/`TrendName`, a per-chart property) overrides the widget config's `ChartType` when present. Absent/unrecognized on both sides falls through to `CircularChartTypes.Doughnut`.
+- **`applyGradient`** (`RawCircularChartNode.ApplyGradient`) — same leaf-overrides-config precedence as `chartType`.
+- **`radius`/`innerRadius`/`tooltipFormat`** — widget-config-only (`RawCircularChartNode.Radius`/`InnerRadius`/`TooltipFormat`), no trend-response override; unset falls through to `NxCircularChartComponent`'s own defaults (`80%` outer radius, `72%` inner radius for non-Pie, the component's own tooltip format string).
+
+Display order across the collection is `RawCircularChartNode.Order` (ties keep `Configuration[]`'s own declared order — `Array.sort()` is stable), deliberately not the upstream node's own `PrintOrder`.
+
+## Chart shape (`CircularChartTypes`)
+
+`Pie = 1`, `Doughnut = 2`, `SemiCircle = 3`. This Syncfusion version's own `AccumulationType` only distinguishes Pie/Funnel/Pyramid (no native Doughnut) — a doughnut IS a Pie series with a non-zero `innerRadius`, so Syncfusion's own `type` stays `"Pie"` regardless and Pie-vs-Doughnut is driven purely by `innerRadius` (`"0%"` for `CircularChartTypes.Pie`, else `config.innerRadius ?? "72%"`). SemiCircle renders as an ordinary Doughnut with `startAngle: 270`/`endAngle: 90` pinned (Syncfusion has no native SemiCircle series type).
+
+The empty (no-data) CSS placeholder shape follows the same `chartType`: Doughnut keeps the existing hollow ring, Pie is a solid filled disc (no hole), SemiCircle clips the ring to its right half (`clip-path: inset(0 0 0 50%)`) to match the real chart's own half-sweep.
+
+## Gradient fill (`applyGradient`)
+
+Syncfusion's accumulation chart here has no built-in gradient-fill property. When `config.applyGradient` is set, each slice's flat `color` is swapped for a `url(#id)` reference into an inline `<svg><defs><linearGradient>` the template renders ahead of `<ejs-accumulationchart>` — one 2-stop gradient per slice, derived from that slice's own resolved base color blended toward white (light stop) and black (dark stop), so no second color needs to come from config.
+
+## Value badges & center label
+
+Syncfusion 29.2's `AccumulationDataLabel` module (Outside AND Inside) leaves `labelRegion` permanently `null` for roughly a 25%-32%/68%-75% two-point split (confirmed live, not an Angular-binding issue) — `NxCircularChartComponent` draws its own value badges instead, positioned from each point's own `midAngle`/`pieSeriesModule.center`/`radius` (read in the `loaded` event's `onChartLoaded()`, which stay correct in every case tested).
+
+The centered label (`.nx-circular-chart-center`) is positioned from that same `pieModule.center`, not a static CSS `50%/50%` — a SemiCircle's visible arc doesn't fill the box symmetrically and Syncfusion recenters it internally, so the CSS default left the label crowding the ring's own straight edge. Falls back to CSS `50%/50%` (via `centerLabelPosition: null`) until the chart's first `loaded` fires, or when empty (no chart rendered at all).

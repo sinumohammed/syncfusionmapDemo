@@ -49,19 +49,25 @@ export class NxCircularChartCollectionComponent implements OnChanges {
     if (!changes.rawConfig && !changes.trendResponse) {
       return;
     }
-    console.log('sino')
     this.circularCharts = this.rawConfig ? buildCircularChartConfigs(this.rawConfig, this.trendResponse ?? []) : [];
     this.selectedId = null;
-    // Legend is derived from the first circular chart's own slice labels/colors —
-    // every circular chart in a collection is expected to share the same category
-    // scheme (e.g. "Customer impact"/"Non-customer impact"), same as the
-    // demo config does; a collection mixing incompatible schemes just gets
-    // the first circular chart's legend, no worse than showing seven different ones
-    // stacked on top of each other.
-    this.legendItems = (this.circularCharts[0]?.data ?? []).map((d, i) => ({
-      label: d.x,
-      color: d.color ?? DEFAULT_PALETTE[i % DEFAULT_PALETTE.length]
-    }));
+    // Legend is derived from the UNION of every circular chart's own slice
+    // labels/colors, not just the first chart's — different charts in the
+    // same collection can each carry their own subset of categories (e.g.
+    // DISSOLVED adding an "Other impact" slice no other chart has), and all
+    // of them still need to show up in the one shared legend. Dedup by
+    // label, keeping the color/position from wherever that label was first
+    // seen (ordered by circularCharts order, then by that chart's own slice
+    // order).
+    const seen = new Map<string, string>();
+    this.circularCharts.forEach(chart =>
+      (chart.data ?? []).forEach((d, i) => {
+        if (!seen.has(d.x)) {
+          seen.set(d.x, d.color ?? DEFAULT_PALETTE[i % DEFAULT_PALETTE.length]);
+        }
+      })
+    );
+    this.legendItems = Array.from(seen, ([label, color]) => ({ label, color }));
   }
 
   onCircularChartSelected(circularChart: CircularChartConfig): void {

@@ -181,7 +181,7 @@
       "ApiUrl": null,
       "Data": "[{\"x\":\"Customer impact\",\"y\":7,\"color\":\"#1f4e79\"},{\"x\":\"Non-customer impact\",\"y\":7,\"color\":\"#e07b39\"}]",
       "Radius": null,
-      "ChartType": 1,
+      "ChartType": 2,
       "ComponentType": 7120,
       "ElementType": 7120,
       "Configuration": null,

@@ -77,6 +77,13 @@ function blend(hex: string, target: [number, number, number], amount: number): s
   styleUrls: ["./nx-circular-chart.component.scss"]
 })
 export class NxCircularChartComponent implements OnChanges {
+  // Exposed so the template can compare against it directly (Angular
+  // templates can't reference an imported enum on their own) — see
+  // .nx-circular-chart-empty-ring's own template binding for why the empty
+  // placeholder needs to know Pie vs. Doughnut vs. SemiCircle too, not just
+  // isEmpty.
+  readonly CircularChartTypes = CircularChartTypes;
+
   // A single merged CircularChartConfig — NxCircularChartCollectionComponent already builds
   // one fully-resolved object per circular chart (buildCircularChartConfigs()), data included,
   // so there's no separate values source left to split out at THIS
@@ -134,6 +141,14 @@ export class NxCircularChartComponent implements OnChanges {
   // template swaps in .nx-circular-chart-empty-ring instead.
   get isEmpty(): boolean {
     return !!this.config && this.config.data.every(d => !d.y);
+  }
+
+  // Same default as buildSeries()'s own `chartType` local — the empty
+  // placeholder needs to agree with whatever a real (non-empty) render of
+  // this same config would have picked, so isEmpty toggling on/off (e.g. a
+  // live trend refresh) never flips the card's own shape.
+  get emptyChartType(): CircularChartTypes {
+    return this.config?.chartType ?? CircularChartTypes.Doughnut;
   }
 
   // .nx-circular-chart-empty-ring is a plain CSS border-circle, not a Syncfusion

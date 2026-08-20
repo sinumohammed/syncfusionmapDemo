@@ -76,6 +76,22 @@
   box-sizing: border-box;
   z-index: 0;
 }
+/* Pie has no hole — a solid filled disc instead of the default hollow
+   ring, same grey as the ring's own border color. See
+   NxCircularChartComponent.emptyChartType's own comment for why the empty
+   placeholder shape has to track chartType, not just isEmpty. */
+.nx-circular-chart-empty-ring--pie {
+  border: none;
+  background: #e3e5e8;
+}
+/* Right half only, matching buildSeries()'s own startAngle:270/endAngle:90
+   for a real SemiCircle render (270° start sweeps clockwise through 0°/3
+   o'clock to 90°/6 o'clock — the right half of the circle). Layered on top
+   of the default ring styling above, not a replacement for it — a
+   SemiCircle is still a Doughnut underneath, just half-swept. */
+.nx-circular-chart-empty-ring--semicircle {
+  clip-path: inset(0 0 0 50%);
+}
 .nx-circular-chart-center--empty {
   color: #9aa0a6;
 }

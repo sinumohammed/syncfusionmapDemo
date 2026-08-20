@@ -97,13 +97,13 @@ export function buildCircularChartConfig(node: RawCircularChartNode, leaf: Trend
     radius: node.Radius ?? undefined,
     innerRadius: node.InnerRadius ?? undefined,
     tooltipFormat: node.TooltipFormat ?? undefined,
-    // The trend API's own ChartType (leaf.Series[0], see TrendSeries' own
-    // comment) overrides node.Type when present, same API-wins-over-config
+    // The trend API's own ChartType (leaf, see TrendLeaf's own comment)
+    // overrides node.ChartType when present, same API-wins-over-config
     // precedence as `data` below — both are already the same numeric enum
     // CircularChartTypes uses, so no separate mapping, just the type cast
     // plus a default for absent/null.
-    chartType: ((leaf?.Series?.[0]?.ChartType ?? node.ChartType) as CircularChartTypes | null | undefined) ?? CircularChartTypes.Doughnut,
-    applyGradient: leaf?.Series?.[0]?.ApplyGradient ?? node.ApplyGradient ?? undefined,
+    chartType: ((leaf?.ChartType ?? node.ChartType) as CircularChartTypes | null | undefined) ?? CircularChartTypes.Doughnut,
+    applyGradient: leaf?.ApplyGradient ?? node.ApplyGradient ?? undefined,
     data: apiSlices.length ? apiSlices : parseNodeData(node.Data)
   };
 }

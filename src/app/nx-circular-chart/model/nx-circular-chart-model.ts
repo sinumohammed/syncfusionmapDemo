@@ -212,23 +212,23 @@ export interface TrendSeries {
   SeriesName?: string;
   LegendName?: string;
   Color?: string;
-  // Same numeric values as CircularChartTypes — a per-CHART property (Pie vs.
-  // Doughnut vs. SemiCircle applies to the whole circular chart, not one
-  // slice), but carried on the first series same as the real upstream
-  // payload sends it. See buildCircularChartConfig()'s own comment for why
-  // this overrides RawCircularChartNode.Type when present, same
-  // API-wins-over-config precedence as `data`.
-  ChartType?: number;
-  // Same API-wins-over-config precedence as ChartType above, overriding
-  // RawCircularChartNode.ApplyGradient when present — see
-  // CircularChartCardConfig.applyGradient's own comment for what it does.
-  ApplyGradient?: boolean;
   Data?: TrendDataPoint[];
 }
 
 export interface TrendLeaf {
   TrendID?: string;
   TrendName?: string;
+  // Same numeric values as CircularChartTypes — a per-CHART property (Pie
+  // vs. Doughnut vs. SemiCircle applies to the whole circular chart, not
+  // one slice), so it sits at this leaf level alongside TrendID/TrendName,
+  // not nested under one Series entry. See buildCircularChartConfig()'s own
+  // comment for why this overrides RawCircularChartNode.ChartType when
+  // present, same API-wins-over-config precedence as `data`.
+  ChartType?: number;
+  // Same API-wins-over-config precedence as ChartType above, overriding
+  // RawCircularChartNode.ApplyGradient when present — see
+  // CircularChartCardConfig.applyGradient's own comment for what it does.
+  ApplyGradient?: boolean;
   Series?: TrendSeries[];
 }
 

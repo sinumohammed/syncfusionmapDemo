@@ -8,6 +8,8 @@
           {
             "TrendID": "1",
             "TrendName": "TVP",
+            "ChartType": 2,
+            "ApplyGradient": true,
             "Status": "OK",
             "StatusMessage": "",
             "Series": [
@@ -17,8 +19,6 @@
                 "SeriesName": "Customer impact",
                 "LegendName": "Customer impact",
                 "Color": "#1f4e79",
-                "ChartType": 2,
-                "ApplyGradient": true,
                 "StackName": "",
                 "HeaderSummary": "",
                 "YAxisID": "",
@@ -250,6 +250,7 @@
           {
             "TrendID": "7",
             "TrendName": "FLOW",
+            "ChartType": 3,
             "Status": "OK",
             "StatusMessage": "",
             "Series": [

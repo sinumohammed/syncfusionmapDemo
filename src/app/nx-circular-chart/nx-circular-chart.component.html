@@ -41,7 +41,14 @@
        markers, just all in the normal/green color, same as any other
        metric's own "normal" readings — confirmed this needs to work
        identically to a populated circular chart's click, not be blocked. -->
-  <div class="nx-circular-chart-empty-ring" *ngIf="isEmpty" [style.width.px]="emptyRingSizePx" [style.height.px]="emptyRingSizePx"></div>
+  <div
+    class="nx-circular-chart-empty-ring"
+    *ngIf="isEmpty"
+    [class.nx-circular-chart-empty-ring--pie]="emptyChartType === CircularChartTypes.Pie"
+    [class.nx-circular-chart-empty-ring--semicircle]="emptyChartType === CircularChartTypes.SemiCircle"
+    [style.width.px]="emptyRingSizePx"
+    [style.height.px]="emptyRingSizePx"
+  ></div>
   <div class="nx-circular-chart-center" [class.nx-circular-chart-center--empty]="isEmpty">
     {{ config?.label }}<ng-container *ngIf="isEmpty"><br /><span class="nx-circular-chart-empty-text">No data</span></ng-container>
   </div>

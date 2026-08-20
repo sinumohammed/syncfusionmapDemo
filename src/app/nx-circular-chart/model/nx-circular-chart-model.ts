@@ -150,6 +150,11 @@ export interface RawCircularChartNode {
   // buildSeries() comment) — absent/null just falls through to that
   // default, same as innerRadius already does.
   Radius?: string | null;
+  // This circular chart's own inner (hole) radius — same string-percentage
+  // format and convention as Radius above, maps straight to
+  // CircularChartCardConfig.innerRadius. Absent/null falls through to
+  // NxCircularChartComponent's own default ("72%"), same as Radius/TooltipFormat.
+  InnerRadius?: string | null;
   // Per-circular-chart tooltip format string, Syncfusion's own placeholder syntax
   // (e.g. "${point.x}: ${point.y}%") — already a field on the real upstream
   // node (every sample in real-circular-chart-parent-config.json carries it, just

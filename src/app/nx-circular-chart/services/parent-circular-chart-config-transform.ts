@@ -95,6 +95,7 @@ export function buildCircularChartConfig(node: RawCircularChartNode, leaf: Trend
     id: normalizeName(node.Name) || String(node.Id ?? ""),
     label: node.Name ?? "",
     radius: node.Radius ?? undefined,
+    innerRadius: node.InnerRadius ?? undefined,
     tooltipFormat: node.TooltipFormat ?? undefined,
     // The trend API's own ChartType (leaf.Series[0], see TrendSeries' own
     // comment) overrides node.Type when present, same API-wins-over-config

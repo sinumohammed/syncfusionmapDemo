@@ -102,6 +102,15 @@ export class NxCircularChartComponent implements OnChanges {
 
   series: AccumulationSeriesModel[] = [];
   badges: CircularChartBadge[] = [];
+  // Positions .nx-circular-chart-center from Syncfusion's own pieModule.center
+  // (see onChartLoaded()'s own comment) instead of the template's CSS
+  // 50%/50% default — for a full Pie/Doughnut those are the same point, but
+  // a SemiCircle's own visible arc doesn't fill the box symmetrically, and
+  // Syncfusion recenters it accordingly; the CSS default left the label
+  // sitting right against the ring's own straight edge for that case.
+  // null (ngOnChanges' own reset, before this render's first `loaded`
+  // fires) falls back to that CSS default.
+  centerLabelPosition: { left: number; top: number } | null = null;
   // Rendered by the template into an inline <svg><defs> ahead of
   // <ejs-accumulationchart> — see buildSeries()'s own comment. Empty
   // whenever config.applyGradient is unset/false (the existing flat-color path).
@@ -143,11 +152,12 @@ export class NxCircularChartComponent implements OnChanges {
     return !!this.config && this.config.data.every(d => !d.y);
   }
 
-  // Same default as buildSeries()'s own `chartType` local — the empty
-  // placeholder needs to agree with whatever a real (non-empty) render of
-  // this same config would have picked, so isEmpty toggling on/off (e.g. a
-  // live trend refresh) never flips the card's own shape.
-  get emptyChartType(): CircularChartTypes {
+  // Same default as buildSeries()'s own `chartType` local — used by the
+  // template both for the empty placeholder's own shape (so isEmpty
+  // toggling on/off, e.g. a live trend refresh, never flips the card's
+  // shape) AND to reposition .nx-circular-chart-center for a real,
+  // populated SemiCircle render (see that class's own comment).
+  get chartType(): CircularChartTypes {
     return this.config?.chartType ?? CircularChartTypes.Doughnut;
   }
 
@@ -172,6 +182,10 @@ export class NxCircularChartComponent implements OnChanges {
       this.gradients = [];
       this.series = this.config && !this.isEmpty ? this.buildSeries(this.config) : [];
       this.badges = [];
+      // See centerLabelPosition's own comment — null falls back to the
+      // template's own CSS 50%/50% default until onChartLoaded() reports a
+      // real one for this (possibly new) config.
+      this.centerLabelPosition = null;
     }
   }
 
@@ -281,6 +295,7 @@ export class NxCircularChartComponent implements OnChanges {
     const center = pieModule.center ?? { x: chart.availableSize.width / 2, y: chart.availableSize.height / 2 };
     const radius = (pieModule.labelRadius ?? pieModule.radius ?? Math.min(chart.availableSize.width, chart.availableSize.height) / 2) + 10;
 
+    this.centerLabelPosition = { left: center.x, top: center.y };
     this.badges = points.map((p: any) => {
       const radians = (p.midAngle * Math.PI) / 180;
       return {

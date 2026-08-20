@@ -1,6 +1,6 @@
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from "@angular/core";
 import { AccumulationChart, AccumulationSeriesModel, AccumulationTooltip, PieSeries } from "@syncfusion/ej2-angular-charts";
-import { CircularChartConfig } from "./model/nx-circular-chart-model";
+import { CircularChartConfig, CircularChartTypes, DEFAULT_PALETTE } from "./model/nx-circular-chart-model";
 
 // Same registration pattern as nx-map-demo.component.ts's Maps.Inject(...)
 // — only the pieces this component actually renders (pie series, its
@@ -10,10 +10,6 @@ import { CircularChartConfig } from "./model/nx-circular-chart-model";
 // own comment on why this component draws its own value badges instead of
 // using Syncfusion's.
 AccumulationChart.Inject(PieSeries, AccumulationTooltip);
-
-// Default palette, cycled by slice index when a CircularChartSlice doesn't set its
-// own `color`.
-const DEFAULT_PALETTE = ["#1f4e79", "#e07b39", "#3fae5a", "#c94a3f", "#8e5ea2", "#3fbfbf"];
 
 // Shared by buildSeries() (the real Syncfusion pie's own `radius`) AND
 // emptyRingSize() below (the CSS placeholder's diameter) — see
@@ -35,6 +31,36 @@ interface CircularChartBadge {
   text: string;
   left: number;
   top: number;
+}
+
+// One <linearGradient> the template renders into an inline <svg><defs>,
+// referenced from a point's own `color` as `url(#id)` — see buildSeries()'s
+// own comment for why config.applyGradient needs this rather than a Syncfusion
+// built-in (there isn't one).
+interface CircularChartGradientStop {
+  id: string;
+  from: string;
+  to: string;
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const clean = hex.replace("#", "");
+  const full = clean.length === 3 ? clean.split("").map(c => c + c).join("") : clean;
+  const value = parseInt(full, 16) || 0;
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+}
+
+function rgbToHex([r, g, b]: [number, number, number]): string {
+  return "#" + [r, g, b].map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0")).join("");
+}
+
+// Blends `hex` toward `target` by `amount` (0-1) — used below to derive a
+// gradient's own lighter (toward white) and darker (toward black) stop from
+// one slice's own resolved base color, rather than requiring two separate
+// colors from config.
+function blend(hex: string, target: [number, number, number], amount: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  return rgbToHex([r + (target[0] - r) * amount, g + (target[1] - g) * amount, b + (target[2] - b) * amount]);
 }
 
 // Single circular chart card — one Syncfusion accumulation chart plus a centered
@@ -69,6 +95,10 @@ export class NxCircularChartComponent implements OnChanges {
 
   series: AccumulationSeriesModel[] = [];
   badges: CircularChartBadge[] = [];
+  // Rendered by the template into an inline <svg><defs> ahead of
+  // <ejs-accumulationchart> — see buildSeries()'s own comment. Empty
+  // whenever config.applyGradient is unset/false (the existing flat-color path).
+  gradients: CircularChartGradientStop[] = [];
 
   // Own copies, not shared across cards — confirmed live that binding every
   // <ejs-accumulationchart> to ONE shared `{ visible: false }`-style object
@@ -124,6 +154,7 @@ export class NxCircularChartComponent implements OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes.config) {
+      this.gradients = [];
       this.series = this.config && !this.isEmpty ? this.buildSeries(this.config) : [];
       this.badges = [];
     }
@@ -148,14 +179,43 @@ export class NxCircularChartComponent implements OnChanges {
   }
 
   private buildSeries(config: CircularChartConfig): AccumulationSeriesModel[] {
+    // config.chartType (RawCircularChartNode.Type: 0/1/2, mapped by
+    // mapChartType() in parent-circular-chart-config-transform.ts) — this
+    // Syncfusion version's own AccumulationType only distinguishes
+    // Pie/Funnel/Pyramid (no native 'Doughnut'); a doughnut IS a Pie series
+    // with a non-zero innerRadius, so 'type' stays "Pie" below regardless
+    // and Pie-vs-Doughnut is driven purely by innerRadius, same as before
+    // Type was wired up — a 'Pie' forces innerRadius to "0%" (a hole makes
+    // no sense on a solid pie) even if config.innerRadius is set.
+    // 'SemiCircle' renders as an ordinary Doughnut with its
+    // startAngle/endAngle pinned to a half turn instead.
+    const chartType = config.chartType ?? CircularChartTypes.Doughnut;
+    const isPie = chartType === CircularChartTypes.Pie;
+    // config.applyGradient swaps each point's own flat `color` for a `url(#id)`
+    // reference into this.gradients (rendered by the template into an
+    // inline <svg><defs> ahead of the chart) — Syncfusion's own
+    // pointColorMapping just hands that string straight to the SVG path's
+    // fill either way, so no other change is needed for it to pick up a
+    // gradient over a flat color. Each stop is derived from that same
+    // point's own resolved base color (blend() toward white/black) rather
+    // than requiring a second color from config.
     return [
       {
-        dataSource: config.data.map((d, i) => ({
-          x: d.x,
-          y: d.y,
-          color: d.color ?? DEFAULT_PALETTE[i % DEFAULT_PALETTE.length],
-          tooltip: this.resolveTooltipText(config, d)
-        })),
+        dataSource: config.data.map((d, i) => {
+          const baseColor = d.color ?? DEFAULT_PALETTE[i % DEFAULT_PALETTE.length];
+          let color = baseColor;
+          if (config.applyGradient) {
+            const id = `${this.chartElementId}-grad-${i}`;
+            this.gradients.push({ id, from: blend(baseColor, [255, 255, 255], 0.35), to: blend(baseColor, [0, 0, 0], 0.15) });
+            color = `url(#${id})`;
+          }
+          return {
+            x: d.x,
+            y: d.y,
+            color,
+            tooltip: this.resolveTooltipText(config, d)
+          };
+        }),
         xName: "x",
         yName: "y",
         pointColorMapping: "color",
@@ -164,14 +224,18 @@ export class NxCircularChartComponent implements OnChanges {
         // above) into Syncfusion's point.tooltip, which "${point.tooltip}"
         // then just displays as-is.
         tooltipMappingName: "tooltip",
-        innerRadius: config.innerRadius ?? "72%",
+        type: "Pie",
+        innerRadius: isPie ? "0%" : config.innerRadius ?? "72%",
         // Per-circular-chart config.radius (CircularChartCardConfig, threaded from
         // RawCircularChartNode.Radius in real-circular-chart-parent-config.json) overrides
         // DEFAULT_RADIUS_PERCENT when set — see emptyRingSizePx()'s own
         // comment for why that same default (not Syncfusion's own, ~80% but
         // computed differently) has to be shared with the empty-ring
         // fallback rather than hardcoded separately in each place.
-        radius: config.radius ?? `${DEFAULT_RADIUS_PERCENT}%`
+        radius: config.radius ?? `${DEFAULT_RADIUS_PERCENT}%`,
+        // SemiCircle only — a full circle (Pie/Doughnut) leaves these
+        // unset so Syncfusion uses its own full-turn default.
+        ...(chartType === CircularChartTypes.SemiCircle ? { startAngle: 270, endAngle: 90 } : {})
         // No `dataLabel` here — Syncfusion 29.2's AccumulationDataLabel
         // module (Outside AND Inside position alike) leaves labelRegion
         // permanently null for roughly a 25%-32%/68%-75% two-point split,

@@ -4,6 +4,27 @@
 // represents so a click can tell the host what to ask the map for. It has
 // no idea what a "sub-layer" or "marker" actually is.
 
+// Default slice palette, cycled by index — shared by NxCircularChartComponent
+// (a slice's own dataSource color, when CircularChartSlice.color is unset)
+// and NxCircularChartCollectionComponent (the legend swatches, derived from
+// the first circular chart's own slices). Kept here rather than duplicated
+// in each component so the two can never quietly drift out of sync with
+// each other.
+export const DEFAULT_PALETTE = ["#1f4e79", "#e07b39", "#3fae5a", "#c94a3f", "#8e5ea2", "#3fbfbf"];
+
+// Syncfusion's own AccumulationSeriesModel.type ('Pie'/'Doughnut') plus a
+// third SemiCircle case (a Doughnut with its startAngle/endAngle pinned to
+// a half turn — see NxCircularChartComponent.buildSeries()'s own comment;
+// Syncfusion has no native SemiCircle series type). Values match the
+// upstream node's own Type field directly (RawCircularChartNode.Type) —
+// mapChartType() in parent-circular-chart-config-transform.ts just falls
+// back to Doughnut for anything absent/unrecognized, no other translation.
+export enum CircularChartTypes {  
+  Doughnut = 1,
+  Pie = 2,
+  SemiCircle = 3
+}
+
 export interface CircularChartSlice {
   // Slice label, also used as the pie's xName value and (absent `tooltip`
   // below) the tooltip text.
@@ -38,6 +59,15 @@ export interface CircularChartCardConfig {
   // e.g. "40%" — Syncfusion's own string-percentage format, unset renders a
   // solid pie instead of a circular chart.
   innerRadius?: string;
+  // Pie vs. Doughnut vs. SemiCircle — see CircularChartTypes' own comment.
+  // Unset falls through to NxCircularChartComponent's own default
+  // (Doughnut), same as radius/innerRadius/tooltipFormat.
+  chartType?: CircularChartTypes;
+  // Renders each slice as a 2-stop SVG linear gradient (light-to-dark of
+  // that slice's own resolved color) instead of a flat fill — see
+  // NxCircularChartComponent.buildSeries()'s own comment for how. Unset/false
+  // keeps the existing flat-color rendering.
+  applyGradient?: boolean;
   // This circular chart's own OUTER pie radius, same string-percentage format as
   // innerRadius — unset falls through to NxCircularChartComponent's own reduced
   // default (see its buildSeries() comment), not to Syncfusion's own
@@ -126,6 +156,17 @@ export interface RawCircularChartNode {
   // null so far). Absent/null falls through to NxCircularChartComponent's own
   // default format, same as innerRadius/radius already do.
   TooltipFormat?: string | null;
+  // Chart shape — same numeric values as CircularChartTypes itself (see its
+  // own comment) and the same field name as the trend API's own
+  // TrendSeries.ChartType (which overrides this when present — see
+  // buildCircularChartConfig()'s own comment), read straight through with
+  // no separate mapping. Absent/null falls through to
+  // NxCircularChartComponent's own Doughnut default, same as
+  // Radius/TooltipFormat.
+  ChartType?: number | null;
+  // See CircularChartCardConfig.applyGradient's own comment. Absent/null/false
+  // renders the existing flat color.
+  ApplyGradient?: boolean | null;
   Id?: number;
 }
 
@@ -166,6 +207,17 @@ export interface TrendSeries {
   SeriesName?: string;
   LegendName?: string;
   Color?: string;
+  // Same numeric values as CircularChartTypes — a per-CHART property (Pie vs.
+  // Doughnut vs. SemiCircle applies to the whole circular chart, not one
+  // slice), but carried on the first series same as the real upstream
+  // payload sends it. See buildCircularChartConfig()'s own comment for why
+  // this overrides RawCircularChartNode.Type when present, same
+  // API-wins-over-config precedence as `data`.
+  ChartType?: number;
+  // Same API-wins-over-config precedence as ChartType above, overriding
+  // RawCircularChartNode.ApplyGradient when present — see
+  // CircularChartCardConfig.applyGradient's own comment for what it does.
+  ApplyGradient?: boolean;
   Data?: TrendDataPoint[];
 }
 

@@ -4,6 +4,19 @@
   [class.nx-circular-chart-card--disabled]="isEmpty"
   (click)="select.emit()"
 >
+  <!-- Gradient defs referenced from a point's own color as url(#id) — see
+       NxCircularChartComponent.buildSeries()'s own comment. Zero-sized/absolutely
+       positioned since it only exists to hold <linearGradient>s, not to render
+       anything itself; must sit ahead of the chart in the DOM for Syncfusion's
+       own SVG to resolve the url(#id) reference. -->
+  <svg *ngIf="gradients.length" width="0" height="0" style="position: absolute">
+    <defs>
+      <linearGradient *ngFor="let g of gradients" [attr.id]="g.id" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" [attr.stop-color]="g.from"></stop>
+        <stop offset="100%" [attr.stop-color]="g.to"></stop>
+      </linearGradient>
+    </defs>
+  </svg>
   <ejs-accumulationchart
     *ngIf="series.length"
     [id]="chartElementId"

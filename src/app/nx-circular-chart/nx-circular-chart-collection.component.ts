@@ -1,6 +1,6 @@
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from "@angular/core";
 import { buildCircularChartConfigs } from "./services/parent-circular-chart-config-transform";
-import { CircularChartConfig, CircularChartSelectionEvent, RawCircularChartCollectionNode, TrendGroup } from "./model/nx-circular-chart-model";
+import { CircularChartConfig, CircularChartSelectionEvent, DEFAULT_PALETTE, RawCircularChartCollectionNode, TrendGroup } from "./model/nx-circular-chart-model";
 
 // Iterates NxCircularChartComponent — one <app-nx-circular-chart> per circular chart buildCircularChartConfigs()
 // resolves from the two inputs below, purely off its own returned length,
@@ -60,7 +60,7 @@ export class NxCircularChartCollectionComponent implements OnChanges {
     // stacked on top of each other.
     this.legendItems = (this.circularCharts[0]?.data ?? []).map((d, i) => ({
       label: d.x,
-      color: d.color ?? DEFAULT_LEGEND_PALETTE[i % DEFAULT_LEGEND_PALETTE.length]
+      color: d.color ?? DEFAULT_PALETTE[i % DEFAULT_PALETTE.length]
     }));
   }
 
@@ -77,8 +77,3 @@ export class NxCircularChartCollectionComponent implements OnChanges {
     });
   }
 }
-
-// Matches NxCircularChartComponent's own DEFAULT_PALETTE — kept in sync manually
-// since NxCircularChartComponent doesn't export it (this component only needs it
-// for the legend swatches, not for driving the chart itself).
-const DEFAULT_LEGEND_PALETTE = ["#1f4e79", "#e07b39", "#3fae5a", "#c94a3f", "#8e5ea2", "#3fbfbf"];

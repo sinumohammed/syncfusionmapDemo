@@ -1,5 +1,6 @@
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from "@angular/core";
+import { ChangeDetectorRef, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from "@angular/core";
 import { buildCircularChartConfigs } from "./services/parent-circular-chart-config-transform";
+import { NxCircularChartConfigService } from "./services/nx-circular-chart-config.service";
 import { CircularChartConfig, CircularChartSelectionEvent, DEFAULT_PALETTE, RawCircularChartCollectionNode, TrendGroup } from "./model/nx-circular-chart-model";
 
 // Iterates NxCircularChartComponent — one <app-nx-circular-chart> per circular chart buildCircularChartConfigs()
@@ -36,7 +37,8 @@ export class NxCircularChartCollectionComponent implements OnChanges {
   // Configuration[] entries by name — see buildCircularChartConfigs()'s own comment
   // for the exact join rules. Undefined/omitted renders every circular chart with no
   // data (the existing empty-ring state), same as a rawConfig with no
-  // matching trend at all.
+  // matching trend at all. IGNORED whenever rawConfig.ApiUrl is set (see
+  // ngOnChanges()) — that mode fetches its own trend response instead.
   @Input() trendResponse?: TrendGroup[];
 
   @Output() sublayersSelected = new EventEmitter<CircularChartSelectionEvent>();
@@ -45,11 +47,42 @@ export class NxCircularChartCollectionComponent implements OnChanges {
   legendItems: { label: string; color: string }[] = [];
   selectedId: string | null = null;
 
+  // Bumped on every ngOnChanges run and captured per in-flight ApiUrl fetch
+  // so a stale response from a superseded rawConfig can't overwrite a
+  // newer one that resolved first.
+  private requestToken = 0;
+
+  constructor(private configService: NxCircularChartConfigService, private cdr: ChangeDetectorRef) {}
+
   ngOnChanges(changes: SimpleChanges): void {
     if (!changes.rawConfig && !changes.trendResponse) {
       return;
     }
-    this.circularCharts = this.rawConfig ? buildCircularChartConfigs(this.rawConfig, this.trendResponse ?? []) : [];
+    const token = ++this.requestToken;
+    // rawConfig.ApiUrl set — this component fetches the trend response
+    // itself and uses THAT, neglecting the `trendResponse` @Input entirely
+    // (per product decision: an ApiUrl on the config always wins).
+    if (this.rawConfig?.ApiUrl) {
+      this.configService.fetchTrendResponse(this.rawConfig.ApiUrl).subscribe({
+        next: response => {
+          if (token === this.requestToken) {
+            this.applyConfigs(response ?? []);
+          }
+        },
+        error: () => {
+          if (token === this.requestToken) {
+            console.error(`[NxCircularChartCollection] ApiUrl "${this.rawConfig?.ApiUrl}" failed to load — rendering with no trend data.`);
+            this.applyConfigs([]);
+          }
+        }
+      });
+      return;
+    }
+    this.applyConfigs(this.trendResponse ?? []);
+  }
+
+  private applyConfigs(trendResponse: TrendGroup[]): void {
+    this.circularCharts = this.rawConfig ? buildCircularChartConfigs(this.rawConfig, trendResponse) : [];
     this.selectedId = null;
     // Legend is derived from the UNION of every circular chart's own slice
     // labels/colors, not just the first chart's — different charts in the
@@ -68,6 +101,17 @@ export class NxCircularChartCollectionComponent implements OnChanges {
       })
     );
     this.legendItems = Array.from(seen, ([label, color]) => ({ label, color }));
+    // ApiUrl mode reaches this callback from an RxJS `subscribe()` — a
+    // DIFFERENT change-detection cycle than the one Angular already runs
+    // for a synchronous ngOnChanges (the trendResponse-only, non-ApiUrl
+    // path above). Confirmed live: without this, circularCharts/legendItems
+    // update correctly but NxCircularChartComponent's own *ngIf-gated views
+    // (its chart/empty-ring) stay stuck on their pre-fetch state even
+    // though its class bindings (e.g. isEmpty) DO update — a structural-
+    // directive desync specific to the async path. Forcing a check here,
+    // right after the data that feeds those child *ngFor'd components
+    // changes, closes that gap.
+    this.cdr.detectChanges();
   }
 
   onCircularChartSelected(circularChart: CircularChartConfig): void {

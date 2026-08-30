@@ -91,12 +91,19 @@ function buildSlices(leaf: TrendLeaf | undefined): CircularChartSlice[] {
 // before this fallback existed — no third "hardcoded zeros" tier needed.
 export function buildCircularChartConfig(node: RawCircularChartNode, leaf: TrendLeaf | undefined): CircularChartConfig {
   const apiSlices = buildSlices(leaf);
+  // Param1/Param2/Param3, in that order, skipping absent/null/empty ones —
+  // any value present wins outright over the Name/Id fallback (see
+  // RawCircularChartNode.Param1's own comment). Empty array (all three
+  // unset) leaves sublayerIds undefined, so onCircularChartSelected()'s own
+  // `?? circularChart.id` fallback still applies unchanged.
+  const params = [node.Param1, node.Param2, node.Param3].filter((p): p is string => !!p);
   return {
     id: normalizeName(node.Name) || String(node.Id ?? ""),
     label: node.Name ?? "",
     radius: node.Radius ?? undefined,
     innerRadius: node.InnerRadius ?? undefined,
     tooltipFormat: node.TooltipFormat ?? undefined,
+    sublayerIds: params.length ? params : undefined,
     // The trend API's own ChartType (leaf, see TrendLeaf's own comment)
     // overrides node.ChartType when present, same API-wins-over-config
     // precedence as `data` below — both are already the same numeric enum

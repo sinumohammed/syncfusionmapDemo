@@ -281,10 +281,19 @@ export class NxCircularChartComponent implements OnChanges {
   // Fires after every render/refresh (Syncfusion's public `loaded` event —
   // EmitType<IAccLoadedEventArgs>, `any` here since @syncfusion/ej2-angular-charts
   // doesn't re-export that interface name). Reads each point's own
-  // midAngle/center/radius — which render correctly even in the value range
-  // where Syncfusion's built-in data label computation silently fails, see
+  // midAngle/center — which render correctly even in the value range where
+  // Syncfusion's built-in data label computation silently fails, see
   // buildSeries()'s comment — to place a plain badge div ourselves just
-  // outside the ring at that angle.
+  // outside the ring at that angle. The DISTANCE itself is deliberately NOT
+  // read from Syncfusion (pieModule.labelRadius/radius) — confirmed live
+  // that pieModule.labelRadius sits much closer to center for a solid Pie
+  // (innerRadius forced "0%", see buildSeries()'s own comment) than for a
+  // Doughnut's ring, badges landing right on top of (and unreadable against)
+  // the center label for Pie cards. Deriving it from this circular chart's own
+  // config.radius instead — the exact same percentage buildSeries() already
+  // draws the pie/doughnut itself at — keeps every chart type's badges at
+  // an identical "just past the outer edge" distance regardless of that
+  // Syncfusion-internal difference.
   onChartLoaded(args: any): void {
     const chart = args?.accumulation;
     const points = chart?.visibleSeries?.[0]?.points;
@@ -293,7 +302,16 @@ export class NxCircularChartComponent implements OnChanges {
       return;
     }
     const center = pieModule.center ?? { x: chart.availableSize.width / 2, y: chart.availableSize.height / 2 };
-    const radius = (pieModule.labelRadius ?? pieModule.radius ?? Math.min(chart.availableSize.width, chart.availableSize.height) / 2) + 10;
+    // +5, not +10 — confirmed live (pieModule.radius/center read straight
+    // off the rendered chart) every badge sits at an IDENTICAL distance
+    // from center regardless of angle, a true circle by construction; the
+    // remaining "some badges look further from the ring than others" is a
+    // rectangular-badge-vs-circular-boundary effect (a badge's flat edge
+    // sits flush against the ring at some angles, its corner leaves more
+    // visible gap at others), not a radius error — tightening the fixed
+    // offset shrinks that gap everywhere without needing per-angle math.
+    const radiusPercent = parseFloat(this.config?.radius ?? "") || DEFAULT_RADIUS_PERCENT;
+    const radius = (CHART_BOX_PX * radiusPercent) / 200 + 2;
 
     this.centerLabelPosition = { left: center.x, top: center.y };
     this.badges = points.map((p: any) => {

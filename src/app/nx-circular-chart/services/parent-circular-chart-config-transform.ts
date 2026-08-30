@@ -116,9 +116,18 @@ export function buildCircularChartConfig(node: RawCircularChartNode, leaf: Trend
 }
 
 // Converts the real upstream collection node + its trend API response into
-// one CircularChartConfig per Configuration[] entry, ordered by each entry's own
-// Order (ascending; ties keep Configuration[]'s own declared relative order
-// — Array.sort() is stable) rather than that array's raw declaration order.
+// one CircularChartConfig per Configuration[] entry THAT HAS A MATCHING trend
+// leaf — a node whose Name has no leaf anywhere in trendResponse (product
+// decision: the trend response is the final, authoritative list of which
+// circular charts exist right now) is dropped entirely, not rendered with
+// its own hardcoded node.Data fallback or an empty-ring placeholder. That
+// fallback (buildCircularChartConfig()'s own apiSlices.length ? apiSlices :
+// parseNodeData(node.Data)) still applies for a node that DOES have a
+// matching leaf but whose leaf carries no usable Series — a real "matched,
+// no readings yet" case, distinct from "not in this response at all".
+// Ordered by each entry's own Order (ascending; ties keep Configuration[]'s
+// own declared relative order — Array.sort() is stable) rather than that
+// array's raw declaration order.
 //
 // Falls back to treating `root` itself as a single circular chart when it isn't
 // actually a ComponentType 7121 (COMPONENT_NXCIRCULAR_COLLECTION) wrapper —
@@ -127,5 +136,7 @@ export function buildCircularChartConfigs(root: RawCircularChartCollectionNode, 
   const items = root.ComponentType === CIRCULAR_CHART_COLLECTION_COMPONENT_TYPE ? root.Configuration ?? [] : [root as RawCircularChartNode];
   const ordered = [...items].sort((a, b) => (a.Order ?? 0) - (b.Order ?? 0));
   const leaves = indexTrendLeaves(trendResponse);
-  return ordered.map(node => buildCircularChartConfig(node, leaves.get(normalizeName(node.Name))));
+  return ordered
+    .filter(node => leaves.has(normalizeName(node.Name)))
+    .map(node => buildCircularChartConfig(node, leaves.get(normalizeName(node.Name))));
 }

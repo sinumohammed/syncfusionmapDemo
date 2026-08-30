@@ -173,6 +173,16 @@ export interface RawCircularChartNode {
   // renders the existing flat color.
   ApplyGradient?: boolean | null;
   Id?: number;
+  // Upstream widget payload's own generic per-node params — when ANY of the
+  // three carry a value, buildCircularChartConfig() takes them (in this
+  // order, skipping absent/null/empty ones) as this circular chart's own
+  // CircularChartCardConfig.sublayerIds, so a click emits those instead of
+  // falling back to the normalized Name/Id (see sublayerIds' own comment).
+  // All three absent/empty falls straight through to that existing
+  // Name/Id fallback, unchanged.
+  Param1?: string | null;
+  Param2?: string | null;
+  Param3?: string | null;
 }
 
 // Root collection node (ComponentType 7121, COMPONENT_NXCIRCULAR_COLLECTION)
@@ -180,6 +190,11 @@ export interface RawCircularChartNode {
 export interface RawCircularChartCollectionNode {
   ComponentType?: number;
   Configuration?: RawCircularChartNode[] | null;
+  // When set, NxCircularChartCollectionComponent fetches the trend response
+  // from this URL itself and uses THAT (ignoring the `trendResponse` @Input
+  // entirely) — see its own comment. Absent/null keeps the existing
+  // host-supplies-trendResponse behavior.
+  ApiUrl?: string | null;
 }
 
 // ---- Trend API response shape ------------------------------------------

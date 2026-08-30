@@ -50,9 +50,9 @@ export class NxCircularChartCollectionComponent implements OnChanges {
   legendItems: { label: string; color: string }[] = [];
   selectedId: string | null = null;
 
-  // Bumped on every fetchTrendFromApi() call and captured per in-flight
-  // request so a stale response from a superseded rawConfig can't overwrite
-  // a newer one that resolved first.
+  // Bumped on every ngOnChanges run and captured per in-flight ApiUrl fetch
+  // so a stale response from a superseded rawConfig can't overwrite a
+  // newer one that resolved first.
   private requestToken = 0;
 
   constructor(private configService: NxCircularChartConfigService) {}
@@ -61,36 +61,27 @@ export class NxCircularChartCollectionComponent implements OnChanges {
     if (!changes.rawConfig && !changes.trendResponse) {
       return;
     }
+    const token = ++this.requestToken;
     // rawConfig.ApiUrl set — this component fetches the trend response
     // itself and uses THAT, neglecting the `trendResponse` @Input entirely
-    // (per product decision: an ApiUrl on the config always wins). Only
-    // (re)fetches when rawConfig ITSELF changed, not on a trendResponse-only
-    // change — that value is ignored in this mode anyway, and ApiUrl is the
-    // same URL every time, so there's nothing new to fetch.
+    // (per product decision: an ApiUrl on the config always wins).
     if (this.rawConfig?.ApiUrl) {
-      if (changes.rawConfig) {
-        this.fetchTrendFromApi(this.rawConfig.ApiUrl);
-      }
+      this.configService.fetchTrendResponse(this.rawConfig.ApiUrl).subscribe({
+        next: response => {
+          if (token === this.requestToken) {
+            this.applyConfigs(response ?? []);
+          }
+        },
+        error: () => {
+          if (token === this.requestToken) {
+            console.error(`[NxCircularChartCollection] ApiUrl "${this.rawConfig?.ApiUrl}" failed to load — rendering with no trend data.`);
+            this.applyConfigs([]);
+          }
+        }
+      });
       return;
     }
     this.applyConfigs(this.trendResponse ?? []);
-  }
-
-  private fetchTrendFromApi(url: string): void {
-    const token = ++this.requestToken;
-    this.configService.fetchTrendResponse(url).subscribe({
-      next: response => {
-        if (token === this.requestToken) {
-          this.applyConfigs(response ?? []);
-        }
-      },
-      error: () => {
-        if (token === this.requestToken) {
-          console.error(`[NxCircularChartCollection] ApiUrl "${url}" failed to load — rendering with no trend data.`);
-          this.applyConfigs([]);
-        }
-      }
-    });
   }
 
   private applyConfigs(trendResponse: TrendGroup[]): void {

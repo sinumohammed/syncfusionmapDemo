@@ -28,8 +28,10 @@
 .nx-circular-chart-legend {
   margin-top: 12px;
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  column-gap: 12px;
+  row-gap: 4px;
   font-size: 12px;
   color: #333;
 }
@@ -37,6 +39,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  white-space: nowrap;
 }
 .nx-circular-chart-swatch {
   display: inline-block;

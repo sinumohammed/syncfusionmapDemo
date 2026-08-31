@@ -1,5 +1,13 @@
 <div class="nx-circular-chart-panel">
-  <div class="nx-circular-chart-grid">
+  <div class="nx-circular-chart-title" *ngIf="rawConfig?.Title">{{ rawConfig?.Title }}</div>
+
+  <!-- Fetch error (ApiUrl set but the request itself failed) takes priority
+       over the generic empty message below — a real error is more useful to
+       surface than "no data", see fetchFailed's own comment. -->
+  <div class="nx-circular-chart-message nx-circular-chart-message--error" *ngIf="fetchFailed">Failed to fetch data. Please try again later.</div>
+  <div class="nx-circular-chart-message" *ngIf="!fetchFailed && !circularCharts.length">No data available.</div>
+
+  <div class="nx-circular-chart-grid" *ngIf="circularCharts.length">
     <app-nx-circular-chart
       *ngFor="let circularChart of circularCharts"
       [config]="circularChart"

@@ -39,6 +39,7 @@
   "ApiUrl":null,
   "ComponentType": 7121,
   "ElementType": 7121,
+  "Title": "DONUT COLLECTION",
   "Configuration": [
     {
       "SupportedIdentity": 144,
@@ -274,6 +275,7 @@
       "Param3": null,
       "Param2": null,
       "Param1": null,
+      "Hide": false,
       "Order": 0,
       "DetailURL": null,
       "CommandParamValue": null,

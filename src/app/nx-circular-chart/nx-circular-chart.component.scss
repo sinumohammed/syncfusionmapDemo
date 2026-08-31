@@ -6,9 +6,27 @@
   cursor: pointer;
   border-radius: 6px;
   padding: 4px;
+  border: 1px solid transparent;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 .nx-circular-chart-card:hover {
-  background: #f2f2f2;
+  border-color: #1f4e79;
+  box-shadow: 0 2px 8px rgba(31, 78, 121, 0.25);
+  transform: translateY(-1px);
+}
+/* Syncfusion's own pie/doughnut hover feedback sets the HOVERED point's own
+   opacity attribute to 0.5 (ej2-charts accumulation-chart/renderer/pie-series.js
+   toggleInnerPoint(), driven by tooltip.enable being true) — confirmed live via
+   the rendered SVG's opacity attribute changing on point mouseover. That reads
+   as the slice going disabled/washed-out under the pointer, the opposite of an
+   eye-catching hover. A plain CSS rule on the point path wins over that
+   attribute (SVG presentation attributes sit below author stylesheet rules in
+   the cascade) — confirmed live the point's computed opacity stays 1 even
+   while Syncfusion keeps writing 0.5 to the attribute. ::ng-deep is required
+   since these <path> elements are Syncfusion-rendered, not Angular-templated,
+   so they never get this component's view-encapsulation attribute. */
+::ng-deep .nx-circular-chart-card path[id*="_Point_"] {
+  opacity: 1 !important;
 }
 .nx-circular-chart-card--selected {
   background: #e6eef7;

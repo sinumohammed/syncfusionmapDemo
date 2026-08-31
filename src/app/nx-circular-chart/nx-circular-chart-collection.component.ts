@@ -46,6 +46,11 @@ export class NxCircularChartCollectionComponent implements OnChanges {
   circularCharts: CircularChartConfig[] = [];
   legendItems: { label: string; color: string }[] = [];
   selectedId: string | null = null;
+  // Set only when rawConfig.ApiUrl's own fetch errors — distinct from
+  // circularCharts just coming back empty (a real "no data yet" response),
+  // see the template's own comment for the two different messages this
+  // drives.
+  fetchFailed = false;
 
   // Bumped on every ngOnChanges run and captured per in-flight ApiUrl fetch
   // so a stale response from a superseded rawConfig can't overwrite a
@@ -59,6 +64,7 @@ export class NxCircularChartCollectionComponent implements OnChanges {
       return;
     }
     const token = ++this.requestToken;
+    this.fetchFailed = false;
     // rawConfig.ApiUrl set — this component fetches the trend response
     // itself and uses THAT, neglecting the `trendResponse` @Input entirely
     // (per product decision: an ApiUrl on the config always wins).
@@ -66,23 +72,32 @@ export class NxCircularChartCollectionComponent implements OnChanges {
       this.configService.fetchTrendResponse(this.rawConfig.ApiUrl).subscribe({
         next: response => {
           if (token === this.requestToken) {
-            this.applyConfigs(response ?? []);
+            this.applyConfigs(response ?? [], false);
           }
         },
         error: () => {
           if (token === this.requestToken) {
             console.error(`[NxCircularChartCollection] ApiUrl "${this.rawConfig?.ApiUrl}" failed to load — rendering with no trend data.`);
-            this.applyConfigs([]);
+            this.fetchFailed = true;
+            this.applyConfigs([], false);
           }
         }
       });
       return;
     }
-    this.applyConfigs(this.trendResponse ?? []);
+    // No ApiUrl — when the host also hasn't supplied a (non-empty)
+    // trendResponse @Input, there's no live trend source at all, so fall
+    // back to each Configuration[] entry's own hardcoded Data (see
+    // buildCircularChartConfigs()'s own comment for why that needs an
+    // explicit flag rather than just an empty trendResponse). A host that
+    // DOES push its own trendResponse keeps the existing API-response
+    // behavior — matched-only, dropping unmatched configured items.
+    const hasTrendResponse = !!this.trendResponse && this.trendResponse.length > 0;
+    this.applyConfigs(this.trendResponse ?? [], !hasTrendResponse);
   }
 
-  private applyConfigs(trendResponse: TrendGroup[]): void {
-    this.circularCharts = this.rawConfig ? buildCircularChartConfigs(this.rawConfig, trendResponse) : [];
+  private applyConfigs(trendResponse: TrendGroup[], useConfigFallback: boolean): void {
+    this.circularCharts = this.rawConfig ? buildCircularChartConfigs(this.rawConfig, trendResponse, useConfigFallback) : [];
     this.selectedId = null;
     // Legend is derived from the UNION of every circular chart's own slice
     // labels/colors, not just the first chart's — different charts in the

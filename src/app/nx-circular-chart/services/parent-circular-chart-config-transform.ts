@@ -132,11 +132,30 @@ export function buildCircularChartConfig(node: RawCircularChartNode, leaf: Trend
 // Falls back to treating `root` itself as a single circular chart when it isn't
 // actually a ComponentType 7121 (COMPONENT_NXCIRCULAR_COLLECTION) wrapper —
 // same fallback shape as nx-map's buildMapCollectionConfig().
-export function buildCircularChartConfigs(root: RawCircularChartCollectionNode, trendResponse: TrendGroup[]): CircularChartConfig[] {
+//
+// `useConfigFallback` (set by NxCircularChartCollectionComponent whenever
+// there's no live trend source at all — no ApiUrl AND no non-empty
+// trendResponse @Input) skips the leaves.has() filter below and renders
+// EVERY Configuration[] entry off its own node.Data instead. Without this,
+// a collection with no ApiUrl rendered nothing at all: indexTrendLeaves([])
+// is always empty, so every node failed that filter regardless of having
+// its own hardcoded Data to fall back to. The filter itself stays the
+// default (product decision, see its own comment below) for the normal
+// case where a real trend source IS in play, just possibly returning fewer
+// matches than there are configured items.
+export function buildCircularChartConfigs(
+  root: RawCircularChartCollectionNode,
+  trendResponse: TrendGroup[],
+  useConfigFallback = false
+): CircularChartConfig[] {
   const items = root.ComponentType === CIRCULAR_CHART_COLLECTION_COMPONENT_TYPE ? root.Configuration ?? [] : [root as RawCircularChartNode];
-  const ordered = [...items].sort((a, b) => (a.Order ?? 0) - (b.Order ?? 0));
+  // Hide is a config-only kill switch (see RawCircularChartNode.Hide's own
+  // comment) — dropped before trend-leaf matching/ordering, same as if the
+  // node were never in Configuration[] at all, regardless of ApiUrl/
+  // trendResponse/useConfigFallback.
+  const visible = items.filter(node => !node.Hide);
+  const ordered = [...visible].sort((a, b) => (a.Order ?? 0) - (b.Order ?? 0));
   const leaves = indexTrendLeaves(trendResponse);
-  return ordered
-    .filter(node => leaves.has(normalizeName(node.Name)))
-    .map(node => buildCircularChartConfig(node, leaves.get(normalizeName(node.Name))));
+  const matched = useConfigFallback ? ordered : ordered.filter(node => leaves.has(normalizeName(node.Name)));
+  return matched.map(node => buildCircularChartConfig(node, leaves.get(normalizeName(node.Name))));
 }

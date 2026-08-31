@@ -265,7 +265,7 @@
           {
             "TrendID": "7",
             "TrendName": "FLOW",
-            "ChartType": 3,
+            "ChartType": 1,
             "Status": "OK",
             "StatusMessage": "",
             "Series": [

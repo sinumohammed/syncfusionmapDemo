@@ -183,6 +183,13 @@ export interface RawCircularChartNode {
   Param1?: string | null;
   Param2?: string | null;
   Param3?: string | null;
+  // Config-only kill switch for this one circular chart card — absent/false
+  // (default) renders it as normal; true drops it from the collection
+  // entirely, before any trend-leaf matching happens (buildCircularChartConfigs()),
+  // so a hidden card never renders even when the trend API has live data for
+  // it. Deliberately NOT read from the trend API response (TrendLeaf carries
+  // no such field) — a config-only concern, per product decision.
+  Hide?: boolean | null;
 }
 
 // Root collection node (ComponentType 7121, COMPONENT_NXCIRCULAR_COLLECTION)
@@ -190,6 +197,11 @@ export interface RawCircularChartNode {
 export interface RawCircularChartCollectionNode {
   ComponentType?: number;
   Configuration?: RawCircularChartNode[] | null;
+  // Collection-level heading, rendered once above every circular chart card
+  // (NxCircularChartCollectionComponent's own template) — NOT per-card (each
+  // RawCircularChartNode already has its own Name for that). Absent/empty
+  // renders no heading at all, same as today.
+  Title?: string | null;
   // When set, NxCircularChartCollectionComponent fetches the trend response
   // from this URL itself (via NxCircularChartConfigService) and uses THAT
   // (ignoring the `trendResponse` @Input entirely) — see its own comment.

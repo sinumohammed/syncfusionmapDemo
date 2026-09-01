@@ -346,6 +346,7 @@
     {
       "SupportedIdentity": 144,
       "Name": "FLOW",
+      "ZeroAsHealthy": true,
       "Columns": 24,
       "Rows": 24,
       "xposition": 0,
@@ -353,7 +354,7 @@
       "Resizable": false,
       "AbsoluteStartDate": null,
       "AbsoluteEndDate": null,
-      "Label": null,
+      "Label": "No Incidents",
       "SUPPORT_ASYNC_DATA": true,
       "SUPPORTS_JSON_BINDING": false,
       "DataTransmissionMode": 2,

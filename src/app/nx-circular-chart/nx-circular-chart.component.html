@@ -1,7 +1,7 @@
 <div
   class="nx-circular-chart-card"
   [class.nx-circular-chart-card--selected]="selected"
-  [class.nx-circular-chart-card--disabled]="isEmpty"
+  [class.nx-circular-chart-card--disabled]="isEmpty && !isHealthy"
   (click)="select.emit()"
 >
   <!-- Gradient defs referenced from a point's own color as url(#id) — see
@@ -41,21 +41,54 @@
        markers, just all in the normal/green color, same as any other
        metric's own "normal" readings — confirmed this needs to work
        identically to a populated circular chart's click, not be blocked. -->
-  <div
-    class="nx-circular-chart-empty-ring"
-    *ngIf="isEmpty"
-    [class.nx-circular-chart-empty-ring--pie]="chartType === CircularChartTypes.Pie"
-    [class.nx-circular-chart-empty-ring--semicircle]="chartType === CircularChartTypes.SemiCircle"
-    [style.width.px]="emptyRingSizePx"
-    [style.height.px]="emptyRingSizePx"
-  ></div>
+  <!-- Fixed CHART_BOX_PX-tall box (nx-circular-chart.component.ts's own constant,
+       same 130px <ejs-accumulationchart height="130px"> already reserves above) —
+       the ring itself only sizes to emptyRingSizePx (typically well under
+       130px), and without this wrapper the card's own content height (and so
+       its hover box) shrank to fit just the ring, ending up visibly shorter
+       than every populated neighbor's card. Centering the ring inside a
+       box of the SAME fixed height as the real chart keeps every card (empty,
+       healthy, or populated) the same height regardless of which of the
+       three renders. -->
+  <div class="nx-circular-chart-empty-box" *ngIf="isEmpty">
+    <div
+      class="nx-circular-chart-empty-ring"
+      [class.nx-circular-chart-empty-ring--pie]="chartType === CircularChartTypes.Pie"
+      [class.nx-circular-chart-empty-ring--semicircle]="chartType === CircularChartTypes.SemiCircle"
+      [style.width.px]="emptyRingSizePx"
+      [style.height.px]="emptyRingSizePx"
+    >
+      <!-- config.zeroAsHealthy's own opt-in reinterpretation of an all-zero
+           reading — see isHealthy's own comment. Kept INSIDE the same ring
+           markup/shape/color (doughnut/pie/semicircle, same grey as the
+           regular "no data" placeholder — deliberately NOT recolored,
+           per product decision) rather than swapping in a different shape,
+           so a healthy card still visually reads as "this circular chart",
+           not a generic icon. The green fill sits INSIDE the ring's own
+           hole (a circle, healthyInnerSizePx — see its own comment), not a
+           rectangular pill behind the label; the check is a small badge on
+           the ring's own outer edge, like a notification badge. -->
+      <ng-container *ngIf="isHealthy">
+        <span class="nx-circular-chart-healthy-inner" [style.width.px]="healthyInnerSizePx" [style.height.px]="healthyInnerSizePx"></span>
+        <span class="nx-circular-chart-healthy-check">
+          <svg viewBox="0 0 24 24" width="16" height="16">
+            <circle cx="12" cy="12" r="11" fill="#2f9e56"></circle>
+            <path d="M7 12.5l3 3 7-7" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"></path>
+          </svg>
+        </span>
+      </ng-container>
+    </div>
+  </div>
   <div
     class="nx-circular-chart-center"
-    [class.nx-circular-chart-center--empty]="isEmpty"
+    [class.nx-circular-chart-center--empty]="isEmpty && !isHealthy"
+    [class.nx-circular-chart-center--healthy]="isHealthy"
     [style.left.px]="centerLabelPosition?.left"
     [style.top.px]="centerLabelPosition?.top"
   >
-    {{ config?.label }}<ng-container *ngIf="isEmpty"><br /><span class="nx-circular-chart-empty-text">No data</span></ng-container>
+    {{ config?.label }}
+    <ng-container *ngIf="isEmpty && !isHealthy"><br /><span class="nx-circular-chart-empty-text">No data</span></ng-container>
+    <ng-container *ngIf="isHealthy"><br /><span class="nx-circular-chart-empty-text nx-circular-chart-empty-text--healthy">{{ healthyText }}</span></ng-container>
   </div>
   <div class="nx-circular-chart-badge" *ngFor="let badge of badges" [style.left.px]="badge.left" [style.top.px]="badge.top">
     {{ badge.text }}

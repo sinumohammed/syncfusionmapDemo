@@ -78,6 +78,20 @@
   white-space: nowrap;
   z-index: 0;
 }
+/* Matches a POPULATED card's own actual rendered height — NOT the 130px
+   passed to <ejs-accumulationchart height="130px">: confirmed live
+   (getBoundingClientRect()) that Syncfusion's own control renders at 133px,
+   3px taller than its own height attribute. Without this, the ring below
+   (sized only to emptyRingSizePx, typically well under 130px) left the
+   card's own content, and so its hover box, visibly shorter than a
+   populated neighbor's card. Flex-centers the ring inside instead of
+   relying on the ring's own margin:0 auto (horizontal centering only). */
+.nx-circular-chart-empty-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 133px;
+}
 /* Flat placeholder ring for isEmpty, plain CSS border-circle rather than an
    SVG pie since there's no data to divide into slices. width/height are set
    inline from emptyRingSizePx() (nx-circular-chart.component.ts) — NOT hardcoded
@@ -88,7 +102,6 @@
 .nx-circular-chart-empty-ring {
   position: relative;
   max-width: 100%;
-  margin: 0 auto;
   border-radius: 50%;
   border: 14px solid #e3e5e8;
   box-sizing: border-box;
@@ -116,4 +129,45 @@
 .nx-circular-chart-empty-text {
   font-weight: 500;
   font-size: 11px;
+}
+/* Dark green, readable against .nx-circular-chart-healthy-inner's own light
+   green circular fill sitting behind it (a sibling element, not a
+   background on THIS one — see that class's own comment for why) rather
+   than the plain grey/near-black .nx-circular-chart-center default —
+   confirmed this pairing reads with more contrast than solid green fill +
+   white text. */
+.nx-circular-chart-center--healthy {
+  color: #1f7a43;
+}
+.nx-circular-chart-empty-text--healthy {
+  color: #1f7a43;
+  font-weight: 700;
+}
+/* config.zeroAsHealthy's own "all clear" fill — a CIRCLE sized to
+   healthyInnerSizePx (the ring's own inner-hole percentage, see that
+   getter's own comment), centered inside the ring exactly the way a real
+   doughnut's own hole sits, rather than a rectangular pill behind the
+   label text. Sits behind .nx-circular-chart-center (a later, separately
+   z-indexed sibling at the card level — painted after this ring's whole
+   subtree regardless of z-index value, since this ring already establishes
+   its own stacking context) so the label/text always renders on top of it. */
+.nx-circular-chart-healthy-inner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #e5f5ea;
+  z-index: 0;
+}
+/* Sits right on the ring's own edge like a notification badge — NOT
+   centered inside it, so it doesn't collide with the center label
+   overlay (.nx-circular-chart-center, still absolutely centered over this
+   same ring). */
+.nx-circular-chart-healthy-check {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  z-index: 1;
+  line-height: 0;
 }

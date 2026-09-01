@@ -81,6 +81,21 @@ export interface CircularChartCardConfig {
   // verbatim on click (defaults to [id] when unset), see
   // NxCircularChartCollectionComponent.onCircularChartSelected(). Not read by the chart.
   sublayerIds?: string[];
+  // Opt-in per-card reinterpretation of NxCircularChartComponent.isEmpty
+  // (every slice's own y at 0) — unset/false keeps the existing "no data"
+  // empty-ring placeholder; true swaps in a green "all clear" badge instead
+  // (see NxCircularChartComponent's own isEmpty/healthy comments for why
+  // this needs to be opt-in rather than automatic: an all-zero dataSource
+  // is ambiguous on its own — "nothing reported yet" for one metric can be
+  // "zero incidents, genuinely healthy" for another, and only the config
+  // knows which this card is).
+  zeroAsHealthy?: boolean;
+  // Overrides NxCircularChartComponent's own hardcoded "Healthy" default
+  // text on the zeroAsHealthy all-clear badge — from RawCircularChartNode.Label
+  // (see its own comment for why that generic field, not a new
+  // circular-chart-specific one). Absent/empty keeps that "Healthy" default,
+  // same as every other per-card override in this interface.
+  healthyLabel?: string;
 }
 
 // CircularChartCardConfig plus its resolved slice values — what
@@ -127,6 +142,16 @@ export interface RawCircularChartNode {
   // (normalizeName()), same normalization nx-map's slugifyLayerFileName()
   // uses for its own name-matching.
   Name?: string | null;
+  // Real upstream widget node's own generic display-label field (present,
+  // usually null, on every ComponentType regardless of which one — nothing
+  // circular-chart-specific about it). Distinct from Name, which is only
+  // ever the trend API join key and this card's own title (label above).
+  // The one place this component reads it: overriding the hardcoded
+  // "Healthy" text on config.zeroAsHealthy's all-clear badge (see
+  // CircularChartCardConfig.healthyLabel's own comment) — a host that wants
+  // that badge to read e.g. "No incidents" or "All clear" instead sets
+  // Label to that text; absent/empty keeps the "Healthy" default.
+  Label?: string | null;
   // This circular chart's own hardcoded fallback slices, carried right on its config
   // node — used whenever the trend API response has no match (or nothing
   // usable) for this circular chart's Name. See buildCircularChartConfig()'s own comment for
@@ -190,6 +215,12 @@ export interface RawCircularChartNode {
   // it. Deliberately NOT read from the trend API response (TrendLeaf carries
   // no such field) — a config-only concern, per product decision.
   Hide?: boolean | null;
+  // Maps straight to CircularChartCardConfig.zeroAsHealthy — see its own
+  // comment. Config-only, same as Hide (no equivalent field on TrendLeaf):
+  // whether an all-zero reading means "healthy" is a property of what this
+  // card MEASURES, not something the trend API response would know to say
+  // per-request.
+  ZeroAsHealthy?: boolean | null;
 }
 
 // Root collection node (ComponentType 7121, COMPONENT_NXCIRCULAR_COLLECTION)

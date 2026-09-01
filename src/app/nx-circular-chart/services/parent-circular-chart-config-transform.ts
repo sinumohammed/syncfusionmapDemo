@@ -111,6 +111,8 @@ export function buildCircularChartConfig(node: RawCircularChartNode, leaf: Trend
     // plus a default for absent/null.
     chartType: ((leaf?.ChartType ?? node.ChartType) as CircularChartTypes | null | undefined) ?? CircularChartTypes.Doughnut,
     applyGradient: leaf?.ApplyGradient ?? node.ApplyGradient ?? undefined,
+    zeroAsHealthy: node.ZeroAsHealthy ?? undefined,
+    healthyLabel: node.Label ?? undefined,
     data: apiSlices.length ? apiSlices : parseNodeData(node.Data)
   };
 }

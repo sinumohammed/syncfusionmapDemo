@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from "@angular/core";
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from "@angular/core";
 import { AccumulationChart, AccumulationSeriesModel, AccumulationTooltip, PieSeries } from "@syncfusion/ej2-angular-charts";
 import { CircularChartConfig, CircularChartTypes, DEFAULT_PALETTE } from "./model/nx-circular-chart-model";
 
@@ -24,6 +24,10 @@ const CHART_BOX_PX = 130;
 // in real-circular-chart-parent-config.json) is unset — same Syncfusion placeholder
 // syntax, used verbatim as AccumulationTooltipSettingsModel.format either way.
 const DEFAULT_TOOLTIP_FORMAT = "${point.x}: ${point.y}";
+
+// Fallback when a healthy card's own config.healthyLabel (RawCircularChartNode.Label)
+// is unset/empty — see healthyText's own comment.
+const DEFAULT_HEALTHY_TEXT = "Healthy";
 
 // A plain-HTML value badge this component draws itself, positioned from the
 // chart's own (reliable) point angle — see buildSeries()'s comment for why.
@@ -74,7 +78,17 @@ function blend(hex: string, target: [number, number, number], amount: number): s
 @Component({
   selector: "app-nx-circular-chart",
   templateUrl: "./nx-circular-chart.component.html",
-  styleUrls: ["./nx-circular-chart.component.scss"]
+  styleUrls: ["./nx-circular-chart.component.scss"],
+  // Safe here specifically because every template-bound property this
+  // component mutates (series/badges/centerLabelPosition/gradients) only
+  // changes from ngOnChanges (driven by the config/selected @Inputs below,
+  // reassigned fresh by the collection's *ngFor each rebuild) or from
+  // onChartLoaded() — fired by this component's OWN (loaded) binding in its
+  // template, one of the cases OnPush still checks automatically. No
+  // outside timer/subscription pokes at this component's state the way
+  // NxMapDemoComponent's setTimeout/subscribe chains do, so there's nothing
+  // here that would go stale under OnPush.
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class NxCircularChartComponent implements OnChanges {
   // Exposed so the template can compare against it directly (Angular
@@ -152,6 +166,25 @@ export class NxCircularChartComponent implements OnChanges {
     return !!this.config && this.config.data.every(d => !d.y);
   }
 
+  // Opt-in reinterpretation of isEmpty (config.zeroAsHealthy — see its own
+  // comment for why this has to be a per-card config choice rather than
+  // automatic) — an all-zero reading for a metric like "incidents" means
+  // "genuinely healthy, zero to report", not "no data received yet". The
+  // template swaps in a green checkmark badge instead of the "No data"
+  // empty-ring for this case, see .nx-circular-chart-healthy's own comment.
+  get isHealthy(): boolean {
+    return this.isEmpty && !!this.config?.zeroAsHealthy;
+  }
+
+  // config.healthyLabel (RawCircularChartNode.Label — see its own comment
+  // for why this generic field, not a new circular-chart-specific one)
+  // overrides DEFAULT_HEALTHY_TEXT when set; trimmed/empty falls through to
+  // that default, same as every other per-card text override in this
+  // component (tooltipFormat, etc.).
+  get healthyText(): string {
+    return this.config?.healthyLabel?.trim() || DEFAULT_HEALTHY_TEXT;
+  }
+
   // Same default as buildSeries()'s own `chartType` local — used by the
   // template both for the empty placeholder's own shape (so isEmpty
   // toggling on/off, e.g. a live trend refresh, never flips the card's
@@ -175,6 +208,21 @@ export class NxCircularChartComponent implements OnChanges {
   get emptyRingSizePx(): number {
     const percent = parseFloat(this.config?.radius ?? "") || DEFAULT_RADIUS_PERCENT;
     return (CHART_BOX_PX * percent) / 100;
+  }
+
+  // The healthy badge's own green background needs to be a CIRCLE sized to
+  // this ring's own inner hole (config.innerRadius — same percentage
+  // buildSeries() applies to a real doughnut's own hole), not a generic
+  // pill/box behind the label text — product decision: the ring itself
+  // stays its usual grey (see .nx-circular-chart-empty-ring's own comment),
+  // so the "healthy" fill has to look like it belongs to THIS ring's own
+  // hole, not a separate shape floating on top of it. Pie has no real hole
+  // (buildSeries() forces innerRadius to "0%" for it) — falls back to a
+  // fixed 55% here purely so the label still has something to sit on, not
+  // because a solid pie has an inner radius of its own.
+  get healthyInnerSizePx(): number {
+    const percent = this.chartType === CircularChartTypes.Pie ? 55 : parseFloat(this.config?.innerRadius ?? "") || 72;
+    return (this.emptyRingSizePx * percent) / 100;
   }
 
   ngOnChanges(changes: SimpleChanges): void {

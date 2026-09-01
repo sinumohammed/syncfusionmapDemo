@@ -112,7 +112,11 @@ export function buildCircularChartConfig(node: RawCircularChartNode, leaf: Trend
     chartType: ((leaf?.ChartType ?? node.ChartType) as CircularChartTypes | null | undefined) ?? CircularChartTypes.Doughnut,
     applyGradient: leaf?.ApplyGradient ?? node.ApplyGradient ?? undefined,
     zeroAsHealthy: node.ZeroAsHealthy ?? undefined,
-    healthyLabel: node.Label ?? undefined,
+    // leaf.Label (trend API) wins outright over node.Label (config) when
+    // present — same field name on both sides, same API-wins-over-config
+    // precedence as chartType/applyGradient above — see
+    // CircularChartCardConfig.healthyLabel's own comment.
+    healthyLabel: leaf?.Label || node.Label || undefined,
     data: apiSlices.length ? apiSlices : parseNodeData(node.Data)
   };
 }

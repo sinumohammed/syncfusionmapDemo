@@ -91,10 +91,14 @@ export interface CircularChartCardConfig {
   // knows which this card is).
   zeroAsHealthy?: boolean;
   // Overrides NxCircularChartComponent's own hardcoded "Healthy" default
-  // text on the zeroAsHealthy all-clear badge — from RawCircularChartNode.Label
-  // (see its own comment for why that generic field, not a new
-  // circular-chart-specific one). Absent/empty keeps that "Healthy" default,
-  // same as every other per-card override in this interface.
+  // text on the zeroAsHealthy all-clear badge. Two independent sources, in
+  // priority order (buildCircularChartConfig()'s own comment) — the trend
+  // API's own TrendLeaf.Label wins outright when present (same
+  // API-wins-over-config precedence as chartType/applyGradient above),
+  // else RawCircularChartNode.Label (see its own comment for why that
+  // generic field). Same field name on both sides deliberately — a host
+  // filling in either doesn't need to remember two different names for the
+  // same thing. Both absent/empty keeps the "Healthy" default.
   healthyLabel?: string;
 }
 
@@ -150,7 +154,10 @@ export interface RawCircularChartNode {
   // "Healthy" text on config.zeroAsHealthy's all-clear badge (see
   // CircularChartCardConfig.healthyLabel's own comment) — a host that wants
   // that badge to read e.g. "No incidents" or "All clear" instead sets
-  // Label to that text; absent/empty keeps the "Healthy" default.
+  // Label to that text; absent/empty keeps the "Healthy" default. The trend
+  // API's own TrendLeaf.Label (same field name, deliberately) overrides
+  // THIS when present, same API-wins-over-config precedence as
+  // ChartType/ApplyGradient.
   Label?: string | null;
   // This circular chart's own hardcoded fallback slices, carried right on its config
   // node — used whenever the trend API response has no match (or nothing
@@ -287,6 +294,14 @@ export interface TrendLeaf {
   // RawCircularChartNode.ApplyGradient when present — see
   // CircularChartCardConfig.applyGradient's own comment for what it does.
   ApplyGradient?: boolean;
+  // Same field NAME as RawCircularChartNode.Label (deliberately, so a host
+  // filling in either config or API doesn't need to remember two different
+  // names for the same thing) and same API-wins-over-config precedence as
+  // ChartType/ApplyGradient above — overrides RawCircularChartNode.Label
+  // when present. See CircularChartCardConfig.healthyLabel's own comment
+  // for what it does (only ever read for the config.zeroAsHealthy all-clear
+  // badge's own text).
+  Label?: string;
   Series?: TrendSeries[];
 }
 

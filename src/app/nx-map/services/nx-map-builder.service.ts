@@ -712,12 +712,19 @@ export class NXMapBuilderService {
       theme.marker?.color ??
       NORMAL_LABEL_COLOR;
     const shape = reading?.shape ?? point.shape ?? groupStyle?.shape ?? theme.marker?.shape;
+    // Independent of `color` above (which still drives the icon) — an
+    // explicit reading.textColor overrides just the label TEXT; omitted,
+    // it falls back to the SAME already-resolved `color` the icon uses, so
+    // a reading that sets neither still looks exactly as it always has
+    // (text and icon sharing one color).
+    const textColor = reading?.textColor ?? color;
 
     return {
       latitude: point.latitude,
       longitude: point.longitude,
       label: reading ? `${point.name ?? ""}<br>${reading.value}${reading.unit ? " " + reading.unit : ""}` : point.name,
       color,
+      textColor,
       iconShape: this.toOverlayIconShape(shape),
       __lookupKey: lookupKey
     };

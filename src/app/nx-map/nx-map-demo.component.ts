@@ -1550,6 +1550,35 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
         // very first load.
         this.syncLayerDomVisibility();
         this.scheduleZOrderRetry();
+        // Corrects the label font/icon-size CSS vars against whatever zoom
+        // Syncfusion ACTUALLY ended up at after this refresh, rather than
+        // assuming one — confirmed live this matters: rebuildMap() (every
+        // circular-chart selection change) resets mapOptions.zoomSettings
+        // back to the configured baseline and this file used to just assume
+        // that meant the LIVE view reset too, forcing the CSS vars back to
+        // baseline unconditionally. But re-clicking an already-selected
+        // chart (deselect + reselect) was seen to leave the map's own live
+        // zoom UNCHANGED (still zoomed in) while that blind reset still
+        // fired, leaving the font stuck small even though the map itself
+        // stayed zoomed — the same "Syncfusion's own zoomSettings binding
+        // doesn't reliably resync its live view" unreliability documented
+        // elsewhere in this file (applyBaseMapStyle()'s own comment), just
+        // hit through this render() path instead. Reading the real live
+        // value here — same expectingTileMap/scale-vs-tileZoomLevel logic
+        // onZoomComplete() uses — is correct regardless of whether THIS
+        // particular rebuild actually reset the live zoom or not, since
+        // it's measuring ground truth instead of assuming an outcome.
+        // Deliberately CSS-only (font/icon-size vars, no
+        // builder.setMarkerScaleFactor()/second refresh cycle here) — a
+        // native marker's own width/height only actually changes on the
+        // NEXT real zoom or full rebuild that rebuilds its dataSource, a
+        // smaller/separate lag this fix doesn't chase.
+        const inst = this.mapInstance as any;
+        const expectingTileMap = this.mapStyle === "osm" || this.mapStyle === "satellite";
+        const liveZoomFactor = expectingTileMap ? inst.tileZoomLevel : inst.scale;
+        if (typeof liveZoomFactor === "number") {
+          this.updateMarkerLabelScale(liveZoomFactor, expectingTileMap ? this.configuredZoomFactor : 1);
+        }
         setTimeout(() => this.animateNavigationLines(), 100);
       }, 200);
     }
@@ -1797,12 +1826,30 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // method, not refresh()) forces that same re-measure ourselves, once,
   // a beat after `loaded` — long enough for a typical late layout settle to
   // have already happened, short enough not to be visually noticeable.
-  // Runs after every rebuild (`loaded` fires on every one, not just the
-  // first), debounced same as every other timer-based fix in this file so
-  // a rapid sequence of rebuilds only leaves ONE pending call.
+  // Only fires for the VERY FIRST `loaded` this component ever sees, not
+  // every rebuild — confirmed live this needs restricting: mapsOnResize()
+  // internally calls Syncfusion's own createSVG(), which wipes the ENTIRE
+  // SVG and rebuilds it from scratch, a real (if brief) blank-then-redraw,
+  // not just a resize. `loaded` also fires after every Reset/style-switch/
+  // circular-chart-click rebuild — those already have their OWN normal
+  // hide-then-redraw (applyBaseMapStyle()'s mapVisible toggle, or a plain
+  // mapOptions reassignment), and by the time any of them happens the
+  // surrounding host-page layout has long since settled, so calling this
+  // again there only adds a SECOND, unnecessary blank flash with no
+  // corrective value — confirmed live as a regression (Reset visibly
+  // hid/reappeared TWICE instead of once after this existed). The
+  // late-layout-settle problem this exists for is specifically a first-
+  // mount concern (a host app's surrounding layout still animating in
+  // right as this component first initializes), so restricting it to the
+  // first load keeps the fix without the extra flash everywhere else.
+  private hasScheduledInitialLoadSettle = false;
   private loadSettleResizeTimer: ReturnType<typeof setTimeout> | undefined;
 
   private scheduleLoadSettleResize(): void {
+    if (this.hasScheduledInitialLoadSettle) {
+      return;
+    }
+    this.hasScheduledInitialLoadSettle = true;
     clearTimeout(this.loadSettleResizeTimer);
     this.loadSettleResizeTimer = setTimeout(() => {
       this.mapInstance?.mapsOnResize(new Event("resize"));
@@ -1995,18 +2042,21 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // template compiler chokes on bare ${...} placeholders — see
   // injectMarkerTooltipTemplate()'s own comment).
   //
-  // ${color}, ${label}, and ${iconShape} come straight from
+  // ${color}, ${textColor}, ${label}, and ${iconShape} come straight from
   // toMetricOverlayMarker()'s own dataSource object in
   // nx-map-builder.service.ts — `label` is already "name<br>value" for the
-  // active metric, `color` is that reading's resolved color (see that
+  // active metric, `color` is that reading's resolved icon color (see that
   // method's own comment for the full reading.color/NON_COMPLIANT_COLOR/
-  // point.color priority order), and `iconShape` is "diamond"/"triangle"/
-  // "circle" selecting
-  // which .marker-label-icon--* CSS rule draws the icon — set once here as
-  // a CSS custom property (\`--icon-color\`) rather than a shape-specific
-  // inline style property, since different shapes need different CSS
-  // properties to carry the same color (border-bottom-color for a triangle,
-  // background for a diamond/circle).
+  // point.color priority order), `textColor` is the SAME resolution but for
+  // the label text specifically (falls back to `color` when the reading
+  // doesn't set its own textColor, so icon and text stay in sync unless a
+  // reading deliberately splits them), and `iconShape` is "diamond"/
+  // "triangle"/"circle" selecting which .marker-label-icon--* CSS rule
+  // draws the icon — set once here as a CSS custom property
+  // (\`--icon-color\`) rather than a shape-specific inline style property,
+  // since different shapes need different CSS properties to carry the same
+  // color (border-bottom-color for a triangle, background for a diamond/
+  // circle).
   private injectMarkerLabelTemplate(): void {
     if (document.getElementById("marker-label-template")) {
       return;
@@ -2017,7 +2067,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     container.innerHTML = `
       <div class="marker-label">
         <span class="marker-label-icon marker-label-icon--\${iconShape}" style="--icon-color: \${color};"></span>
-        <span class="marker-label-text" style="color: \${color};">\${label}</span>
+        <span class="marker-label-text" style="color: \${textColor};">\${label}</span>
       </div>
     `;
     document.body.appendChild(container);

@@ -47,6 +47,7 @@
     "value": 96.87,
     "unit": "kPa",
     "isCompliant": true,
+    "textColor": "#0044ff",
     "tooltip": {
       "template": "compact",
       "tvp": {

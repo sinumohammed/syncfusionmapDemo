@@ -201,6 +201,14 @@ export interface PointMetric {
   // toOverlayIconShape() in nx-map-builder.service.ts, which normalizes/
   // validates it regardless.
   shape?: MarkerShape;
+  // Overrides the metric-overlay LABEL TEXT's own color independently of
+  // `color` above (which still drives the icon, and is this field's own
+  // fallback when omitted) — see toMetricOverlayMarker()'s own comment for
+  // the exact resolution. Lets a deployment keep the icon in its usual
+  // marker/compliance color while making the text itself a different,
+  // more readable color for a specific reading, without having to touch
+  // `color` (which would recolor the icon too).
+  textColor?: string;
 }
 
 // One entry in the response NXMapConfigService.loadDataOverlay() fetches

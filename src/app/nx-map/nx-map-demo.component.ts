@@ -1710,6 +1710,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     this.injectMarkerLabelTemplate();
     this.wireResetButton();
     this.observeLayerGroupCreation();
+    this.observeContainerResize();
     // Syncfusion renders the zoom toolbar asynchronously after the
     // component initializes — give it a moment before measuring.
     setTimeout(() => {
@@ -1719,9 +1720,94 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.layerGroupObserver?.disconnect();
+    this.containerResizeObserver?.disconnect();
+    clearTimeout(this.loadSettleResizeTimer);
   }
 
   private layerGroupObserver: MutationObserver | undefined;
+  private containerResizeObserver: ResizeObserver | undefined;
+
+  // Syncfusion's own resize handling (mapInstance's internal listener, and
+  // every plain @HostListener("window:resize") in this file) only ever
+  // reacts to the BROWSER's own native resize event — never fired by a
+  // purely CSS-driven container resize, e.g. a host application's own
+  // sidebar/left-menu collapsing or expanding, which changes .nx-map's own
+  // size with no window resize involved at all. Confirmed live: toggling
+  // such a menu left the map's own SVG pinned to its LAST real-window-
+  // resize pixel size — either overflowing into now less space, or leaving
+  // newly available space blank — and only self-corrected on an actual
+  // window resize (e.g. maximize/restore) afterwards. A ResizeObserver on
+  // .nx-map itself fires on ANY size change regardless of cause.
+  //
+  // Two things were tried here first and confirmed live NOT to work:
+  //   1. Dispatching a SYNTHETIC window `resize` — the event fires (window's
+  //      own listeners do run) but the rendered <ejs-maps> SVG's own
+  //      width/height attributes stayed exactly the same afterwards.
+  //   2. mapInstance.refresh() (Syncfusion's own public API, already used
+  //      elsewhere in this file for other cases) — this ALSO left the SVG's
+  //      width/height unchanged. Reading ej2-maps' own source explains why:
+  //      Maps.prototype.refresh() (inherited from ej2-base's Component)
+  //      just calls render() again, and render() re-paints from
+  //      this.availableSize AS ALREADY CACHED — it never re-measures the
+  //      container. Only mapsOnResize() (ej2-maps/src/maps/maps.js, the
+  //      SAME handler Syncfusion's own internal window-resize listener
+  //      calls) actually recomputes availableSize (via its own
+  //      calculateSize()) and rebuilds the SVG accordingly — confirmed live
+  //      this one does resize correctly. It's a public prototype method
+  //      (present, unprefixed, in ej2-maps' own maps.d.ts) despite reading
+  //      as an internal event handler; MapsComponent extends Maps directly,
+  //      so it's reachable straight off the same mapInstance ViewChild
+  //      every other Syncfusion call in this file already uses. The Event
+  //      argument is required by its signature but unused in its own body.
+  // skipFirst avoids an unnecessary call on initial mount — ResizeObserver's
+  // callback always fires once immediately with the starting size, which
+  // isn't a real resize.
+  private observeContainerResize(): void {
+    const host = this.elRef.nativeElement.querySelector(".nx-map");
+    if (!host || typeof ResizeObserver === "undefined") {
+      return;
+    }
+    let skipFirst = true;
+    this.containerResizeObserver = new ResizeObserver(() => {
+      if (skipFirst) {
+        skipFirst = false;
+        return;
+      }
+      this.mapInstance?.mapsOnResize(new Event("resize"));
+    });
+    this.containerResizeObserver.observe(host);
+  }
+
+  // Reported live (host application, not this demo): in "shape" mode, the
+  // map's rendered content sometimes starts scrolled slightly UP inside its
+  // own container — its top edge cut off/invisible — until the user drags
+  // (pans) the map, after which it snaps to the correct position with no
+  // other change. Same root class of issue observeContainerResize() above
+  // exists for: Syncfusion measures the container's geometry ONCE at
+  // mount to compute its initial layout, and never re-measures on its own
+  // afterward — a genuine SIZE change is covered by the ResizeObserver
+  // above, but a host page whose surrounding layout is still settling
+  // (a sidebar animating in, async content loading above the map, a flex/
+  // grid reflow not yet finished) can leave the container's POSITION wrong
+  // at that exact measurement instant with no accompanying size change at
+  // all, which a ResizeObserver never fires for. A real drag triggers
+  // Syncfusion's own interactive pan handling, which DOES re-measure from
+  // current geometry — this is why panning "fixes" it. mapsOnResize()
+  // (see observeContainerResize()'s own comment for why THIS specific
+  // method, not refresh()) forces that same re-measure ourselves, once,
+  // a beat after `loaded` — long enough for a typical late layout settle to
+  // have already happened, short enough not to be visually noticeable.
+  // Runs after every rebuild (`loaded` fires on every one, not just the
+  // first), debounced same as every other timer-based fix in this file so
+  // a rapid sequence of rebuilds only leaves ONE pending call.
+  private loadSettleResizeTimer: ReturnType<typeof setTimeout> | undefined;
+
+  private scheduleLoadSettleResize(): void {
+    clearTimeout(this.loadSettleResizeTimer);
+    this.loadSettleResizeTimer = setTimeout(() => {
+      this.mapInstance?.mapsOnResize(new Event("resize"));
+    }, 400);
+  }
 
   // Syncfusion recreates each layer group's own DOM element asynchronously
   // in reaction to builder.refresh()'s mutated mapOptions.layers array —
@@ -2080,6 +2166,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     this.syncLayerDomVisibility();
     this.scheduleZOrderRetry();
     this.animateNavigationLines();
+    this.scheduleLoadSettleResize();
     // See suppressZoomCenterOverride's own comment. NOT cleared immediately
     // here — confirmed live that a late zoomComplete can still fire (and
     // onZoomComplete()'s own 250ms settle delay adds more room for one)

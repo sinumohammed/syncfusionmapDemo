@@ -124,19 +124,21 @@ export interface MapPoint extends BaseMapObject, GeoLocation, ShapeStyle {
 export interface PointMetric {
   value: number;
   unit?: string;
-  // "high" gets this reading's own `color` below (falling back to a
-  // shared neutral label color when `color` is omitted); "normal" always
-  // gets the shared neutral color regardless of `color`. Map coloring only
-  // ever looks at THIS field — see impact's own comment for what actually
-  // drives a circular chart's two slices.
-  status: "high" | "normal";
-  // Only meaningful when status is "high" — which of a circular chart's two slices
+  // Renamed from the old "high"/"normal" status string — false is the old
+  // "high" (an incident/out-of-range reading), true is the old "normal".
+  // false gets this reading's own `color` below when set, else a hardcoded
+  // non-compliant color (see toMetricOverlayMarker()'s own comment); true
+  // always gets the shared neutral label color regardless of `color`. Map
+  // coloring only ever looks at THIS field — see impact's own comment for
+  // what actually drives a circular chart's two slices.
+  isCompliant: boolean;
+  // Only meaningful when isCompliant is false — which of a circular chart's two slices
   // this reading counts toward ("Customer impact" vs "Non-customer
   // impact", nx-circular-chart's own CircularChartSlice.x labels). The circular chart's total is the count of
-  // "high" readings ONLY, split by this field — "normal" readings aren't
+  // non-compliant readings ONLY, split by this field — compliant readings aren't
   // counted on the circular chart at all, even though they still render on the map
   // (labeled, in the neutral color) once that metric is selected. Unset on
-  // a "normal" reading — nothing reads it in that case.
+  // a compliant reading — nothing reads it in that case.
   impact?: "customer" | "non-customer";
   // Reserved for a tooltip tile's optional second/third line (see
   // TooltipTemplateConfig) — undefined today for every point in every mock
@@ -161,16 +163,31 @@ export interface PointMetric {
   // wins over this — same "explicit config beats derived default"
   // precedence as everywhere else in this app.
   label?: string;
-  // This reading's own highlight color when status is "high" — straight
+  // This reading's own highlight color when isCompliant is false — straight
   // from the data, no hardcoded per-metric-id palette anywhere in code
   // (NXMapBuilderService no longer has a METRIC_COLORS lookup). Read by
   // toMarker() for the hover tooltip tile's value color, and by
   // toMetricOverlayMarker() (via a matched record's own top-level color,
   // MetricOverlayRecord also being a PointMetric) for the on-map overlay
-  // label color once that metric's circular chart is clicked. Omit to fall back to
-  // the shared neutral label color, same as a "normal" reading always
-  // gets regardless of this field.
+  // marker's color/shape once that metric's circular chart is clicked —
+  // see that method's own comment for the full priority order. Omit to
+  // fall back to the shared neutral label color, same as a compliant
+  // reading always gets regardless of this field.
   color?: string;
+  // This reading's own explicit marker shape override — same tier-1
+  // priority as `color` above in toMetricOverlayMarker()'s resolution
+  // order (an explicit reading.shape always wins outright, compliant or
+  // not). Unlike color, there's no isCompliant:false hardcoded fallback
+  // for shape — omit this to fall straight through to that point's own
+  // mol.json/group/theme shape, same as `color` does past its own
+  // NON_COMPLIANT_COLOR tier. Typed as MarkerShape (matching ShapeStyle.shape
+  // exactly — MetricOverlayRecord extends both this interface and
+  // ShapeStyle, and TS requires identical types for a property name shared
+  // across an interface's base types) even though whatever actually comes
+  // through here only ever needs case-insensitive comparison — see
+  // toOverlayIconShape() in nx-map-builder.service.ts, which normalizes/
+  // validates it regardless.
+  shape?: MarkerShape;
 }
 
 // One entry in the response NXMapConfigService.loadDataOverlay() fetches
@@ -320,7 +337,15 @@ export interface MapCircle extends BaseMapObject, FillStyle {
 }
 
 export interface MarkerConfig {
-  style?: ShapeStyle;
+  // border is deliberately NOT part of ShapeStyle (which MapPoint also
+  // extends) — Syncfusion's MarkerBaseModel.border applies to the whole
+  // marker layer (i.e. this GROUP), with no per-point borderColorValuePath/
+  // borderWidthValuePath the way shape/color/width/height have (confirmed
+  // against MarkerBaseModel in ej2-maps' own base-model.d.ts). So this only
+  // overrides the border for every point in this group, never a single
+  // point on its own — see resolveGroupTheme()/buildMarkerPointsForGroup()
+  // in nx-map-builder.service.ts, which reads this ahead of theme.marker.border.
+  style?: ShapeStyle & { border?: { width?: number; color?: string } };
   clusterConfig?: ClusterConfig;
   points?: MapPoint[];
 }

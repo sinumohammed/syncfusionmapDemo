@@ -1557,6 +1557,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     // which would blow away other layers' correctly-computed marker DOM
     // sitting alongside those shapes.
     const markerRenderTargetIndex = this.builder.getMarkerRenderTargetIndex();
+    let markerRenderTargetGroup: HTMLElement | null = null;
     this.mapOptions.layers.forEach((_layerSettings, i) => {
       const group = host.querySelector(`[id$="_LayerIndex_${i}"]`) as HTMLElement | null;
       if (group) {
@@ -1571,11 +1572,28 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
         if (originalIndex === markerRenderTargetIndex) {
           const shapeElements = group.querySelectorAll('[id*="_shapeIndex_"]') as NodeListOf<HTMLElement>;
           shapeElements.forEach(el => (el.style.display = visible ? "" : "none"));
+          markerRenderTargetGroup = group;
         } else {
           group.style.display = visible ? "" : "none";
         }
       }
     });
+    // See NXMapBuilderService.markerRenderTargetIndex's own comment — every
+    // marker-bearing layer's markers physically live inside this ONE
+    // layer's own DOM group, wherever that group happens to fall in paint
+    // order. Confirmed live: a layer with its OWN navigation lines that
+    // paints AFTER the marker-target layer (e.g. MOL's own lines, when some
+    // other layer — earlier in declared order — won the marker-target slot)
+    // draws its lines' <path> elements on top of every marker, making a
+    // marker's border (and the marker itself) look faded/half-covered.
+    // Moving the marker-target's group to be the LAST child of its parent
+    // (a DOM move, not a copy — appendChild on an existing node relocates
+    // it) puts it after every other layer's <g> in paint order, so markers
+    // always render on top regardless of which layer actually won the slot
+    // or how many line-only layers paint after it.
+    if (markerRenderTargetGroup) {
+      markerRenderTargetGroup.parentElement?.appendChild(markerRenderTargetGroup);
+    }
   }
 
   ngAfterViewInit(): void {

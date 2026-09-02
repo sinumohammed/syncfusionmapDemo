@@ -23,6 +23,10 @@
             "shape": "Circle",
             "height": 6,
             "width": 6,
+            "border": {
+              "color": "#ffcc00",
+              "width": 1
+            },
             "labelStyle": {
               "color": "white"
             }

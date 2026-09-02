@@ -48,12 +48,23 @@ export const EMPTY_PLACEHOLDER_SHAPE = {
   features: [{ type: "Feature", properties: {}, geometry: { type: "MultiPolygon", coordinates: [] } }]
 };
 
-// Shared label color for a "normal"-status reading, and the fallback for
-// a "high" one that doesn't set its own PointMetric.color — no hardcoded
-// per-metric-id palette anywhere in this file; a "high" reading's own
-// highlight color comes straight from that reading's own data (see
-// PointMetric.color's own comment) wherever one is read below.
+// Shared label color for an isCompliant:true reading, and the fallback for
+// an isCompliant:false one that doesn't set its own PointMetric.color and
+// has no matching mol point color either (see toMetricOverlayMarker()'s
+// own comment) — no hardcoded per-metric-id palette anywhere in this file;
+// an isCompliant:false reading's own highlight color comes straight from
+// that reading's own data (see PointMetric.color's own comment) wherever
+// one is read below.
 const NORMAL_LABEL_COLOR = "#5f6368";
+
+// Hardcoded per user decision — parked here rather than in config for now;
+// move to a MapConfig/MapGroup field once there's an actual need to vary
+// it per deployment. Used by toMetricOverlayMarker() ONLY as the second
+// tier of its color priority: a reading with isCompliant:false and no own
+// `color` gets this instead of falling straight to the point's own mol.json
+// color, so a genuinely non-compliant reading always reads as "red" even
+// when its author never bothered to set `color`.
+const NON_COMPLIANT_COLOR = "red";
 
 // Genuinely empty starting point — no metric ids baked in here at all.
 // Used only as the very first template before ANY layer's own
@@ -68,13 +79,16 @@ export const DEFAULT_TOOLTIP_TEMPLATE: TooltipTemplateConfig = {
   items: []
 };
 
-// Fallback icon shape per impact value when a group's own
-// MapGroup.impactMarkerStyle doesn't override it — see
-// toMetricOverlayMarker()'s own comment for the full resolution order.
-// Lowercase to match the CSS class suffix (.marker-label-icon--diamond
-// etc, see nx-map-demo.component.ts's injectMarkerLabelTemplate()) rather
-// than a MarkerShape enum value — this drives that template icon, not
-// Syncfusion's own shape rendering.
+// Fallback icon shape per impact value — NOT currently read by
+// toMetricOverlayMarker() (see its own comment for the current
+// reading.color/NON_COMPLIANT_COLOR/point.color priority chain, which
+// superseded this impact-driven scheme). Left exported/typed rather than
+// deleted in case impact-driven shape differentiation comes back; a group's
+// own MapGroup.impactMarkerStyle is likewise currently unread by that
+// method. Lowercase to match the CSS class suffix (.marker-label-icon--
+// diamond etc, see nx-map-demo.component.ts's injectMarkerLabelTemplate())
+// rather than a MarkerShape enum value — this drives that template icon,
+// not Syncfusion's own shape rendering.
 export const DEFAULT_IMPACT_SHAPES: Record<"customer" | "non-customer", string> = {
   customer: "diamond",
   "non-customer": "triangle"
@@ -630,7 +644,7 @@ export class NXMapBuilderService {
       const reading = point.tooltipMetrics?.[key];
       marker[`v_${key}`] = reading ? reading.value : "—";
       marker[`u_${key}`] = reading?.unit ?? "";
-      marker[`c_${key}`] = reading?.status === "high" ? reading?.color ?? NORMAL_LABEL_COLOR : "#9aa0a6";
+      marker[`c_${key}`] = reading?.isCompliant === false ? reading?.color ?? NORMAL_LABEL_COLOR : "#9aa0a6";
       marker[`v2_${key}`] = reading?.value2 ?? "";
       marker[`u2_${key}`] = reading?.unit2 ?? "";
       marker[`d2_${key}`] = reading?.value2 !== undefined ? "block" : "none";
@@ -643,42 +657,69 @@ export class NXMapBuilderService {
   }
 
   // Overlay-only marker datum for a group's activeMetricId — same
-  // latitude/longitude/name as toMarker(), but label/color are computed
-  // from THIS metric's own reading rather than the point's generic
-  // value/color, per buildMarkerPoints()'s comment. `fetchedValues` is
-  // MapGroup.activeMetricValues — the freshly-fetched response from
-  // NXMapConfigService.loadDataOverlay(), keyed by point id — the only
-  // source, no static fallback (a point with no entry here just renders
-  // with no overlay reading, same as any other absent value).
-  private toMetricOverlayMarker(
-    point: MapPoint,
-    lookupKey: string,
-    fetchedValues: Record<string, PointMetric> | null | undefined,
-    impactStyle: MapGroup["impactMarkerStyle"] | undefined
-  ) {
+  // latitude/longitude/name as toMarker(), but label/color/shape are
+  // computed from THIS metric's own reading rather than always reflecting
+  // the point's generic value/color, per buildMarkerPoints()'s comment.
+  // `fetchedValues` is MapGroup.activeMetricValues — the freshly-fetched
+  // response from NXMapConfigService.loadDataOverlay(), keyed by point id —
+  // a point with no entry here is treated the same as a compliant reading
+  // (falls straight to its own mol.json style below), not as "no overlay".
+  //
+  // Color/shape resolution order, most specific wins (per explicit product
+  // decision — a genuinely non-compliant reading always reads as
+  // NON_COMPLIANT_COLOR/"red" even when its author never set `color`,
+  // rather than silently falling through to that point's own everyday
+  // color):
+  //   1. This reading's OWN PointMetric.color/shape (data-driven — the
+  //      metric-overlay API's own explicit override for this one click).
+  //   2. isCompliant === false (no matching tier-1 override) -> the
+  //      hardcoded NON_COMPLIANT_COLOR ("red", see its own comment on why
+  //      it's parked as a constant rather than a config field for now).
+  //      Shape has no equivalent hardcoded override here — an
+  //      isCompliant:false reading with no shape of its own still falls
+  //      through to tier 3.
+  //   3. No reading at all, OR isCompliant === true, OR still missing after
+  //      tiers 1-2 -> this point's own mol.json style (point.shape/
+  //      point.color), then its group's style, then the theme — same
+  //      point -> groupStyle -> theme precedence toMarker() already uses
+  //      for the always-visible base marker, so a metric click never makes
+  //      a compliant/unread point look any different from how it renders
+  //      normally.
+  // impactMarkerStyle/DEFAULT_IMPACT_SHAPES are NOT read here anymore — see
+  // DEFAULT_IMPACT_SHAPES' own comment.
+  private toMetricOverlayMarker(point: MapPoint, lookupKey: string, fetchedValues: Record<string, PointMetric> | null | undefined, theme: MapTheme, groupStyle: ShapeStyle | undefined) {
     const reading = point.id ? fetchedValues?.[point.id] : undefined;
-    const isHigh = reading?.status === "high";
-    // Resolution order, most specific wins: this group's own
-    // impactMarkerStyle[reading.impact] entry -> this reading's OWN
-    // PointMetric.color (data-driven, see its own comment — `reading` here
-    // is the matched MetricOverlayRecord for `metricId`, itself a
-    // PointMetric) -> NORMAL_LABEL_COLOR (a "normal" reading, or a "high"
-    // one that sets neither). Shape follows the same per-impact override,
-    // falling back to DEFAULT_IMPACT_SHAPES for that impact, then a plain
-    // circle (a "normal" reading, or a "high" one that somehow has no
-    // impact value, never differentiates by shape).
-    const configuredStyle = isHigh && reading?.impact ? impactStyle?.[reading.impact] : undefined;
-    const iconShape = isHigh && reading?.impact ? configuredStyle?.shape ?? DEFAULT_IMPACT_SHAPES[reading.impact] : "circle";
-    const color = isHigh ? configuredStyle?.color ?? reading?.color ?? NORMAL_LABEL_COLOR : NORMAL_LABEL_COLOR;
+    const color =
+      reading?.color ??
+      (reading?.isCompliant === false ? NON_COMPLIANT_COLOR : undefined) ??
+      point.color ??
+      groupStyle?.color ??
+      theme.marker?.color ??
+      NORMAL_LABEL_COLOR;
+    const shape = reading?.shape ?? point.shape ?? groupStyle?.shape ?? theme.marker?.shape;
 
     return {
       latitude: point.latitude,
       longitude: point.longitude,
       label: reading ? `${point.name ?? ""}<br>${reading.value}${reading.unit ? " " + reading.unit : ""}` : point.name,
       color,
-      iconShape,
+      iconShape: this.toOverlayIconShape(shape),
       __lookupKey: lookupKey
     };
+  }
+
+  // The overlay's own #marker-label-template only has CSS for three icon
+  // shapes (.marker-label-icon--triangle/diamond/circle — see
+  // nx-map-demo.component.scss) — a resolved shape that isn't one of those
+  // three (e.g. a mol.json point's own "Balloon"/"Square", or Syncfusion's
+  // capitalized "Circle") would match no CSS rule at all and render as an
+  // invisible 0x0 icon, not a visible fallback. Normalizing to lowercase
+  // and defaulting anything unrecognized to "circle" keeps the overlay
+  // icon always visible, matching toMarker()'s own base-layer marker
+  // shape as closely as this template's limited shape set allows.
+  private toOverlayIconShape(shape: string | undefined): string {
+    const normalized = shape?.toLowerCase();
+    return normalized === "triangle" || normalized === "diamond" || normalized === "circle" ? normalized : "circle";
   }
 
   // Creating marker points for Syncfusion — one base MarkerSettingsModel
@@ -777,8 +818,8 @@ export class NXMapBuilderService {
         width: g.markerConfig?.style?.width ?? theme.marker?.width,
         height: g.markerConfig?.style?.height ?? theme.marker?.height,
         border: {
-          width: theme.marker?.border?.width ?? 1,
-          color: theme.marker?.border?.color ?? "#285255"
+          width: g.markerConfig?.style?.border?.width ?? theme.marker?.border?.width ?? 1,
+          color: g.markerConfig?.style?.border?.color ?? theme.marker?.border?.color ?? "#285255"
         },
         tooltipSettings,
         widthValuePath: "width",
@@ -807,7 +848,7 @@ export class NXMapBuilderService {
       // intentionally left off: it isn't designed to combine with template
       // markers.
       const overlayDataSource = points.map((point, index) =>
-        this.toMetricOverlayMarker(point, `${layerIndex}:${g.id}:metric:${index}`, g.activeMetricValues, g.impactMarkerStyle)
+        this.toMetricOverlayMarker(point, `${layerIndex}:${g.id}:metric:${index}`, g.activeMetricValues, theme, g.markerConfig?.style)
       );
 
       const overlayLayer: MarkerSettingsModel = {

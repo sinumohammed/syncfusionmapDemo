@@ -824,6 +824,28 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     if (!this.baseConfig) {
       return;
     }
+    // builder.buildMap() below always rebuilds zoomSettings from
+    // this.baseConfig's own configured zoomFactor (see NXMapBuilderService.
+    // buildZoom()) — the SAME "back to configured baseline" reset
+    // applyBaseMapStyle() does for Reset/a style switch, just via a
+    // different path (this one doesn't destroy/recreate <ejs-maps>, only
+    // reassigns mapOptions). Confirmed live: clicking a circular chart after
+    // zooming in visibly snaps the MAP back to its configured zoom, but
+    // (before this fix) left the font/icon-size CSS vars and
+    // NXMapBuilderService.markerScaleFactor stuck at their last zoomed
+    // value, same class of bug applyBaseMapStyle() already had — see its
+    // own comment for the full reasoning. Uses this.mapStyle AS IT
+    // CURRENTLY STANDS (not yet reassigned a few lines down) — this path
+    // never changes the base map style itself, only groups/markers, so the
+    // pre-rebuild value is still the correct one for this rebuild too.
+    // setMarkerScaleFactor(1) has to run before builder.buildMap() below
+    // (not after) — buildMap() is what actually calls toMarker() fresh for
+    // every marker, same ordering requirement as onZoomComplete()'s own
+    // comment on this.
+    const resetBaseline = this.mapStyle === "shape" ? 1 : this.configuredZoomFactor;
+    this.updateMarkerLabelScale(resetBaseline, resetBaseline);
+    this.builder.setMarkerScaleFactor(1);
+
     // this.baseConfig MUST be first — NXMapBuilderService.initialize()
     // always treats configs[0] as the main/base layer, purely positionally
     // (see MapConfig's own comment); there's no isMainLayer flag to set
@@ -918,6 +940,26 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     if (style !== "shape") {
       this.baseConfig.zoomFactor = this.configuredZoomFactor;
     }
+
+    // This destroy/recreate cycle bypasses onZoomComplete() entirely — it
+    // never fires here, so nothing else resets updateMarkerLabelScale()'s
+    // own CSS vars (--marker-label-font-size/--marker-icon-size) or
+    // NXMapBuilderService.markerScaleFactor back to baseline. Confirmed
+    // live: clicking Reset after zooming in left the label font/marker
+    // size stuck at their last (zoomed) value even though the map itself
+    // correctly zoomed back out — only a genuine +/- click afterward
+    // recomputed them correctly, since that's the only other path that
+    // touches either. The view this rebuild lands on always has a KNOWN
+    // zoom (1 for shape, this.configuredZoomFactor for a tile style — same
+    // two branches onZoomComplete() itself picks between), so resetting
+    // straight to that baseline (zoomFactor === baselineZoom => 1x/no
+    // growth) is exact, not a guess. setMarkerScaleFactor(1) specifically
+    // has to run BEFORE rebuildMap() below (not after) — it's read by
+    // toMarker() the moment buildMarkerPoints() rebuilds every marker's own
+    // width/height for this fresh style/Reset.
+    const resetBaseline = style === "shape" ? 1 : this.configuredZoomFactor;
+    this.updateMarkerLabelScale(resetBaseline, resetBaseline);
+    this.builder.setMarkerScaleFactor(1);
 
     this.mapVisible = false;
     setTimeout(() => {
@@ -1507,9 +1549,36 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
         // draw-in animation needs re-applying each time, not just on the
         // very first load.
         this.syncLayerDomVisibility();
+        this.scheduleZOrderRetry();
         setTimeout(() => this.animateNavigationLines(), 100);
       }, 200);
     }
+  }
+
+  // Confirmed live (per user testing): the marker-render-target group's
+  // z-order fix at the bottom of syncLayerDomVisibility() works correctly
+  // in "shape" (vector) mode on every trigger, but under a TILE (osm/
+  // satellite) base map, right after a Reset/style-switch OR a genuine
+  // zoom-in, markers render BEHIND their own layer's lines — until the
+  // user clicks or drags anywhere on the map, at which point they correctly
+  // snap to the front with no other code change. That points to something
+  // tile-mode-specific settling asynchronously a moment after our own
+  // direct syncLayerDomVisibility() call already ran (same general class of
+  // "Syncfusion's own DOM isn't fully settled yet" issue
+  // observeLayerGroupCreation() exists for, evidently not fully covered by
+  // it for this specific case) — a genuine user click/drag just happens to
+  // land after that settling finishes, which is why it "fixes" it. Rather
+  // than chase the exact Syncfusion-internal timing (tile image loading is
+  // network-bound and inherently non-deterministic), this re-runs the SAME
+  // idempotent correction again a moment later — moving an already-last
+  // group to the end again is a harmless no-op, so this only ever helps,
+  // never hurts, regardless of whether THIS particular call ends up
+  // catching a real late settle or not.
+  private zOrderRetryTimer: ReturnType<typeof setTimeout> | undefined;
+
+  private scheduleZOrderRetry(): void {
+    clearTimeout(this.zOrderRetryTimer);
+    this.zOrderRetryTimer = setTimeout(() => this.syncLayerDomVisibility(), 600);
   }
 
   // Confirmed against a live render: toggling a Syncfusion layer's own
@@ -1593,6 +1662,36 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     // or how many line-only layers paint after it.
     if (markerRenderTargetGroup) {
       markerRenderTargetGroup.parentElement?.appendChild(markerRenderTargetGroup);
+      // A SECOND, narrower z-order bug lives INSIDE the marker-render-
+      // target's own group, tile (osm/satellite) base maps only — confirmed
+      // live: right after a fresh render there, its own children land as
+      // [Polygon_Group, Markers_Group, line_Group, dataLableIndex_Group],
+      // i.e. Syncfusion's OWN marker rendering inserts the (single, shared —
+      // see NXMapBuilderService.markerRenderTargetIndex's own comment)
+      // Markers_Group BEFORE that layer's own line_Group, so a marker on
+      // THIS SAME layer draws under its own lines regardless of the
+      // cross-layer move just above. This exact quirk is also why a real
+      // user click/drag on the map was seen to fix it with no other change:
+      // Syncfusion's own interactive-zoom/pan handler (Zoom.prototype.
+      // applyTransform in ej2-maps' zoom.js) removes and reinserts a fresh
+      // line_Group via insertBefore(..., children[1]) on every pan/click —
+      // which, as a side effect, ends up BEFORE Markers_Group — self-
+      // correcting the very thing being fixed here, just contingent on the
+      // user actually interacting rather than happening automatically.
+      // Moving Markers_Group to be the LAST child of ITS OWN parent
+      // (confirmed live: same "move an existing node" appendChild, not a
+      // copy) replicates that same end state directly, on every call here,
+      // with no dependency on user interaction. Doesn't touch
+      // Polygon_Group's own position — Markers_Group already draws after
+      // it either way, so this only needed to move past line_Group/
+      // dataLableIndex_Group. Harmless no-op in shape mode (that mode's own
+      // render order never had this problem — see this method's own
+      // "shape mode: no issue" test result — the selector below simply
+      // finds nothing to move there).
+      const markersGroup = markerRenderTargetGroup.querySelector(':scope > [id$="_Markers_Group"]') as HTMLElement | null;
+      if (markersGroup) {
+        markerRenderTargetGroup.appendChild(markersGroup);
+      }
     }
   }
 
@@ -1813,9 +1912,10 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // ${color}, ${label}, and ${iconShape} come straight from
   // toMetricOverlayMarker()'s own dataSource object in
   // nx-map-builder.service.ts — `label` is already "name<br>value" for the
-  // active metric, `color` is that reading's resolved color (impact-specific
-  // for a "high" customer/non-customer reading, a shared neutral color
-  // otherwise), and `iconShape` is "diamond"/"triangle"/"circle" selecting
+  // active metric, `color` is that reading's resolved color (see that
+  // method's own comment for the full reading.color/NON_COMPLIANT_COLOR/
+  // point.color priority order), and `iconShape` is "diamond"/"triangle"/
+  // "circle" selecting
   // which .marker-label-icon--* CSS rule draws the icon — set once here as
   // a CSS custom property (\`--icon-color\`) rather than a shape-specific
   // inline style property, since different shapes need different CSS
@@ -1835,6 +1935,66 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
       </div>
     `;
     document.body.appendChild(container);
+  }
+
+  // Neither a mol (native Syncfusion) marker's own width/height NOR the
+  // metric-overlay template's icon/label are SVG elements inside the map's
+  // own zoomed/scaled <g> — a native marker is re-rendered fresh at its
+  // dataSource's own fixed pixel width/height on every zoom (Syncfusion
+  // doesn't grow it on its own), and .marker-label-text/.marker-label-icon
+  // are plain HTML overlay divs, same story (confirmed live: both stayed
+  // pinned at their original size regardless of zoom level before this
+  // existed). This single method drives BOTH: it writes CSS custom
+  // properties onto the document root — the same ::ng-deep-global scope
+  // .marker-label-text/.marker-label-icon--* themselves already live in
+  // (see their own comments on why Syncfusion renders these outside this
+  // component's normal encapsulation) — AND returns a plain multiplier for
+  // NXMapBuilderService.setMarkerScaleFactor() to apply to every mol
+  // marker's own width/height in toMarker() on the SAME rebuild
+  // (onZoomComplete() calls builder.refresh() right after, so the freshly
+  // scaled dataSource actually reaches Syncfusion this cycle, not next).
+  //
+  // Anchored to a caller-supplied `baselineZoom` — both the label and every
+  // marker start at their ordinary configured size right at that baseline,
+  // and only grow past that as the user zooms in further. Deliberately a
+  // PARAMETER rather than reading this.configuredZoomFactor directly here —
+  // that field is only a real geographic zoom LEVEL (e.g. 5) for a TILE
+  // (osm/satellite) main layer; a "shape" (vector) base map's own live zoom
+  // comes from inst.scale instead (see onZoomComplete()'s own comment on
+  // why zoomSettings.zoomFactor itself is stale), which is a totally
+  // different unit starting at 1 with no relation to configuredZoomFactor's
+  // tile levels at all — confirmed live comparing inst.scale (maxed at ~4
+  // after three toolbar zoom-ins) against a configuredZoomFactor of 5 left
+  // growth permanently clamped to 0 in shape mode. onZoomComplete() picks
+  // the right baseline (this.configuredZoomFactor for a tile map, 1 —
+  // vector maps' own untouched starting scale — otherwise) to match
+  // whichever live value (tileZoomLevel vs scale) it's passing in as
+  // `zoomFactor`.
+  //
+  // All the growth-rate/cap constants below are just a starting tuning —
+  // adjust freely, this is purely cosmetic. Never below the base size in
+  // either case (Math.max(0, …)) — zooming OUT past the baseline keeps
+  // everything at its normal size rather than shrinking it, since only
+  // growth was asked for here.
+  private static readonly MARKER_LABEL_BASE_FONT_PX = 10;
+  private static readonly MARKER_LABEL_MAX_FONT_PX = 22;
+  private static readonly MARKER_LABEL_PX_PER_ZOOM_LEVEL = 1.6;
+  private static readonly MARKER_ICON_BASE_PX = 12;
+  private static readonly MARKER_SCALE_PER_ZOOM_LEVEL = 0.15;
+  private static readonly MARKER_SCALE_MAX = 2.2;
+
+  private updateMarkerLabelScale(zoomFactor: number, baselineZoom: number): number {
+    const grownFont =
+      NxMapDemoComponent.MARKER_LABEL_BASE_FONT_PX + Math.max(0, zoomFactor - baselineZoom) * NxMapDemoComponent.MARKER_LABEL_PX_PER_ZOOM_LEVEL;
+    const fontSize = Math.min(NxMapDemoComponent.MARKER_LABEL_MAX_FONT_PX, grownFont);
+    document.documentElement.style.setProperty("--marker-label-font-size", `${fontSize}px`);
+
+    const scaleFactor = Math.min(
+      NxMapDemoComponent.MARKER_SCALE_MAX,
+      1 + Math.max(0, zoomFactor - baselineZoom) * NxMapDemoComponent.MARKER_SCALE_PER_ZOOM_LEVEL
+    );
+    document.documentElement.style.setProperty("--marker-icon-size", `${NxMapDemoComponent.MARKER_ICON_BASE_PX * scaleFactor}px`);
+    return scaleFactor;
   }
 
   // Syncfusion's own `resize` event fires once ITS internal resize handling
@@ -1918,6 +2078,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     // not just once a later toggle happens to run syncLayerDomVisibility()
     // for unrelated reasons.
     this.syncLayerDomVisibility();
+    this.scheduleZOrderRetry();
     this.animateNavigationLines();
     // See suppressZoomCenterOverride's own comment. NOT cleared immediately
     // here — confirmed live that a late zoomComplete can still fire (and
@@ -2013,7 +2174,16 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
         const expectingTileMap = this.mapStyle === "osm" || this.mapStyle === "satellite";
         const isTileMap = !this.suppressZoomCenterOverride && expectingTileMap;
         let liveCenter: { latitude: number; longitude: number } | null = null;
-        const liveZoomFactor = inst.zoomSettings?.zoomFactor;
+        // inst.zoomSettings.zoomFactor is NOT live — confirmed live it stays
+        // pinned at whatever this.baseConfig.zoomFactor was configured with,
+        // even after real toolbar/wheel zooming genuinely changes the view
+        // (inst.scale went 1 -> 7 across three toolbar zoom-ins with
+        // zoomSettings.zoomFactor never moving off 1). Syncfusion's OWN
+        // toolbar handler (Zoom.prototype.performToolBarAction in
+        // ej2-maps' zoom.js) reads the real live level as
+        // `isTileMap ? tileZoomLevel : scale` instead — same expectingTileMap
+        // flag as above (not inst.isTileMap, same staleness reason).
+        const liveZoomFactor = expectingTileMap ? inst.tileZoomLevel : inst.scale;
 
         if (isTileMap && typeof inst.getTileGeoLocation === "function" && inst.mapAreaRect) {
           const centerX = inst.mapAreaRect.x + inst.mapAreaRect.width / 2;
@@ -2052,11 +2222,19 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
         // marker-vanishing-after-zoom bug this handler already exists for.
         if (typeof effectiveZoomFactor === "number" && this.mapOptions) {
           this.builder.setZoomLevel(effectiveZoomFactor);
+          // Must run BEFORE refresh() below — it computes this zoom's
+          // marker scale factor (also used for the CSS-driven label/icon
+          // sizing) and feeds it to the builder so the very next refresh()
+          // (which rebuilds mapOptions.layers via buildMarkerPoints()) picks
+          // up the freshly scaled width/height, not next cycle's.
+          const scaleFactor = this.updateMarkerLabelScale(effectiveZoomFactor, expectingTileMap ? this.configuredZoomFactor : 1);
+          this.builder.setMarkerScaleFactor(scaleFactor);
           this.builder.refresh(this.mapOptions);
         }
 
         this.mapInstance.refresh();
         this.syncLayerDomVisibility();
+        this.scheduleZOrderRetry();
         this.animateNavigationLines();
         // refresh() regenerates Syncfusion's own toolbar SVG (Reset button
         // included), which used to silently orphan a listener attached

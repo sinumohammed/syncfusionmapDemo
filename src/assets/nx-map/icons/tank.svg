@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+
+  <!-- Tank body -->
+  <rect x="14" y="16" width="36" height="32" rx="3" ry="3" fill="#5A6A73" stroke="#37474F" stroke-width="2"></rect>
+
+  <!-- Top ellipse -->
+  <ellipse cx="32" cy="16" rx="18" ry="4" fill="#7B8D96" stroke="#37474F" stroke-width="2"></ellipse>
+
+  <!-- Bottom ellipse -->
+  <ellipse cx="32" cy="48" rx="18" ry="4" fill="#4E5D66" stroke="#37474F" stroke-width="2"></ellipse>
+
+  <!-- Tank bands -->
+  <line x1="14" y1="28" x2="50" y2="28" stroke="#CFD8DC" stroke-width="1.5"></line>
+
+  <line x1="14" y1="38" x2="50" y2="38" stroke="#CFD8DC" stroke-width="1.5"></line>
+
+  <!-- Ladder -->
+  <line x1="46" y1="18" x2="46" y2="46" stroke="#ECEFF1" stroke-width="2"></line>
+
+  <line x1="43" y1="22" x2="49" y2="22" stroke="#ECEFF1" stroke-width="1"></line>
+
+  <line x1="43" y1="27" x2="49" y2="27" stroke="#ECEFF1" stroke-width="1"></line>
+
+  <line x1="43" y1="32" x2="49" y2="32" stroke="#ECEFF1" stroke-width="1"></line>
+
+  <line x1="43" y1="37" x2="49" y2="37" stroke="#ECEFF1" stroke-width="1"></line>
+
+  <line x1="43" y1="42" x2="49" y2="42" stroke="#ECEFF1" stroke-width="1"></line>
+
+  <!-- Oil drop -->
+  <path d="M32 25
+           C29 29,27 31,27 34
+           C27 37,29.5 40,32 40
+           C34.5 40,37 37,37 34
+           C37 31,35 29,32 25Z" fill="#111111"></path>
+</svg>

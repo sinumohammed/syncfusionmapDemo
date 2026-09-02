@@ -34,6 +34,17 @@ export interface ShapeStyle {
   color?: string;
   width?: number;
   height?: number;
+  // A marker (MapPoint), its group's own style, or the theme can set this —
+  // same point -> groupStyle -> theme precedence as every other ShapeStyle
+  // field (see toMarker() in nx-map-builder.service.ts). When resolved,
+  // toMarker() forces this marker's own shape to MarkerShape.Image
+  // regardless of what `shape` above resolves to (Syncfusion only actually
+  // renders the image when shape is "Image" — the two aren't independent
+  // settings), so a point only needs to set imageUrl to get an icon; it
+  // doesn't also need shape: "Image". No imageUrl anywhere in the chain
+  // falls back to the ordinary shape-based marker exactly as before this
+  // field existed.
+  imageUrl?: string;
 }
 
 export interface LineStyle {
@@ -119,6 +130,17 @@ export interface MapPoint extends BaseMapObject, GeoLocation, ShapeStyle {
   // its "well"/station-style points to wait for a closer zoom, without
   // moving them into a separate group.
   minZoomLevel?: number;
+  // Master-data third-party classification, authored directly on this point
+  // in mol.json (or whichever layer file) rather than supplied per-click by
+  // the trend/metric-overlay API — mol.json already knows this per point,
+  // so duplicating an equivalent flag into every metric-overlay-response.json
+  // record would risk the two drifting apart. Unset/omitted means false —
+  // every mol.json point should set this explicitly (false for a normal/
+  // in-house point, true for a third-party one) rather than relying on the
+  // default, so it's clear at a glance which points were actually
+  // classified. NOT YET READ anywhere — this is a scaffold field, wiring it
+  // into the overlay's color/shape resolution is a follow-up.
+  isThirdParty?: boolean;
 }
 
 export interface PointMetric {
@@ -129,17 +151,8 @@ export interface PointMetric {
   // false gets this reading's own `color` below when set, else a hardcoded
   // non-compliant color (see toMetricOverlayMarker()'s own comment); true
   // always gets the shared neutral label color regardless of `color`. Map
-  // coloring only ever looks at THIS field — see impact's own comment for
-  // what actually drives a circular chart's two slices.
+  // coloring only ever looks at THIS field.
   isCompliant: boolean;
-  // Only meaningful when isCompliant is false — which of a circular chart's two slices
-  // this reading counts toward ("Customer impact" vs "Non-customer
-  // impact", nx-circular-chart's own CircularChartSlice.x labels). The circular chart's total is the count of
-  // non-compliant readings ONLY, split by this field — compliant readings aren't
-  // counted on the circular chart at all, even though they still render on the map
-  // (labeled, in the neutral color) once that metric is selected. Unset on
-  // a compliant reading — nothing reads it in that case.
-  impact?: "customer" | "non-customer";
   // Reserved for a tooltip tile's optional second/third line (see
   // TooltipTemplateConfig) — undefined today for every point in every mock
   // dataset, which is exactly what keeps that line hidden (see
@@ -229,7 +242,7 @@ export interface MetricOverlayRecord extends PointMetric, ShapeStyle {
 
   // The FULL multi-metric snapshot for this point's always-on hover
   // tooltip — independent of which single metric this record's own
-  // value/status/impact/markerId are actually about (that trio still only
+  // value/isCompliant/markerId are actually about (that trio still only
   // ever drives the ONE selected metric's on-map overlay label/color,
   // exactly as before this field existed). Keyed by metric id — whatever
   // keys show up here are exactly what NXMapBuilderService.toMarker()
@@ -397,20 +410,6 @@ export interface MapGroup {
   // for that point id) renders with no overlay at all, same as a point
   // with no reading. Unset/null (no selection) clears every overlay.
   activeMetricValues?: Record<string, PointMetric> | null;
-  // Optional per-impact icon override for a "high" reading's circular chart click
-  // overlay marker (see toMetricOverlayMarker() in
-  // nx-map-builder.service.ts) — lets a deployment's own config JSON
-  // differentiate "customer impact" from "non-customer impact" by SHAPE as
-  // well as color, e.g. `{ customer: { shape: "Diamond" }, "non-customer":
-  // { shape: "Triangle" } }`. Resolution per point, most specific wins:
-  // this group's own impactMarkerStyle[reading.impact] entry, then
-  // NXMapBuilderService.DEFAULT_IMPACT_SHAPES for that impact value, then a
-  // plain circle if impact itself is unset (a "normal"-status reading never
-  // has one). `color` here overrides that reading's own PointMetric.color
-  // the same way; omit either field to keep that level's own default. Unset/absent
-  // on this group entirely (the common case today) falls through to
-  // defaults for every point.
-  impactMarkerStyle?: Partial<Record<"customer" | "non-customer", { shape?: string; color?: string }>>;
   // Default false. Controls whether this group's own markers/polygons/
   // circles/lines get their own checkbox rows in the filter tree, nested
   // under this group's row — NOT whether they render on the map, which is
@@ -458,6 +457,7 @@ export interface MapThemeMarker {
   width?: number;
   height?: number;
   border?: { width?: number; color?: string };
+  imageUrl?: string;
 }
 
 export interface MapThemeCluster extends ShapeStyle {
@@ -726,7 +726,6 @@ export interface ClusterConfig extends ShapeStyle {
   allowClustering?: boolean;
   allowDeepClustering?: boolean;
   allowClusterExpand?: boolean;
-  imageUrl?: string;
   labelStyle?: LabelStyle;
 }
 

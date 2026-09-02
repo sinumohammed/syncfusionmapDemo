@@ -37,116 +37,136 @@
               "latitude": 23.6139,
               "longitude": 58.5229,
               "name": "MAF",
-              "imageUrl": "assets/icons/map-icons/tank.svg"
+              "height": 20,
+            "width": 20,
+              "imageUrl": "assets/nx-map/icons/tank.svg",
+              "isThirdParty": false
             },
             {
               "id": "Nizwa",
               "latitude": 22.9257,
               "longitude": 57.5367,
-              "name": "Nizwa"
+              "name": "Nizwa",
+              "isThirdParty": false
             },
             {
               "id": "ns",
               "latitude": 22.294,
               "longitude": 57.5367,
-              "name": "NS"
+              "name": "NS",
+              "isThirdParty": false
             },
             {
               "id": "qa",
               "latitude": 21.3056,
               "longitude": 57.1017,
-              "name": "QA"
+              "name": "QA",
+              "isThirdParty": false
             },
             {
               "id": "mark",
               "latitude": 21.111,
               "longitude": 56.533,
-              "name": "Marker114km"
+              "name": "Marker114km",
+              "isThirdParty": false
             },
             {
               "id": "sb",
               "latitude": 20.2428,
               "longitude": 56.1453,
-              "name": "sahma"
+              "name": "sahma",
+              "isThirdParty": false
             },
             {
               "id": "kpSouth",
               "latitude": 19.5187,
               "longitude": 56.2343,
-              "name": "kpSouth"
+              "name": "kpSouth",
+              "isThirdParty": false
             },
             {
               "id": "hub",
               "latitude": 19.0609,
               "longitude": 56.0954,
-              "name": "hub"
+              "name": "hub",
+              "isThirdParty": false
             },
             {
               "id": "nim",
               "latitude": 18.5569,
               "longitude": 55.8658,
-              "name": "nim"
+              "name": "nim",
+              "isThirdParty": false
             },
             {
               "id": "mm",
               "latitude": 18.1728,
               "longitude": 55.2512,
-              "name": "MM"
+              "name": "MM",
+              "isThirdParty": false
             },
             {
               "id": "HW",
               "latitude": 18.0064,
               "longitude": 54.5694,
-              "name": "HW"
+              "name": "HW",
+              "isThirdParty": false
             },
             {
               "id": "cced",
               "latitude": 20.9811,
               "longitude": 57.8006,
               "name": "cced",
-              "shape": "Circle"
+              "shape": "Circle",
+              "isThirdParty": false
             },
             {
               "id": "oxyMuradi",
               "latitude": 22.4023,
               "longitude": 56.9871,
               "name": "Oxy Muradi",
-              "shape": "Circle"
+              "shape": "Circle",
+              "isThirdParty": false
             },
             {
               "id": "ALG",
               "latitude": 20.9873,
               "longitude": 56.77,
               "name": "AG",
-              "shape": "Circle"
+              "shape": "Circle",
+              "isThirdParty": false
             },
             {
               "id": "rhip",
               "latitude": 18.03298,
               "longitude": 55.2512,
               "name": "RHIP",
-              "shape": "Circle"
+              "shape": "Circle",
+              "isThirdParty": false
             },
             {
               "id": "alnoor",
               "latitude": 18.6882,
               "longitude": 55.5039,
               "name": "ALNOOR",
-              "shape": "Circle"
+              "shape": "Circle",
+              "isThirdParty": false
             },
             {
               "id": "TY_MS",
               "latitude": 18.7081,
               "longitude": 55.3417,
               "name": "Tayseer",
-              "shape": "Circle"
+              "shape": "Circle",
+              "isThirdParty": false
             },
             {
               "id": "rim",
               "latitude": 18.8541,
               "longitude": 56.3065,
               "name": "Rima",
-              "shape": "Circle"
+              "shape": "Circle",
+              "isThirdParty": false
             }
           ]
         },

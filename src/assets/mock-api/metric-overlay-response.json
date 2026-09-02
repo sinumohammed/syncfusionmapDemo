@@ -5,15 +5,13 @@
     "value": 60,
     "unit": "kPa",
     "isCompliant": false,
-    "impact": "customer",
     "tooltip": {
       "columns": 3,
       "tvp": {
         "color": "#c94a3f",
         "value": 60,
         "unit": "kPa",
-        "isCompliant": false,
-        "impact": "customer"
+        "isCompliant": false
       },
       "salt": {
         "value": 4.2,
@@ -132,7 +130,6 @@
     "value": 82.33,
     "unit": "kPa",
     "isCompliant": false,
-    "impact": "non-customer",
     "tooltip": {
       "template": "template2",
       "columns": 3,
@@ -140,14 +137,12 @@
         "color": "#c94a3f",
         "value": 82.33,
         "unit": "kPa",
-        "isCompliant": false,
-        "impact": "non-customer"
+        "isCompliant": false
       },
       "salt": {
         "value": 6.7,
         "unit": "%",
-        "isCompliant": false,
-        "impact": "non-customer"
+        "isCompliant": false
       },
       "bsw": {
         "label": "BS&W",
@@ -259,14 +254,12 @@
     "markerId": "kpSouth",
     "value": 90.1,
     "unit": "kPa",
-    "impact": "customer",
     "tooltip": {
       "tvp": {
         "color": "#c94a3f",
         "value": 90.1,
         "unit": "kPa",
-        "isCompliant": false,
-        "impact": "customer"
+        "isCompliant": false
       },
       "salt": {
         "value": 5.6,
@@ -292,8 +285,7 @@
       "flow": {
         "value": 830,
         "unit": "m3/h",
-        "isCompliant": false,
-        "impact": "customer"
+        "isCompliant": false
       }
     }
   },
@@ -395,8 +387,7 @@
       "salt": {
         "value": 7.3,
         "unit": "%",
-        "isCompliant": false,
-        "impact": "non-customer"
+        "isCompliant": false
       },
       "bsw": {
         "label": "BS&W",
@@ -467,14 +458,12 @@
     "markerId": "cced",
     "value": 88.4,
     "unit": "kPa",
-    "impact": "customer",
     "tooltip": {
       "tvp": {
         "color": "#c94a3f",
         "value": 88.4,
         "unit": "kPa",
-        "isCompliant": false,
-        "impact": "customer"
+        "isCompliant": false
       },
       "salt": {
         "value": 5.9,
@@ -632,14 +621,12 @@
     "markerId": "alnoor",
     "value": 84.2,
     "unit": "kPa",
-    "impact": "non-customer",
     "tooltip": {
       "tvp": {
         "color": "#c94a3f",
         "value": 84.2,
         "unit": "kPa",
-        "isCompliant": false,
-        "impact": "non-customer"
+        "isCompliant": false
       },
       "salt": {
         "value": 6.2,
@@ -656,8 +643,7 @@
         "label": "Dissolved H2S",
         "value": 20,
         "unit": "ppm",
-        "isCompliant": false,
-        "impact": "non-customer"
+        "isCompliant": false
       },
       "api": {
         "value": 31.4,
@@ -766,14 +752,12 @@
     "name": "Ad Hoc Reading",
     "value": 75.2,
     "unit": "kPa",
-    "impact": "customer",
     "tooltip": {
       "tvp": {
         "color": "#c94a3f",
         "value": 75.2,
         "unit": "kPa",
-        "isCompliant": false,
-        "impact": "customer"
+        "isCompliant": false
       },
       "salt": {
         "value": 5,

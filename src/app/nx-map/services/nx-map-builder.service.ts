@@ -79,21 +79,6 @@ export const DEFAULT_TOOLTIP_TEMPLATE: TooltipTemplateConfig = {
   items: []
 };
 
-// Fallback icon shape per impact value — NOT currently read by
-// toMetricOverlayMarker() (see its own comment for the current
-// reading.color/NON_COMPLIANT_COLOR/point.color priority chain, which
-// superseded this impact-driven scheme). Left exported/typed rather than
-// deleted in case impact-driven shape differentiation comes back; a group's
-// own MapGroup.impactMarkerStyle is likewise currently unread by that
-// method. Lowercase to match the CSS class suffix (.marker-label-icon--
-// diamond etc, see nx-map-demo.component.ts's injectMarkerLabelTemplate())
-// rather than a MarkerShape enum value — this drives that template icon,
-// not Syncfusion's own shape rendering.
-export const DEFAULT_IMPACT_SHAPES: Record<"customer" | "non-customer", string> = {
-  customer: "diamond",
-  "non-customer": "triangle"
-};
-
 interface LayerState {
   config: MapConfig;
   shapeData: any;
@@ -303,6 +288,22 @@ export class NXMapBuilderService {
 
   setZoomLevel(level: number): void {
     this.currentZoomLevel = level;
+  }
+
+  // Multiplier applied to every marker's resolved width/height in
+  // toMarker() below — set via setMarkerScaleFactor(), called by
+  // NxMapDemoComponent.onZoomComplete() alongside setZoomLevel() with the
+  // SAME zoom-derived factor it also applies to the metric-overlay
+  // template's own icon size (see NxMapDemoComponent.updateMarkerLabelScale()'s
+  // own comment for why a marker's native width/height needs this at all —
+  // short version: Syncfusion re-renders every marker at its dataSource's
+  // OWN pixel width/height on every zoom, it never grows on its own just
+  // from the map's own zoom transform). 1 (no scaling — today's original
+  // sizes) until the first zoomComplete ever sets a real value.
+  private markerScaleFactor = 1;
+
+  setMarkerScaleFactor(factor: number): void {
+    this.markerScaleFactor = factor;
   }
 
   setTooltipMetricKeys(keys: string[]): void {
@@ -606,10 +607,26 @@ export class NXMapBuilderService {
       // so this only does anything for the overlay layer rendered via that
       // template.
       label: point.value === undefined ? point.name : `${point.name ?? ""}<br>${point.value}${point.unit ? " " + point.unit : ""}`,
-      shape: this.capitalizeShape(point.shape ?? groupStyle?.shape ?? theme.marker?.shape ?? MarkerShape.Balloon),
+      // imageUrl resolved BEFORE shape, same point -> groupStyle -> theme
+      // precedence as every other ShapeStyle field — when it resolves,
+      // shape is forced to "Image" regardless of point.shape/groupStyle.shape/
+      // theme.marker.shape, since Syncfusion only actually renders the icon
+      // when shape is "Image" (see ShapeStyle.imageUrl's own comment). No
+      // imageUrl anywhere in the chain falls straight through to the
+      // ordinary shape resolution, unchanged from before this field existed.
+      shape: this.capitalizeShape(
+        (point.imageUrl ?? groupStyle?.imageUrl ?? theme.marker?.imageUrl) !== undefined
+          ? MarkerShape.Image
+          : point.shape ?? groupStyle?.shape ?? theme.marker?.shape ?? MarkerShape.Balloon
+      ),
+      imageUrl: point.imageUrl ?? groupStyle?.imageUrl ?? theme.marker?.imageUrl,
       color: point.color ?? groupStyle?.color ?? theme.marker?.color,
-      width: point.width ?? groupStyle?.width ?? theme.marker?.width ?? 20,
-      height: point.height ?? groupStyle?.height ?? theme.marker?.height ?? 20,
+      // markerScaleFactor grows this on zoom (see its own comment) — this
+      // point's/group's/theme's own configured size is still the BASE this
+      // multiplies, so a deployment's own sizing intent (e.g. a bigger
+      // "tank" marker) is preserved at every zoom level, not overridden.
+      width: (point.width ?? groupStyle?.width ?? theme.marker?.width ?? 20) * this.markerScaleFactor,
+      height: (point.height ?? groupStyle?.height ?? theme.marker?.height ?? 20) * this.markerScaleFactor,
       // Consumed by #marker-tooltip-template's own CSS grid
       // (grid-template-columns) — see MapPoint.tooltipColumns' own
       // comment for why this is genuinely per-marker despite every
@@ -685,8 +702,6 @@ export class NXMapBuilderService {
   //      for the always-visible base marker, so a metric click never makes
   //      a compliant/unread point look any different from how it renders
   //      normally.
-  // impactMarkerStyle/DEFAULT_IMPACT_SHAPES are NOT read here anymore — see
-  // DEFAULT_IMPACT_SHAPES' own comment.
   private toMetricOverlayMarker(point: MapPoint, lookupKey: string, fetchedValues: Record<string, PointMetric> | null | undefined, theme: MapTheme, groupStyle: ShapeStyle | undefined) {
     const reading = point.id ? fetchedValues?.[point.id] : undefined;
     const color =
@@ -828,6 +843,15 @@ export class NXMapBuilderService {
         longitudeValuePath: "longitude",
         shapeValuePath: "shape",
         colorValuePath: "color",
+        // Backs toMarker()'s own point.imageUrl/groupStyle.imageUrl/
+        // theme.marker.imageUrl resolution (see ShapeStyle.imageUrl's own
+        // comment) — Syncfusion reads this per-marker via the dataSource's
+        // own `imageUrl` field, same valuePath mechanism as shape/color/
+        // width/height above. A point with no imageUrl anywhere in that
+        // chain just has this field as undefined, which Syncfusion ignores
+        // exactly like an unset shapeValuePath field falls back to its own
+        // default — no behavior change for a point that never used imageUrl.
+        imageUrlValuePath: "imageUrl",
         // Syncfusion's per-marker-layer clustering property is
         // `clusterSettings` (NOT `markerClusterSettings` — that one only
         // exists on LayerSettingsModel, one per whole layer).

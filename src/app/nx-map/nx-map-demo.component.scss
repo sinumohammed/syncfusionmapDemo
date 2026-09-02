@@ -629,19 +629,26 @@
   flex-shrink: 0;
 }
 
+/* Grown per zoom level by NxMapDemoComponent.updateMarkerLabelScale() —
+   see its own comment. A triangle has no width/height of its own (drawn
+   entirely from border widths instead), so its "size" scales via
+   border-left/border-right (half-width) and border-bottom (full height)
+   directly, keeping the SAME 7:12 proportions the original fixed 7px/12px
+   values had. calc()'s own 12px fallback matches the original size, for
+   the brief window before the first zoomComplete ever sets the variable. */
 ::ng-deep .marker-label-icon--triangle {
   width: 0;
   height: 0;
-  border-left: 7px solid transparent;
-  border-right: 7px solid transparent;
-  border-bottom: 12px solid var(--icon-color);
+  border-left: calc(var(--marker-icon-size, 12px) * 7 / 12) solid transparent;
+  border-right: calc(var(--marker-icon-size, 12px) * 7 / 12) solid transparent;
+  border-bottom: var(--marker-icon-size, 12px) solid var(--icon-color);
   transform: translateY(-50%);
 }
 
-/* Rotated square — NxMapBuilderService's DEFAULT_IMPACT_SHAPES uses
-   this for a "customer impact" high reading (configurable per group
-   via MapGroup.impactMarkerStyle, see its own comment). rotate(45deg)
-   is applied AFTER translateY(-50%) here (CSS transform functions
+/* Rotated square — selectable via toOverlayIconShape() in
+   nx-map-builder.service.ts (nx-map-builder.service.ts's
+   toMetricOverlayMarker()'s own reading.shape/point.shape resolution).
+   rotate(45deg) is applied AFTER translateY(-50%) here (CSS transform functions
    compose right-to-left) — translateY still reads this element's own
    pre-rotation height either way, so the composed order doesn't
    change the centering math above. Sized a bit larger than a typical
@@ -650,18 +657,20 @@
    NxMapDemoComponent.applyMetricSelection()'s own comment on why a
    layer's native marker can't always be relied on to render too. */
 ::ng-deep .marker-label-icon--diamond {
-  width: 12px;
-  height: 12px;
+  /* Grown per zoom level by NxMapDemoComponent.updateMarkerLabelScale() —
+     see its own comment. 12px fallback matches the original fixed size. */
+  width: var(--marker-icon-size, 12px);
+  height: var(--marker-icon-size, 12px);
   background: var(--icon-color);
   transform: translateY(-50%) rotate(45deg);
 }
 
-/* Fallback shape for a "normal"-status reading (no customer/
-   non-customer impact to differentiate) and for any impact value
-   that isn't "customer" or "non-customer". */
+/* Fallback shape — toOverlayIconShape() in nx-map-builder.service.ts
+   defaults to this for any resolved shape that isn't "triangle" or
+   "diamond" (including no shape at all). */
 ::ng-deep .marker-label-icon--circle {
-  width: 12px;
-  height: 12px;
+  width: var(--marker-icon-size, 12px);
+  height: var(--marker-icon-size, 12px);
   border-radius: 50%;
   background: var(--icon-color);
   transform: translateY(-50%);
@@ -673,7 +682,10 @@
    needing its own transform, same visual position as before the
    icon-centering fix above, just no longer entangled with it. */
 ::ng-deep .marker-label-text {
-  font-size: 10px;
+  /* Grown per zoom level by NxMapDemoComponent.updateMarkerLabelScale() —
+     see its own comment. 10px fallback matches the original fixed size,
+     for the brief window before the first zoomComplete ever sets this. */
+  font-size: var(--marker-label-font-size, 10px);
   font-weight: 700;
   white-space: nowrap;
   text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff;

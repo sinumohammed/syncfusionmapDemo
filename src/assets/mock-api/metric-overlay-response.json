@@ -43,49 +43,6 @@
   },
   {
     "layerId": "MOL",
-    "markerId": "Nizwa",
-    "value": 96.87,
-    "unit": "kPa",
-    "isCompliant": true,
-    "textColor": "#0044ff",
-    "tooltip": {
-      "template": "compact",
-      "tvp": {
-        "color": "#c94a3f",
-        "value": 96.87,
-        "unit": "kPa",
-        "isCompliant": true
-      },
-      "salt": {
-        "value": 3.8,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "bsw": {
-        "label": "BS&W",
-        "value": 0.9,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "h2s": {
-        "label": "Dissolved H2S",
-        "value": 8,
-        "unit": "ppm",
-        "isCompliant": true
-      },
-      "api": {
-        "value": 33.1,
-        "unit": "°"
-      },
-      "flow": {
-        "value": 875,
-        "unit": "m3/h",
-        "isCompliant": true
-      }
-    }
-  },
-  {
-    "layerId": "MOL",
     "markerId": "ns",
     "value": 71.4,
     "unit": "kPa",

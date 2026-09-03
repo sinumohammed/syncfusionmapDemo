@@ -636,6 +636,23 @@ export class NXMapBuilderService {
       // MapPoint.tooltipLayout's own comment) — same per-marker
       // substitution trick as `columns` above.
       layoutClass: `mtt-layout-${point.tooltipLayout ?? this.defaultTooltipLayout}`,
+      // A second, per-marker "no data" class alongside layoutClass above —
+      // injectMarkerTooltipTemplate() (nx-map-demo.component.ts) already
+      // adds "mtt-name-only" map-wide when NO marker anywhere has any
+      // tooltip data at all (omits .mtt-grid from the shared template
+      // entirely); this is the same class applied per-INDIVIDUAL-marker
+      // instead, for when the map-wide template DOES have tiles (some
+      // other point matched this round) but THIS point's own
+      // tooltipMetrics has no reading for any of them (e.g. its markerId
+      // dropped out of the metric-overlay API response this round). CSS
+      // (.marker-tooltip.mtt-name-only .mtt-grid) hides the now-pointless
+      // "—" placeholder grid for just this marker, leaving its tooltip
+      // looking exactly like the plain pre-selection name-only tooltip
+      // instead of a card full of dashes.
+      tooltipEmptyClass:
+        this.tooltipMetricKeys.length > 0 && !this.tooltipMetricKeys.some(key => point.tooltipMetrics?.[key] !== undefined)
+          ? " mtt-name-only"
+          : "",
       __lookupKey: lookupKey
     };
 
@@ -870,17 +887,22 @@ export class NXMapBuilderService {
         return [baseLayer];
       }
 
-      // Overlay layer for the currently-selected circular chart metric — covers the
-      // SAME full point list (every mol point carries every metric), not a
-      // filtered subset, per applyCircularChartSelectionChange()'s "no new markers, no
-      // markers dropped" design. `template` fully replaces Syncfusion's own
-      // shape/color/cluster rendering for THIS second layer only — the base
-      // layer above still renders normally underneath it. Clustering is
-      // intentionally left off: it isn't designed to combine with template
-      // markers.
-      const overlayDataSource = points.map((point, index) =>
-        this.toMetricOverlayMarker(point, `${layerIndex}:${g.id}:metric:${index}`, g.activeMetricValues, theme, g.markerConfig?.style)
-      );
+      // Overlay layer for the currently-selected circular chart metric —
+      // ONLY points the fetch actually returned a reading for (point.id
+      // present as a key in g.activeMetricValues). A config-authored point
+      // with no matching markerId in the API response gets no overlay
+      // marker at all, same as a point that was never anchored in
+      // applyMetricSelection() (nx-map-demo.component.ts) — it just keeps
+      // rendering via baseLayer above, unaffected. `template` fully
+      // replaces Syncfusion's own shape/color/cluster rendering for THIS
+      // second layer only — the base layer above still renders normally
+      // underneath it. Clustering is intentionally left off: it isn't
+      // designed to combine with template markers.
+      const overlayDataSource = points
+        .filter(point => point.id && g.activeMetricValues?.[point.id] !== undefined)
+        .map((point, index) =>
+          this.toMetricOverlayMarker(point, `${layerIndex}:${g.id}:metric:${index}`, g.activeMetricValues, theme, g.markerConfig?.style)
+        );
 
       const overlayLayer: MarkerSettingsModel = {
         visible: g.visible ?? true,

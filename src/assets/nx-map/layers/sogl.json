@@ -1,0 +1,45 @@
+{
+  "layerConfig": {
+    "layerName": "SOGL",
+    "region": "Flow Lines",
+    "theme": "theme1",
+    "title": {
+      "text": "SOGL"
+    },
+    "dataLabel": {
+      "visible": true,
+      "color": "beige",
+      "opacity": 0.9
+    },
+    "groups": [
+      {
+        "id": "sogl",
+        "name": "SOGL",
+        "visible": true,
+        "childrenParticipateInFilter": false,
+        "markerConfig": {
+          "style": {
+            "color": "",
+            "shape": "Circle",
+            "height": 6,
+            "width": 6,
+            "labelStyle": {
+              "color": "white"
+            }
+          },
+          "points": [
+            {
+              "id": "maf",
+              "latitude": 21.5,
+              "longitude": 57.9,
+              "name": "Ad Hoc Reading"
+            }
+          ]
+        },
+        "lines": [
+          
+        ]
+      }
+    ]
+  }
+}

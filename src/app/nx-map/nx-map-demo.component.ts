@@ -2023,7 +2023,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     // nx-map-demo.component.scss) onto just THIS marker's tooltip
     // instance, still built from this exact same shared markup.
     container.innerHTML = `
-      <div class="marker-tooltip \${layoutClass}${tiles ? "" : " mtt-name-only"}">
+      <div class="marker-tooltip \${layoutClass}${tiles ? "" : " mtt-name-only"}\${tooltipEmptyClass}">
         <div class="mtt-header">
           <span class="mtt-title">\${name}</span>
         </div>

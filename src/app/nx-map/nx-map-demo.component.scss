@@ -332,6 +332,16 @@
   font-size: 13px;
 }
 
+/* Per-marker case: the shared template DOES have a .mtt-grid (some other
+   point matched this round), but THIS marker's own tooltipEmptyClass
+   (nx-map-builder.service.ts's toMarker()) still added mtt-name-only
+   because it has no reading for any tile in it — unlike the map-wide case
+   above, injectMarkerTooltipTemplate() can't omit .mtt-grid from the
+   shared HTML per marker, so hide it here instead. */
+::ng-deep .marker-tooltip.mtt-name-only .mtt-grid {
+  display: none;
+}
+
 ::ng-deep .marker-tooltip .mtt-header {
   display: flex;
   align-items: center;

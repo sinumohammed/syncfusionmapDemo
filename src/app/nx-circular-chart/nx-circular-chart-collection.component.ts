@@ -52,6 +52,15 @@ export class NxCircularChartCollectionComponent implements OnChanges {
   // drives.
   fetchFailed = false;
 
+  // True only while an ApiUrl fetch is actually in flight — the
+  // trendResponse @Input path is synchronous (no network round trip), so
+  // this never applies there. Drives the template's loader in place of the
+  // "No data available." message, which otherwise flashes on every ApiUrl
+  // fetch (rawConfig set, response not back yet) even though real data is
+  // on its way — same "don't show empty for a genuinely still-loading
+  // state" rule fetchFailed follows for a genuinely failed one.
+  loading = false;
+
   // Bumped on every ngOnChanges run and captured per in-flight ApiUrl fetch
   // so a stale response from a superseded rawConfig can't overwrite a
   // newer one that resolved first.
@@ -69,15 +78,18 @@ export class NxCircularChartCollectionComponent implements OnChanges {
     // itself and uses THAT, neglecting the `trendResponse` @Input entirely
     // (per product decision: an ApiUrl on the config always wins).
     if (this.rawConfig?.ApiUrl) {
+      this.loading = true;
       this.configService.fetchTrendResponse(this.rawConfig.ApiUrl).subscribe({
         next: response => {
           if (token === this.requestToken) {
+            this.loading = false;
             this.applyConfigs(response ?? [], false);
           }
         },
         error: () => {
           if (token === this.requestToken) {
             console.error(`[NxCircularChartCollection] ApiUrl "${this.rawConfig?.ApiUrl}" failed to load — rendering with no trend data.`);
+            this.loading = false;
             this.fetchFailed = true;
             this.applyConfigs([], false);
           }
@@ -85,6 +97,7 @@ export class NxCircularChartCollectionComponent implements OnChanges {
       });
       return;
     }
+    this.loading = false;
     // No ApiUrl — when the host also hasn't supplied a (non-empty)
     // trendResponse @Input, there's no live trend source at all, so fall
     // back to each Configuration[] entry's own hardcoded Data (see

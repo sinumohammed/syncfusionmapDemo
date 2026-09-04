@@ -290,6 +290,37 @@
   pointer-events: none;
 }
 
+/* Full-map cover while a metric-overlay fetch is in flight
+   (metricOverlayLoading) — sits above the map/markers (z-index above
+   .click-toast's own 200) but pointer-events: none so panning/zooming and
+   the layer/basemap controls all stay usable while it's up; the spinner
+   itself is the only thing that reads as "busy". */
+.nx-map .nx-map-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 250;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.35);
+  pointer-events: none;
+}
+
+.nx-map .nx-map-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #dadce0;
+  border-top-color: #1a73e8;
+  border-radius: 50%;
+  animation: nx-map-spin 0.8s linear infinite;
+}
+
+@keyframes nx-map-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .nx-map .layer-panel-body {
   padding: 0 8px 8px;
 }

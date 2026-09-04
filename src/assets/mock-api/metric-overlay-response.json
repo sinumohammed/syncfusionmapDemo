@@ -1,748 +1,855 @@
 [
   {
-    "layerId": "MOL",
-    "markerId": "maf",
-    "value": 60,
-    "unit": "kPa",
-    "isCompliant": false,
-    "tooltip": {
-      "columns": 3,
-      "tvp": {
-        "color": "#c94a3f",
-        "value": 60,
-        "unit": "kPa",
-        "isCompliant": false
-      },
-      "salt": {
-        "value": 4.2,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "bsw": {
-        "label": "BS&W",
-        "value": 1.1,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "h2s": {
-        "label": "Dissolved H2S",
-        "value": 12,
-        "unit": "ppm",
-        "isCompliant": true
-      },
-      "api": {
-        "value": 34.5,
-        "unit": "°"
-      },
-      "flow": {
-        "value": 980,
-        "unit": "m3/h",
-        "isCompliant": true
-      }
+    "LayerId": "MOL",
+    "MarkerId": "maf",
+    "Value": 60,
+    "Unit": "kPa",
+    "IsCompliant": false,
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "TVP",
+          "Color": "#c94a3f",
+          "Value": 60,
+          "Unit": "kPa",
+          "IsCompliant": false
+        },
+        {
+          "Label": "SALT",
+          "Value": 4.2,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "BS&W",
+          "Value": 1.1,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "Dissolved H2S",
+          "Value": 12,
+          "Unit": "ppm",
+          "IsCompliant": true
+        },
+        {
+          "Label": "API",
+          "Value": 34.5,
+          "Unit": "°"
+        },
+        {
+          "Label": "FLOW",
+          "Value": 980,
+          "Unit": "m3/h",
+          "IsCompliant": true
+        }
+      ],
+      "Columns": 3
     }
   },
   {
-    "layerId": "MOL",
-    "markerId": "ns",
-    "value": 71.4,
-    "unit": "kPa",
-    "isCompliant": true,
-    "tooltip": {
-      "tvp": {
-        "color": "#c94a3f",
-        "value": 71.4,
-        "unit": "kPa",
-        "isCompliant": true
-      },
-      "salt": {
-        "value": 5.1,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "bsw": {
-        "label": "BS&W",
-        "value": 1.4,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "h2s": {
-        "label": "Dissolved H2S",
-        "value": 15,
-        "unit": "ppm",
-        "isCompliant": true
-      },
-      "api": {
-        "value": 32.8,
-        "unit": "°"
-      },
-      "flow": {
-        "value": 760,
-        "unit": "m3/h",
-        "isCompliant": true
-      }
+    "LayerId": "MOL",
+    "MarkerId": "ns",
+    "Value": 71.4,
+    "Unit": "kPa",
+    "IsCompliant": true,
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "TVP",
+          "Color": "#c94a3f",
+          "Value": 71.4,
+          "Unit": "kPa",
+          "IsCompliant": true
+        },
+        {
+          "Label": "SALT",
+          "Value": 5.1,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "BS&W",
+          "Value": 1.4,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "Dissolved H2S",
+          "Value": 15,
+          "Unit": "ppm",
+          "IsCompliant": true
+        },
+        {
+          "Label": "API",
+          "Value": 32.8,
+          "Unit": "°"
+        },
+        {
+          "Label": "FLOW",
+          "Value": 760,
+          "Unit": "m3/h",
+          "IsCompliant": true
+        }
+      ]
     }
   },
   {
-    "layerId": "MOL",
-    "markerId": "qa",
-    "value": 82.33,
-    "unit": "kPa",
-    "isCompliant": false,
-    "tooltip": {
-      "template": "template2",
-      "columns": 3,
-      "tvp": {
-        "color": "#c94a3f",
-        "value": 82.33,
-        "unit": "kPa",
-        "isCompliant": false
-      },
-      "salt": {
-        "value": 6.7,
-        "unit": "%",
-        "isCompliant": false
-      },
-      "bsw": {
-        "label": "BS&W",
-        "value": 2.3,
-        "unit": "%",
-        "isCompliant": false
-      },
-      "h2s": {
-        "label": "Dissolved H2S",
-        "value": 22,
-        "unit": "ppm",
-        "isCompliant": true
-      },
-      "api": {
-        "value": 31.6,
-        "unit": "°"
-      },
-      "flow": {
-        "value": 640,
-        "unit": "m3/h",
-        "isCompliant": true
-      }
+    "LayerId": "MOL",
+    "MarkerId": "qa",
+    "Value": 82.33,
+    "Unit": "kPa",
+    "IsCompliant": false,
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "TVP",
+          "Color": "#c94a3f",
+          "Value": 82.33,
+          "Unit": "kPa",
+          "IsCompliant": false
+        },
+        {
+          "Label": "SALT",
+          "Value": 6.7,
+          "Unit": "%",
+          "IsCompliant": false
+        },
+        {
+          "Label": "BS&W",
+          "Value": 2.3,
+          "Unit": "%",
+          "IsCompliant": false
+        },
+        {
+          "Label": "Dissolved H2S",
+          "Value": 22,
+          "Unit": "ppm",
+          "IsCompliant": true
+        },
+        {
+          "Label": "API",
+          "Value": 31.6,
+          "Unit": "°"
+        },
+        {
+          "Label": "FLOW",
+          "Value": 640,
+          "Unit": "m3/h",
+          "IsCompliant": true
+        }
+      ],
+      "Columns": 3
     }
   },
   {
-    "layerId": "MOL",
-    "markerId": "mark",
-    "value": 58.9,
-    "unit": "kPa",
-    "isCompliant": true,
-    "tooltip": {
-      "tvp": {
-        "color": "#c94a3f",
-        "value": 58.9,
-        "unit": "kPa",
-        "isCompliant": true
-      },
-      "salt": {
-        "value": 3.4,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "bsw": {
-        "label": "BS&W",
-        "value": 0.8,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "h2s": {
-        "label": "Dissolved H2S",
-        "value": 9,
-        "unit": "ppm",
-        "isCompliant": true
-      },
-      "api": {
-        "value": 34,
-        "unit": "°"
-      },
-      "flow": {
-        "value": 590,
-        "unit": "m3/h",
-        "isCompliant": true
-      }
+    "LayerId": "MOL",
+    "MarkerId": "mark",
+    "Value": 58.9,
+    "Unit": "kPa",
+    "IsCompliant": true,
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "TVP",
+          "Color": "#c94a3f",
+          "Value": 58.9,
+          "Unit": "kPa",
+          "IsCompliant": true
+        },
+        {
+          "Label": "SALT",
+          "Value": 3.4,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "BS&W",
+          "Value": 0.8,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "Dissolved H2S",
+          "Value": 9,
+          "Unit": "ppm",
+          "IsCompliant": true
+        },
+        {
+          "Label": "API",
+          "Value": 34,
+          "Unit": "°"
+        },
+        {
+          "Label": "FLOW",
+          "Value": 590,
+          "Unit": "m3/h",
+          "IsCompliant": true
+        }
+      ]
     }
   },
   {
-    "layerId": "MOL",
-    "markerId": "sb",
-    "value": 65.2,
-    "unit": "kPa",
-    "isCompliant": true,
-    "tooltip": {
-      "tvp": {
-        "color": "#c94a3f",
-        "value": 65.2,
-        "unit": "kPa",
-        "isCompliant": true
-      },
-      "salt": {
-        "value": 4.9,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "bsw": {
-        "label": "BS&W",
-        "value": 1.2,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "h2s": {
-        "label": "Dissolved H2S",
-        "value": 11,
-        "unit": "ppm",
-        "isCompliant": true
-      },
-      "api": {
-        "value": 33.7,
-        "unit": "°"
-      },
-      "flow": {
-        "value": 705,
-        "unit": "m3/h",
-        "isCompliant": true
-      }
+    "LayerId": "MOL",
+    "MarkerId": "sb",
+    "Value": 65.2,
+    "Unit": "kPa",
+    "IsCompliant": true,
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "TVP",
+          "Color": "#c94a3f",
+          "Value": 65.2,
+          "Unit": "kPa",
+          "IsCompliant": true
+        },
+        {
+          "Label": "SALT",
+          "Value": 4.9,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "BS&W",
+          "Value": 1.2,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "Dissolved H2S",
+          "Value": 11,
+          "Unit": "ppm",
+          "IsCompliant": true
+        },
+        {
+          "Label": "API",
+          "Value": 33.7,
+          "Unit": "°"
+        },
+        {
+          "Label": "FLOW",
+          "Value": 705,
+          "Unit": "m3/h",
+          "IsCompliant": true
+        }
+      ]
     }
   },
   {
-    "layerId": "MOL",
-    "markerId": "kpSouth",
-    "value": 90.1,
-    "unit": "kPa",
-    "tooltip": {
-      "tvp": {
-        "color": "#c94a3f",
-        "value": 90.1,
-        "unit": "kPa",
-        "isCompliant": false
-      },
-      "salt": {
-        "value": 5.6,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "bsw": {
-        "label": "BS&W",
-        "value": 1.9,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "h2s": {
-        "label": "Dissolved H2S",
-        "value": 18,
-        "unit": "ppm",
-        "isCompliant": true
-      },
-      "api": {
-        "value": 32.2,
-        "unit": "°"
-      },
-      "flow": {
-        "value": 830,
-        "unit": "m3/h",
-        "isCompliant": false
-      }
+    "LayerId": "MOL",
+    "MarkerId": "kpSouth",
+    "Value": 90.1,
+    "Unit": "kPa",
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "TVP",
+          "Color": "#c94a3f",
+          "Value": 90.1,
+          "Unit": "kPa",
+          "IsCompliant": false
+        },
+        {
+          "Label": "SALT",
+          "Value": 5.6,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "BS&W",
+          "Value": 1.9,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "Dissolved H2S",
+          "Value": 18,
+          "Unit": "ppm",
+          "IsCompliant": true
+        },
+        {
+          "Label": "API",
+          "Value": 32.2,
+          "Unit": "°"
+        },
+        {
+          "Label": "FLOW",
+          "Value": 830,
+          "Unit": "m3/h",
+          "IsCompliant": false
+        }
+      ]
     }
   },
   {
-    "layerId": "MOL",
-    "markerId": "hub",
-    "value": 54.3,
-    "unit": "kPa",
-    "isCompliant": true,
-    "tooltip": {
-      "tvp": {
-        "color": "#c94a3f",
-        "value": 54.3,
-        "unit": "kPa",
-        "isCompliant": true
-      },
-      "salt": {
-        "value": 3.1,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "bsw": {
-        "label": "BS&W",
-        "value": 0.7,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "h2s": {
-        "label": "Dissolved H2S",
-        "value": 7,
-        "unit": "ppm",
-        "isCompliant": true
-      },
-      "api": {
-        "value": 34.8,
-        "unit": "°"
-      },
-      "flow": {
-        "value": 520,
-        "unit": "m3/h",
-        "isCompliant": true
-      }
+    "LayerId": "MOL",
+    "MarkerId": "hub",
+    "Value": 54.3,
+    "Unit": "kPa",
+    "IsCompliant": true,
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "TVP",
+          "Color": "#c94a3f",
+          "Value": 54.3,
+          "Unit": "kPa",
+          "IsCompliant": true
+        },
+        {
+          "Label": "SALT",
+          "Value": 3.1,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "BS&W",
+          "Value": 0.7,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "Dissolved H2S",
+          "Value": 7,
+          "Unit": "ppm",
+          "IsCompliant": true
+        },
+        {
+          "Label": "API",
+          "Value": 34.8,
+          "Unit": "°"
+        },
+        {
+          "Label": "FLOW",
+          "Value": 520,
+          "Unit": "m3/h",
+          "IsCompliant": true
+        }
+      ]
     }
   },
   {
-    "layerId": "MOL",
-    "markerId": "nim",
-    "value": 77.6,
-    "unit": "kPa",
-    "isCompliant": true,
-    "tooltip": {
-      "tvp": {
-        "color": "#c94a3f",
-        "value": 77.6,
-        "unit": "kPa",
-        "isCompliant": true
-      },
-      "salt": {
-        "value": 4.4,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "bsw": {
-        "label": "BS&W",
-        "value": 1,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "h2s": {
-        "label": "Dissolved H2S",
-        "value": 10,
-        "unit": "ppm",
-        "isCompliant": true
-      },
-      "api": {
-        "value": 33.4,
-        "unit": "°"
-      },
-      "flow": {
-        "value": 690,
-        "unit": "m3/h",
-        "isCompliant": true
-      }
+    "LayerId": "MOL",
+    "MarkerId": "nim",
+    "Value": 77.6,
+    "Unit": "kPa",
+    "IsCompliant": true,
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "TVP",
+          "Color": "#c94a3f",
+          "Value": 77.6,
+          "Unit": "kPa",
+          "IsCompliant": true
+        },
+        {
+          "Label": "SALT",
+          "Value": 4.4,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "BS&W",
+          "Value": 1,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "Dissolved H2S",
+          "Value": 10,
+          "Unit": "ppm",
+          "IsCompliant": true
+        },
+        {
+          "Label": "API",
+          "Value": 33.4,
+          "Unit": "°"
+        },
+        {
+          "Label": "FLOW",
+          "Value": 690,
+          "Unit": "m3/h",
+          "IsCompliant": true
+        }
+      ]
     }
   },
   {
-    "layerId": "MOL",
-    "markerId": "mm",
-    "value": 69.8,
-    "unit": "kPa",
-    "isCompliant": true,
-    "tooltip": {
-      "tvp": {
-        "color": "#c94a3f",
-        "value": 69.8,
-        "unit": "kPa",
-        "isCompliant": true
-      },
-      "salt": {
-        "value": 7.3,
-        "unit": "%",
-        "isCompliant": false
-      },
-      "bsw": {
-        "label": "BS&W",
-        "value": 1.6,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "h2s": {
-        "label": "Dissolved H2S",
-        "value": 14,
-        "unit": "ppm",
-        "isCompliant": true
-      },
-      "api": {
-        "value": 31.9,
-        "unit": "°"
-      },
-      "flow": {
-        "value": 615,
-        "unit": "m3/h",
-        "isCompliant": true
-      }
+    "LayerId": "MOL",
+    "MarkerId": "mm",
+    "Value": 69.8,
+    "Unit": "kPa",
+    "IsCompliant": true,
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "TVP",
+          "Color": "#c94a3f",
+          "Value": 69.8,
+          "Unit": "kPa",
+          "IsCompliant": true
+        },
+        {
+          "Label": "SALT",
+          "Value": 7.3,
+          "Unit": "%",
+          "IsCompliant": false
+        },
+        {
+          "Label": "BS&W",
+          "Value": 1.6,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "Dissolved H2S",
+          "Value": 14,
+          "Unit": "ppm",
+          "IsCompliant": true
+        },
+        {
+          "Label": "API",
+          "Value": 31.9,
+          "Unit": "°"
+        },
+        {
+          "Label": "FLOW",
+          "Value": 615,
+          "Unit": "m3/h",
+          "IsCompliant": true
+        }
+      ]
     }
   },
   {
-    "layerId": "MOL",
-    "markerId": "HW",
-    "value": 48.5,
-    "unit": "kPa",
-    "isCompliant": true,
-    "tooltip": {
-      "tvp": {
-        "color": "#c94a3f",
-        "value": 48.5,
-        "unit": "kPa",
-        "isCompliant": true
-      },
-      "salt": {
-        "value": 2.9,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "bsw": {
-        "label": "BS&W",
-        "value": 0.6,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "h2s": {
-        "label": "Dissolved H2S",
-        "value": 6,
-        "unit": "ppm",
-        "isCompliant": true
-      },
-      "api": {
-        "value": 35.2,
-        "unit": "°"
-      },
-      "flow": {
-        "value": 470,
-        "unit": "m3/h",
-        "isCompliant": true
-      }
+    "LayerId": "MOL",
+    "MarkerId": "HW",
+    "Value": 48.5,
+    "Unit": "kPa",
+    "IsCompliant": true,
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "TVP",
+          "Color": "#c94a3f",
+          "Value": 48.5,
+          "Unit": "kPa",
+          "IsCompliant": true
+        },
+        {
+          "Label": "SALT",
+          "Value": 2.9,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "BS&W",
+          "Value": 0.6,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "Dissolved H2S",
+          "Value": 6,
+          "Unit": "ppm",
+          "IsCompliant": true
+        },
+        {
+          "Label": "API",
+          "Value": 35.2,
+          "Unit": "°"
+        },
+        {
+          "Label": "FLOW",
+          "Value": 470,
+          "Unit": "m3/h",
+          "IsCompliant": true
+        }
+      ]
     }
   },
   {
-    "layerId": "MOL",
-    "markerId": "cced",
-    "value": 88.4,
-    "unit": "kPa",
-    "tooltip": {
-      "tvp": {
-        "color": "#c94a3f",
-        "value": 88.4,
-        "unit": "kPa",
-        "isCompliant": false
-      },
-      "salt": {
-        "value": 5.9,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "bsw": {
-        "label": "BS&W",
-        "value": 2,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "h2s": {
-        "label": "Dissolved H2S",
-        "value": 19,
-        "unit": "ppm",
-        "isCompliant": true
-      },
-      "api": {
-        "value": 32.5,
-        "unit": "°"
-      },
-      "flow": {
-        "value": 745,
-        "unit": "m3/h",
-        "isCompliant": true
-      }
+    "LayerId": "MOL",
+    "MarkerId": "cced",
+    "Value": 88.4,
+    "Unit": "kPa",
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "TVP",
+          "Color": "#c94a3f",
+          "Value": 88.4,
+          "Unit": "kPa",
+          "IsCompliant": false
+        },
+        {
+          "Label": "SALT",
+          "Value": 5.9,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "BS&W",
+          "Value": 2,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "Dissolved H2S",
+          "Value": 19,
+          "Unit": "ppm",
+          "IsCompliant": true
+        },
+        {
+          "Label": "API",
+          "Value": 32.5,
+          "Unit": "°"
+        },
+        {
+          "Label": "FLOW",
+          "Value": 745,
+          "Unit": "m3/h",
+          "IsCompliant": true
+        }
+      ]
     }
   },
   {
-    "layerId": "MOL",
-    "markerId": "oxyMuradi",
-    "value": 62.7,
-    "unit": "kPa",
-    "isCompliant": true,
-    "tooltip": {
-      "tvp": {
-        "color": "#c94a3f",
-        "value": 62.7,
-        "unit": "kPa",
-        "isCompliant": true
-      },
-      "salt": {
-        "value": 4,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "bsw": {
-        "label": "BS&W",
-        "value": 1,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "h2s": {
-        "label": "Dissolved H2S",
-        "value": 10,
-        "unit": "ppm",
-        "isCompliant": true
-      },
-      "api": {
-        "value": 33.9,
-        "unit": "°"
-      },
-      "flow": {
-        "value": 610,
-        "unit": "m3/h",
-        "isCompliant": true
-      }
+    "LayerId": "MOL",
+    "MarkerId": "oxyMuradi",
+    "Value": 62.7,
+    "Unit": "kPa",
+    "IsCompliant": true,
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "TVP",
+          "Color": "#c94a3f",
+          "Value": 62.7,
+          "Unit": "kPa",
+          "IsCompliant": true
+        },
+        {
+          "Label": "SALT",
+          "Value": 4,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "BS&W",
+          "Value": 1,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "Dissolved H2S",
+          "Value": 10,
+          "Unit": "ppm",
+          "IsCompliant": true
+        },
+        {
+          "Label": "API",
+          "Value": 33.9,
+          "Unit": "°"
+        },
+        {
+          "Label": "FLOW",
+          "Value": 610,
+          "Unit": "m3/h",
+          "IsCompliant": true
+        }
+      ]
     }
   },
   {
-    "layerId": "MOL",
-    "markerId": "ALG",
-    "value": 73.9,
-    "unit": "kPa",
-    "isCompliant": true,
-    "tooltip": {
-      "tvp": {
-        "color": "#c94a3f",
-        "value": 73.9,
-        "unit": "kPa",
-        "isCompliant": true
-      },
-      "salt": {
-        "value": 4.6,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "bsw": {
-        "label": "BS&W",
-        "value": 1.3,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "h2s": {
-        "label": "Dissolved H2S",
-        "value": 13,
-        "unit": "ppm",
-        "isCompliant": true
-      },
-      "api": {
-        "value": 33,
-        "unit": "°"
-      },
-      "flow": {
-        "value": 655,
-        "unit": "m3/h",
-        "isCompliant": true
-      }
+    "LayerId": "MOL",
+    "MarkerId": "ALG",
+    "Value": 73.9,
+    "Unit": "kPa",
+    "IsCompliant": true,
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "TVP",
+          "Color": "#c94a3f",
+          "Value": 73.9,
+          "Unit": "kPa",
+          "IsCompliant": true
+        },
+        {
+          "Label": "SALT",
+          "Value": 4.6,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "BS&W",
+          "Value": 1.3,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "Dissolved H2S",
+          "Value": 13,
+          "Unit": "ppm",
+          "IsCompliant": true
+        },
+        {
+          "Label": "API",
+          "Value": 33,
+          "Unit": "°"
+        },
+        {
+          "Label": "FLOW",
+          "Value": 655,
+          "Unit": "m3/h",
+          "IsCompliant": true
+        }
+      ]
     }
   },
   {
-    "layerId": "MOL",
-    "markerId": "rhip",
-    "value": 55.6,
-    "unit": "kPa",
-    "isCompliant": true,
-    "tooltip": {
-      "tvp": {
-        "color": "#c94a3f",
-        "value": 55.6,
-        "unit": "kPa",
-        "isCompliant": true
-      },
-      "salt": {
-        "value": 3.3,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "bsw": {
-        "label": "BS&W",
-        "value": 0.8,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "h2s": {
-        "label": "Dissolved H2S",
-        "value": 9,
-        "unit": "ppm",
-        "isCompliant": true
-      },
-      "api": {
-        "value": 34.3,
-        "unit": "°"
-      },
-      "flow": {
-        "value": 540,
-        "unit": "m3/h",
-        "isCompliant": true
-      }
+    "LayerId": "MOL",
+    "MarkerId": "rhip",
+    "Value": 55.6,
+    "Unit": "kPa",
+    "IsCompliant": true,
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "TVP",
+          "Color": "#c94a3f",
+          "Value": 55.6,
+          "Unit": "kPa",
+          "IsCompliant": true
+        },
+        {
+          "Label": "SALT",
+          "Value": 3.3,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "BS&W",
+          "Value": 0.8,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "Dissolved H2S",
+          "Value": 9,
+          "Unit": "ppm",
+          "IsCompliant": true
+        },
+        {
+          "Label": "API",
+          "Value": 34.3,
+          "Unit": "°"
+        },
+        {
+          "Label": "FLOW",
+          "Value": 540,
+          "Unit": "m3/h",
+          "IsCompliant": true
+        }
+      ]
     }
   },
   {
-    "layerId": "MOL",
-    "markerId": "alnoor",
-    "value": 84.2,
-    "unit": "kPa",
-    "tooltip": {
-      "tvp": {
-        "color": "#c94a3f",
-        "value": 84.2,
-        "unit": "kPa",
-        "isCompliant": false
-      },
-      "salt": {
-        "value": 6.2,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "bsw": {
-        "label": "BS&W",
-        "value": 2.1,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "h2s": {
-        "label": "Dissolved H2S",
-        "value": 20,
-        "unit": "ppm",
-        "isCompliant": false
-      },
-      "api": {
-        "value": 31.4,
-        "unit": "°"
-      },
-      "flow": {
-        "value": 700,
-        "unit": "m3/h",
-        "isCompliant": true
-      }
+    "LayerId": "MOL",
+    "MarkerId": "alnoor",
+    "Value": 84.2,
+    "Unit": "kPa",
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "TVP",
+          "Color": "#c94a3f",
+          "Value": 84.2,
+          "Unit": "kPa",
+          "IsCompliant": false
+        },
+        {
+          "Label": "SALT",
+          "Value": 6.2,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "BS&W",
+          "Value": 2.1,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "Dissolved H2S",
+          "Value": 20,
+          "Unit": "ppm",
+          "IsCompliant": false
+        },
+        {
+          "Label": "API",
+          "Value": 31.4,
+          "Unit": "°"
+        },
+        {
+          "Label": "FLOW",
+          "Value": 700,
+          "Unit": "m3/h",
+          "IsCompliant": true
+        }
+      ]
     }
   },
   {
-    "layerId": "MOL",
-    "markerId": "TY_MS",
-    "value": 67.1,
-    "unit": "kPa",
-    "isCompliant": true,
-    "tooltip": {
-      "tvp": {
-        "color": "#c94a3f",
-        "value": 67.1,
-        "unit": "kPa",
-        "isCompliant": true
-      },
-      "salt": {
-        "value": 4.1,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "bsw": {
-        "label": "BS&W",
-        "value": 1.1,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "h2s": {
-        "label": "Dissolved H2S",
-        "value": 11,
-        "unit": "ppm",
-        "isCompliant": true
-      },
-      "api": {
-        "value": 33.6,
-        "unit": "°"
-      },
-      "flow": {
-        "value": 630,
-        "unit": "m3/h",
-        "isCompliant": true
-      }
+    "LayerId": "MOL",
+    "MarkerId": "TY_MS",
+    "Value": 67.1,
+    "Unit": "kPa",
+    "IsCompliant": true,
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "TVP",
+          "Color": "#c94a3f",
+          "Value": 67.1,
+          "Unit": "kPa",
+          "IsCompliant": true
+        },
+        {
+          "Label": "SALT",
+          "Value": 4.1,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "BS&W",
+          "Value": 1.1,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "Dissolved H2S",
+          "Value": 11,
+          "Unit": "ppm",
+          "IsCompliant": true
+        },
+        {
+          "Label": "API",
+          "Value": 33.6,
+          "Unit": "°"
+        },
+        {
+          "Label": "FLOW",
+          "Value": 630,
+          "Unit": "m3/h",
+          "IsCompliant": true
+        }
+      ]
     }
   },
   {
-    "layerId": "MOL",
-    "markerId": "rim",
-    "value": 59.5,
-    "unit": "kPa",
-    "isCompliant": true,
-    "tooltip": {
-      "tvp": {
-        "color": "#c94a3f",
-        "value": 59.5,
-        "unit": "kPa",
-        "isCompliant": true
-      },
-      "salt": {
-        "value": 3.6,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "bsw": {
-        "label": "BS&W",
-        "value": 0.9,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "h2s": {
-        "label": "Dissolved H2S",
-        "value": 8,
-        "unit": "ppm",
-        "isCompliant": true
-      },
-      "api": {
-        "value": 34.1,
-        "unit": "°"
-      },
-      "flow": {
-        "value": 565,
-        "unit": "m3/h",
-        "isCompliant": true
-      }
+    "LayerId": "MOL",
+    "MarkerId": "rim",
+    "Value": 59.5,
+    "Unit": "kPa",
+    "IsCompliant": true,
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "TVP",
+          "Color": "#c94a3f",
+          "Value": 59.5,
+          "Unit": "kPa",
+          "IsCompliant": true
+        },
+        {
+          "Label": "SALT",
+          "Value": 3.6,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "BS&W",
+          "Value": 0.9,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "Dissolved H2S",
+          "Value": 8,
+          "Unit": "ppm",
+          "IsCompliant": true
+        },
+        {
+          "Label": "API",
+          "Value": 34.1,
+          "Unit": "°"
+        },
+        {
+          "Label": "FLOW",
+          "Value": 565,
+          "Unit": "m3/h",
+          "IsCompliant": true
+        }
+      ]
     }
   },
   {
-    "layerId": "MOL",
-    "markerId": "does-not-exist",
-    "value": 42,
-    "unit": "kPa",
-    "isCompliant": true
+    "LayerId": "MOL",
+    "MarkerId": "does-not-exist",
+    "Value": 42,
+    "Unit": "kPa",
+    "IsCompliant": true
   },
   {
-    "id": "ad-hoc-reading-1",
-    "latitude": 21.5,
-    "longitude": 57.9,
-    "name": "Ad Hoc Reading",
-    "value": 75.2,
-    "unit": "kPa",
-    "tooltip": {
-      "tvp": {
-        "color": "#c94a3f",
-        "value": 75.2,
-        "unit": "kPa",
-        "isCompliant": false
-      },
-      "salt": {
-        "value": 5,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "bsw": {
-        "label": "BS&W",
-        "value": 1.5,
-        "unit": "%",
-        "isCompliant": true
-      },
-      "h2s": {
-        "label": "Dissolved H2S",
-        "value": 16,
-        "unit": "ppm",
-        "isCompliant": true
-      },
-      "api": {
-        "value": 32.9,
-        "unit": "°"
-      },
-      "flow": {
-        "value": 700,
-        "unit": "m3/h",
-        "isCompliant": true
-      }
+    "Id": "ad-hoc-reading-1",
+    "Latitude": 21.5,
+    "Longitude": 57.9,
+    "Name": "Ad Hoc Reading",
+    "Value": 75.2,
+    "Unit": "kPa",
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "TVP",
+          "Color": "#c94a3f",
+          "Value": 75.2,
+          "Unit": "kPa",
+          "IsCompliant": false
+        },
+        {
+          "Label": "SALT",
+          "Value": 5,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "BS&W",
+          "Value": 1.5,
+          "Unit": "%",
+          "IsCompliant": true
+        },
+        {
+          "Label": "Dissolved H2S",
+          "Value": 16,
+          "Unit": "ppm",
+          "IsCompliant": true
+        },
+        {
+          "Label": "API",
+          "Value": 32.9,
+          "Unit": "°"
+        },
+        {
+          "Label": "FLOW",
+          "Value": 700,
+          "Unit": "m3/h",
+          "IsCompliant": true
+        }
+      ]
     }
   }
 ]

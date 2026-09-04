@@ -450,6 +450,15 @@
     {{ toastMessage }}
   </div>
 
+  <!-- Covers the map while applyCircularChartSelectionChange()'s own metric-overlay
+       fetch is in flight (metricOverlayLoading — see its own comment) — a
+       real API can take a moment, and without this the map just sits there
+       looking unresponsive between the circular-chart click and the overlay
+       markers/tooltips actually updating. -->
+  <div class="nx-map-loading-overlay" *ngIf="metricOverlayLoading">
+    <span class="nx-map-spinner"></span>
+  </div>
+
   <!-- Brand watermark, pinned to the map's own bottom-left corner (not
        the page) — a sibling of .map-container, so it sits outside
        Syncfusion's own SVG/zoom-pan transform entirely and stays fixed

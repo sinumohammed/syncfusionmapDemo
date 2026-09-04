@@ -81,10 +81,12 @@ export interface MapPoint extends BaseMapObject, GeoLocation, ShapeStyle {
   value?: number;
   unit?: string;
   // This point's own always-on hover tooltip data — every metric it has a
-  // reading for, keyed by metric id ("tvp", "bsw", whatever a
-  // MetricOverlayRecord.tooltip happens to carry). Set by
-  // NxMapDemoComponent.applyMetricSelection() from a matched record's own
-  // `tooltip` map — NOT by activeMetricId/activeMetricValues (that's still
+  // reading for, keyed by a slugified metric id (NxMapDemoComponent.
+  // slugifyMetricId() of that reading's own TooltipComponentEntry.Label —
+  // "api", "bs_w", whatever a MetricOverlayRecord.Tooltip.ComponentList
+  // happens to carry). Set by NxMapDemoComponent.applyMetricSelection() from
+  // a matched record's own `Tooltip.ComponentList` — NOT by
+  // activeMetricId/activeMetricValues (that's still
   // only ever ONE metric, driving the separate on-map overlay label/color,
   // unaffected by this). NXMapBuilderService.toMarker() reads these keys
   // (scoped to NXMapBuilderService.setTooltipMetricKeys() — see its own
@@ -98,7 +100,7 @@ export interface MapPoint extends BaseMapObject, GeoLocation, ShapeStyle {
   // itself a static layer's MapConfig.tooltipTemplate.columns or
   // NXMapBuilderService.DEFAULT_TOOLTIP_TEMPLATE.columns) for JUST this
   // one point's tooltip — every other point keeps using the default.
-  // Set from MetricOverlayRecord.tooltip's own reserved "columns" key
+  // Set from MetricOverlayRecord.Tooltip's own `Columns` field
   // (see its own comment) — omit there to leave this point on the
   // default, same as every point before this field existed. Read by
   // NXMapBuilderService.toMarker() into this marker's own `columns`
@@ -113,8 +115,10 @@ export interface MapPoint extends BaseMapObject, GeoLocation, ShapeStyle {
   // instance), overriding the map-wide default (a static layer's own
   // MapConfig.tooltipTemplate.layout, or "default") for JUST this one
   // point — every other point keeps using the default. Set from
-  // MetricOverlayRecord.tooltip's own reserved "template" key (see its
-  // own comment). Read by NXMapBuilderService.toMarker() into this
+  // MetricOverlayRecord.Tooltip — no per-point tile-style field exists in
+  // that shape today (see MetricOverlayTooltip's own comment), so this
+  // currently only ever comes from... nothing; always the map-wide
+  // default. Read by NXMapBuilderService.toMarker() into this
   // marker's own `layoutClass` field, substituted into the tooltip
   // template's outer element class at hover time — same per-marker
   // substitution trick as tooltipColumns above, which is why every named
@@ -165,7 +169,7 @@ export interface PointMetric {
   value3?: number;
   unit3?: string;
   // This metric's own display name, straight from the data — only
-  // meaningful on an entry inside MetricOverlayRecord.tooltip (ignored
+  // meaningful on an entry converted from MetricOverlayRecord.Tooltip.ComponentList (ignored
   // everywhere else PointMetric is used, e.g. activeMetricValues).
   // NxMapDemoComponent derives its hover-tooltip tile list from whatever
   // keys show up across a fetch's own records — this is that tile's
@@ -180,9 +184,10 @@ export interface PointMetric {
   // from the data, no hardcoded per-metric-id palette anywhere in code
   // (NXMapBuilderService no longer has a METRIC_COLORS lookup). Read by
   // toMarker() for the hover tooltip tile's value color, and by
-  // toMetricOverlayMarker() (via a matched record's own top-level color,
-  // MetricOverlayRecord also being a PointMetric) for the on-map overlay
-  // marker's color/shape once that metric's circular chart is clicked —
+  // toMetricOverlayMarker() (via a matched MetricOverlayRecord's own Color,
+  // converted onto this same lowercase field by NxMapDemoComponent.
+  // toPointMetric()) for the on-map overlay marker's color/shape once that
+  // metric's circular chart is clicked —
   // see that method's own comment for the full priority order. Omit to
   // fall back to the shared neutral label color, same as a compliant
   // reading always gets regardless of this field.
@@ -194,10 +199,10 @@ export interface PointMetric {
   // for shape — omit this to fall straight through to that point's own
   // mol.json/group/theme shape, same as `color` does past its own
   // NON_COMPLIANT_COLOR tier. Typed as MarkerShape (matching ShapeStyle.shape
-  // exactly — MetricOverlayRecord extends both this interface and
-  // ShapeStyle, and TS requires identical types for a property name shared
-  // across an interface's base types) even though whatever actually comes
-  // through here only ever needs case-insensitive comparison — see
+  // exactly, since NxMapDemoComponent.toPointMetric() copies a matched
+  // MetricOverlayRecord's own Shape straight onto this field) even though
+  // whatever actually comes through here only ever needs case-insensitive
+  // comparison — see
   // toOverlayIconShape() in nx-map-builder.service.ts, which normalizes/
   // validates it regardless.
   shape?: MarkerShape;
@@ -212,85 +217,124 @@ export interface PointMetric {
 }
 
 // One entry in the response NXMapConfigService.loadDataOverlay() fetches
-// on a circular chart click (NXMapAppConfig.dataApiUrl) — a PointMetric reading
-// plus enough to find (or create) the marker it belongs on. Matched by
-// NxMapDemoComponent's own algorithm (see applyCircularChartSelectionChange()):
-// `markerId` resolving to an existing point (scoped to `layerId`'s own
-// layer when given, or matched against every layer when omitted) anchors
-// the reading to that point, exactly like MapGroup.activeMetricValues
-// already does; a `markerId` that doesn't resolve but carries its own
-// `latitude`/`longitude` instead plots as a brand-new point (on `layerId`'s
-// own layer when that resolves, otherwise the main layer), using `id` (or
-// `markerId` if `id` is omitted, or an auto-generated one if both are) as
-// THIS new point's own MapPoint.id; neither markerId/latitude+longitude is
-// a console.error + on-screen toast, that record skipped. A deployment's
-// own backend decides how it computes/attributes each reading — this map
-// only ever cares about these six extra fields on top of the reading
-// itself.
-export interface MetricOverlayRecord extends PointMetric, ShapeStyle {
-  layerId?: string;
-  markerId?: string;
+// on a circular chart click (NXMapAppConfig.dataApiUrl) — a metric reading
+// plus enough to find (or create) the marker it belongs on. PascalCase
+// throughout (LayerId/MarkerId/Value/...), matching the real metric-overlay
+// API's own wire convention — deliberately NOT extending PointMetric/
+// ShapeStyle (both lowercase, and used everywhere ELSE in this app: mol.json
+// points, theme config, MapPoint itself) the way this interface used to;
+// NxMapDemoComponent.toPointMetric()/applyMetricSelection() convert a
+// matched/created record's own fields into those lowercase internal shapes
+// at the one boundary where this wire record meets the rest of the map
+// (MapGroup.activeMetricValues, a brand-new point's own MapPoint fields),
+// so nothing downstream of that conversion needs to know this interface's
+// casing differs from its own.
+//
+// Matched by NxMapDemoComponent's own algorithm (see
+// applyCircularChartSelectionChange()): `MarkerId` resolving to an existing
+// point (scoped to `LayerId`'s own layer when given, or matched against
+// every layer when omitted) anchors the reading to that point, exactly like
+// MapGroup.activeMetricValues already does; a `MarkerId` that doesn't
+// resolve but carries its own `Latitude`/`Longitude` instead plots as a
+// brand-new point (on `LayerId`'s own layer when that resolves, otherwise
+// the main layer), using `Id` (or `MarkerId` if `Id` is omitted, or an
+// auto-generated one if both are) as THIS new point's own MapPoint.id;
+// neither MarkerId/Latitude+Longitude resolving is a console.error +
+// on-screen toast, that record skipped. A deployment's own backend decides
+// how it computes/attributes each reading — this map only ever cares about
+// these extra fields on top of the reading itself.
+export interface MetricOverlayRecord {
+  LayerId?: string;
+  MarkerId?: string;
   // Only meaningful for a brand-new (unanchored) point — its own identity,
-  // independent of `markerId` (which always means "match this EXISTING
+  // independent of `MarkerId` (which always means "match this EXISTING
   // marker", whether or not that match actually resolves). Omit to fall
-  // back to `markerId` (even an unresolved one) or, failing that, an
+  // back to `MarkerId` (even an unresolved one) or, failing that, an
   // auto-generated id.
-  id?: string;
-  latitude?: number;
-  longitude?: number;
-  name?: string;
-  // shape/color/width/height (via ShapeStyle) are only meaningful for a
-  // brand-new (unanchored) point too — forwarded straight onto that point's
-  // own MapPoint fields in NxMapDemoComponent.applyMetricSelection(), which
+  Id?: string;
+  Latitude?: number;
+  Longitude?: number;
+  Name?: string;
+  // This reading's own value/status — Value is coerced to a number
+  // wherever it's actually read (NxMapDemoComponent.toPointMetric()), same
+  // "API may send either a number or a numeric string" tolerance
+  // TooltipComponentEntry.Value already has to allow for.
+  Value?: string | number;
+  Unit?: string;
+  IsCompliant?: boolean;
+  Value2?: string | number;
+  Unit2?: string;
+  Value3?: string | number;
+  Unit3?: string;
+  Label?: string;
+  Color?: string;
+  Shape?: MarkerShape;
+  TextColor?: string;
+  // Shape/Color/Width/Height/ImageUrl/TextColor are only meaningful for a
+  // brand-new (unanchored) point — forwarded straight onto that point's own
+  // MapPoint fields in NxMapDemoComponent.applyMetricSelection(), which
   // already take precedence over the ad hoc group's own style/theme (see
   // NXMapBuilderService.toMarker()'s point -> groupStyle -> theme
   // resolution order). Omit any/all to just inherit the ad hoc group's own
   // theme (METRIC_OVERLAY_GROUP_ID's `theme`, see its own comment) like
   // every other ad hoc point.
+  Width?: number;
+  Height?: number;
+  ImageUrl?: string;
 
   // The FULL multi-metric snapshot for this point's always-on hover
   // tooltip — independent of which single metric this record's own
-  // value/isCompliant/markerId are actually about (that trio still only
+  // Value/IsCompliant/MarkerId are actually about (that trio still only
   // ever drives the ONE selected metric's on-map overlay label/color,
-  // exactly as before this field existed). Keyed by metric id — whatever
-  // keys show up here are exactly what NXMapBuilderService.toMarker()
-  // populates real values for on this point (see MapPoint.tooltipMetrics'
-  // own comment); a metric id absent here just leaves that tile's
-  // placeholder in place. Forwarded onto the matched (or brand-new)
-  // point's own tooltipMetrics in NxMapDemoComponent.applyMetricSelection()
-  // — omit entirely to leave the point's tooltip untouched by this record.
-  //
-  // Two reserved keys, neither a PointMetric reading:
-  // - "columns" (a plain number) — how many tiles per row THIS record's
-  //   own point's tooltip renders. PER-POINT, not global: forwarded onto
-  //   just the ONE point this record matches (or creates) as
-  //   MapPoint.tooltipColumns — every other point keeps using the
-  //   map-wide default (a static layer's own MapConfig.
-  //   tooltipTemplate.columns when set, otherwise
-  //   NXMapBuilderService.DEFAULT_TOOLTIP_TEMPLATE.columns).
-  // - "template" (a plain string) — this point's own tile STYLE variant
-  //   (e.g. "compact"), forwarded as MapPoint.tooltipLayout. Applied as a
-  //   CSS class (`mtt-layout-<name>`) on this marker's own tooltip
-  //   instance, substituted per-marker exactly like "columns" is — see
-  //   MapPoint.tooltipLayout's own comment for why this only works for
-  //   layouts that are CSS-only variations of the SAME tile markup, not
-  //   a different HTML structure per tile (that's what
-  //   TooltipTemplateConfig.layout / NxMapDemoComponent.
-  //   TOOLTIP_TILE_LAYOUTS is for instead — a config-level, not per-point,
-  //   choice). Falls back to the static config's own `layout`, then
-  //   "default".
-  // Both: set on every record that actually wants an override for its
-  // own point; omit either (the common case) to leave that point on the
-  // relevant default.
-  tooltip?: Record<string, PointMetric | number | string>;
+  // exactly as before this field existed). NxMapDemoComponent derives each
+  // tile's own key from ComponentList's own Label (see
+  // MetricOverlayTooltip's own comment) — a metric this record's
+  // ComponentList doesn't mention just leaves that tile's placeholder in
+  // place. Forwarded onto the matched (or brand-new) point's own
+  // tooltipMetrics in NxMapDemoComponent.applyMetricSelection() — omit
+  // entirely to leave the point's tooltip untouched by this record.
+  // `Columns` is this point's own per-point tile-count override (PER-POINT,
+  // not global: forwarded onto just the one point this record matches/
+  // creates as MapPoint.tooltipColumns — every other point keeps using the
+  // map-wide default, a static layer's own MapConfig.tooltipTemplate.columns
+  // when set, otherwise NXMapBuilderService.DEFAULT_TOOLTIP_TEMPLATE.columns).
+  Tooltip?: MetricOverlayTooltip;
+}
+
+// One metric reading inside MetricOverlayRecord.Tooltip.ComponentList — the
+// wire shape a real metric-overlay API sends this point's full multi-metric
+// hover-tooltip snapshot in. No explicit metric id of its own: Label is a
+// human title ("API", "BS&W", ...), and NxMapDemoComponent derives a stable
+// key for it by slugifying Label (lowercased, non-alphanumeric runs
+// collapsed to "_") — see its own toTooltipMetrics()/deriveTooltipTemplate()
+// comments. PascalCase field names are read straight off the API, no
+// separate mapping layer.
+export interface TooltipComponentEntry {
+  Label?: string;
+  Color?: string;
+  Value?: string | number;
+  Unit?: string;
+  IsCompliant?: boolean;
+}
+
+// MetricOverlayRecord.Tooltip's own shape — Columns is a real field here,
+// not a magic reserved key mixed in among the metrics themselves the way
+// the old free-form Record<string, PointMetric | number | string> map's own
+// "columns"/"template" keys used to be. (No per-point tile-STYLE override
+// in this shape — MapPoint.tooltipLayout now only ever comes from the
+// map-wide default; add a `Template` field here the same way if a future
+// API needs that back.)
+export interface MetricOverlayTooltip {
+  Columns?: number;
+  ComponentList?: TooltipComponentEntry[];
 }
 
 // One tile in the hover tooltip's metric grid — `metricId` can be any
 // string. This full item list is never required to be authored by hand:
 // NxMapDemoComponent.deriveTooltipTemplate() auto-builds one entry per
-// distinct key found across a fetch's own MetricOverlayRecord.tooltip
-// maps (title from that metric's own PointMetric.label, or metricId
-// itself uppercased) — a config's own MapConfig.tooltipTemplate.items
+// distinct slugified id (NxMapDemoComponent.slugifyMetricId()) found across
+// a fetch's own MetricOverlayRecord.Tooltip.ComponentList entries (title
+// from that component's own Label) — a config's own MapConfig.tooltipTemplate.items
 // (below) only needs an entry for a metricId at all when it wants to
 // PIN that tile's title/position explicitly; any key the data mentions
 // that config doesn't already know about still gets a tile automatically.

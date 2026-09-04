@@ -31,7 +31,9 @@ import {
   MapOptions,
   MapPoint,
   MetricOverlayRecord,
+  MetricOverlayTooltip,
   PointMetric,
+  TooltipComponentEntry,
   TooltipTemplateConfig,
   TooltipTemplateItem
 } from "./model/nx-map-model";
@@ -235,6 +237,15 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // Brief on-screen confirmation of the last marker/polygon/circle click —
   // see showToast()/onMarkerClick()/onMapClick().
   toastMessage: string | null = null;
+
+  // True only while applyCircularChartSelectionChange()'s own metric-overlay
+  // fetch is actually in flight (a real network round trip to
+  // nxAppConfig.dataApiUrl) — drives a spinner over the map itself so a
+  // slow/real API doesn't leave the map looking unresponsive between the
+  // click and the overlay markers/tooltips actually updating. Never true
+  // for a clear (selectedId: null — applyMetricSelection() runs
+  // synchronously, no fetch at all).
+  metricOverlayLoading = false;
 
   // buildAppConfig(parentConfig) — a description of WHERE each piece of
   // data comes from (inline/file/api), not the map data itself. See
@@ -511,6 +522,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   private applyCircularChartSelectionChange(): void {
     const selectedId = this.circularChartSelection?.selectedId ?? null;
     if (!selectedId) {
+      this.metricOverlayLoading = false;
       this.applyMetricSelection(null, []);
       return;
     }
@@ -519,19 +531,37 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
       this.reportDataOverlayProblem(`circular chart "${selectedId}" selected but no DataAPIURL is configured for this map`);
       return;
     }
-    this.configService.loadDataOverlay(url, selectedId).subscribe(records => this.applyMetricSelection(selectedId, records));
+    this.metricOverlayLoading = true;
+    this.configService.loadDataOverlay(url, selectedId).subscribe({
+      next: records => {
+        this.metricOverlayLoading = false;
+        this.applyMetricSelection(selectedId, records);
+      },
+      error: () => {
+        this.metricOverlayLoading = false;
+        this.reportDataOverlayProblem(`circular chart "${selectedId}" failed to fetch its metric overlay data`);
+      }
+    });
   }
 
   // Recursively collects every MapPoint.id in a layer's own ORIGINAL
   // groups (including nested MapPoint.points children — see its own
   // comment on why those exist) — the id universe applyMetricSelection()
-  // checks a record's markerId against for THIS layer.
-  private collectPointIds(groups: MapGroup[]): Set<string> {
-    const ids = new Set<string>();
+  // checks a record's markerId against for THIS layer. Keyed by the
+  // lowercased id (value: that point's own ORIGINAL-cased id) so a
+  // record's markerId can be matched case-insensitively (e.g. "MAF"
+  // resolving to config's own "maf" — mol.json's own ids are already
+  // inconsistently cased, "maf"/"ns" vs "Nizwa"/"HW"/"ALG") while every
+  // downstream consumer (MapGroup.activeMetricValues, MapPoint.
+  // tooltipMetrics, etc.) still gets keyed by the point's real id exactly
+  // as authored — see applyMetricSelection()'s own `.get(...)` resolve
+  // step below for where that canonical id comes back out.
+  private collectPointIds(groups: MapGroup[]): Map<string, string> {
+    const ids = new Map<string, string>();
     const visit = (points: MapPoint[]) => {
       for (const p of points) {
         if (p.id) {
-          ids.add(p.id);
+          ids.set(p.id.toLowerCase(), p.id);
         }
         if (p.points?.length) {
           visit(p.points);
@@ -542,38 +572,79 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     return ids;
   }
 
-  // Strips MetricOverlayRecord.tooltip's two reserved non-metric keys
-  // ("columns"/"template" — see toTooltipColumns()/toTooltipLayout()
-  // below) before it lands on a MapPoint's own tooltipMetrics, which
-  // stays strictly Record<string, PointMetric> — toMarker() in
-  // nx-map-builder.service.ts never needs to know either exists at all.
-  // Returns undefined for an empty/absent tooltip, same as leaving
-  // tooltipMetrics unset entirely.
-  private static toTooltipMetrics(tooltip: Record<string, PointMetric | number | string> | undefined): Record<string, PointMetric> | undefined {
-    if (!tooltip) {
-      return undefined;
-    }
-    const entries = Object.entries(tooltip).filter((entry): entry is [string, PointMetric] => typeof entry[1] === "object");
+  // The wire shape (MetricOverlayRecord.Tooltip.ComponentList) carries no
+  // explicit metric id of its own, just a human Label ("API", "BS&W", ...)
+  // — this derives a stable key from it (lowercased, every run of
+  // non-alphanumeric characters collapsed to one "_", leading/trailing "_"
+  // trimmed) for everywhere a metric id is actually needed: MapPoint.
+  // tooltipMetrics' own keys, NXMapBuilderService's tooltipMetricKeys/
+  // v_<key> template field names, and deriveTooltipTemplate()'s own
+  // TooltipTemplateItem.metricId. Two components sharing the exact same
+  // Label always resolve to the same tile/key, same as the old free-form
+  // object's own keys already guaranteed by construction.
+  private static slugifyMetricId(label: string): string {
+    return label
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+  }
+
+  // Converts MetricOverlayRecord.Tooltip.ComponentList into the keyed
+  // Record<string, PointMetric> MapPoint.tooltipMetrics/NXMapBuilderService.
+  // toMarker() already expect — one entry per component, keyed by
+  // slugifyMetricId(Label). A component with no Label at all (nothing to
+  // key it by) is dropped; Value is coerced to a number the same way
+  // buildSlices() in the circular-chart transform already does for its own
+  // API's string-typed YValue. Returns undefined for an empty/absent
+  // ComponentList, same as leaving tooltipMetrics unset entirely.
+  private static toTooltipMetrics(tooltip: MetricOverlayTooltip | undefined): Record<string, PointMetric> | undefined {
+    const entries = (tooltip?.ComponentList ?? [])
+      .filter((c): c is TooltipComponentEntry & { Label: string } => !!c.Label)
+      .map((c): [string, PointMetric] => [
+        NxMapDemoComponent.slugifyMetricId(c.Label),
+        {
+          value: Number(c.Value) || 0,
+          unit: c.Unit,
+          isCompliant: c.IsCompliant ?? true,
+          color: c.Color,
+          label: c.Label
+        }
+      ]);
     return entries.length ? Object.fromEntries(entries) : undefined;
   }
 
-  // One of MetricOverlayRecord.tooltip's reserved keys — pulls out just
-  // "columns" (if present, and actually a number) for MapPoint.
-  // tooltipColumns, this record's own point's per-point column override.
-  // See that field's own comment: undefined here just leaves the point on
-  // the map-wide default, same as before this existed.
-  private static toTooltipColumns(tooltip: Record<string, PointMetric | number | string> | undefined): number | undefined {
-    const columns = tooltip?.["columns"];
-    return typeof columns === "number" ? columns : undefined;
+  // Tooltip.Columns is a real field on the wire shape (see
+  // MetricOverlayTooltip's own comment) — pulls it straight out for
+  // MapPoint.tooltipColumns, this record's own point's per-point column
+  // override. See that field's own comment: undefined here just leaves the
+  // point on the map-wide default, same as before this existed.
+  private static toTooltipColumns(tooltip: MetricOverlayTooltip | undefined): number | undefined {
+    return typeof tooltip?.Columns === "number" ? tooltip.Columns : undefined;
   }
 
-  // The other reserved key — pulls out "template" (if present, and
-  // actually a string) for MapPoint.tooltipLayout, this record's own
-  // point's per-point tile style override. See that field's own comment:
-  // undefined here just leaves the point on the map-wide default layout.
-  private static toTooltipLayout(tooltip: Record<string, PointMetric | number | string> | undefined): string | undefined {
-    const layout = tooltip?.["template"];
-    return typeof layout === "string" ? layout : undefined;
+  // Converts a matched/anchored MetricOverlayRecord's own reading (its
+  // Value/Unit/IsCompliant/... — the ONE active metric this whole fetch is
+  // about, independent of its separate Tooltip.ComponentList snapshot) into
+  // the internal (lowercase) PointMetric shape MapGroup.activeMetricValues
+  // and NXMapBuilderService.toMetricOverlayMarker() already expect — the
+  // single boundary where this wire record's own PascalCase casing gets
+  // left behind. Value is coerced to a number the same tolerant way
+  // toTooltipMetrics() already does for ComponentList's own Value.
+  private static toPointMetric(record: MetricOverlayRecord): PointMetric {
+    return {
+      value: Number(record.Value) || 0,
+      unit: record.Unit,
+      isCompliant: record.IsCompliant ?? true,
+      value2: record.Value2 !== undefined ? Number(record.Value2) || 0 : undefined,
+      unit2: record.Unit2,
+      value3: record.Value3 !== undefined ? Number(record.Value3) || 0 : undefined,
+      unit3: record.Unit3,
+      label: record.Label,
+      color: record.Color,
+      shape: record.Shape,
+      textColor: record.TextColor
+    };
   }
 
   // console.error + a visible toast (existing mechanism, already used for
@@ -649,13 +720,15 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     interface LayerTarget {
       name: string;
       groupsOriginal: MapGroup[];
-      pointIds: Set<string>;
-      // Keyed by markerId — the FULL matched record, not just its
-      // PointMetric fields (MetricOverlayRecord extends PointMetric, so
-      // this is still assignable everywhere a PointMetric map is expected —
-      // see MapGroup.activeMetricValues below), so applyToGroup() can also
-      // reach each match's own `.tooltip` map for the point's always-on
-      // hover tooltip, not just its single active-metric value/status.
+      // Lowercased id -> that point's own original-cased id — see
+      // collectPointIds()'s own comment.
+      pointIds: Map<string, string>;
+      // Keyed by the point's own canonical id — the FULL matched wire
+      // record, not just the one active metric's reading, so applyToGroup()
+      // can also reach each match's own `.Tooltip` for the point's
+      // always-on hover tooltip (converted to internal shapes on the way
+      // out — see toPointMetric()/toTooltipMetrics()), not just its single
+      // active-metric value/status.
       anchored: Record<string, MetricOverlayRecord>;
       unanchored: { point: MapPoint; record: MetricOverlayRecord }[];
     }
@@ -692,25 +765,36 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     const fallbackTarget = [...targets].reverse().find(t => t.pointIds.size > 0) ?? mainTarget;
 
     records.forEach((record, i) => {
-      if (record.layerId) {
-        const namedTarget = targets.find(t => t.name === record.layerId);
+      if (record.LayerId) {
+        // Case-insensitive, same reasoning as the MarkerId lookup below —
+        // a real API's LayerId value isn't guaranteed to match this map's
+        // own configured layerName casing exactly (e.g. "Mol"/"mol" vs
+        // "MOL").
+        const namedTarget = targets.find(t => t.name.toLowerCase() === record.LayerId?.toLowerCase());
         if (!namedTarget) {
-          this.reportDataOverlayProblem(`layerId "${record.layerId}" doesn't match any known layer (markerId: ${record.markerId ?? "—"})`);
+          this.reportDataOverlayProblem(`LayerId "${record.LayerId}" doesn't match any known layer (MarkerId: ${record.MarkerId ?? "—"})`);
           return;
         }
-        if (!record.markerId || !namedTarget.pointIds.has(record.markerId)) {
+        // Case-insensitive lookup (collectPointIds()'s own comment) —
+        // `canonicalId` comes back in the point's own original casing
+        // regardless of how record.MarkerId was cased, so `anchored`
+        // below stays keyed exactly the way every downstream consumer
+        // (MapGroup.activeMetricValues, MapPoint.tooltipMetrics, ...)
+        // already expects.
+        const canonicalId = record.MarkerId ? namedTarget.pointIds.get(record.MarkerId.toLowerCase()) : undefined;
+        if (!canonicalId) {
           this.reportDataOverlayProblem(
-            `markerId "${record.markerId ?? "—"}" doesn't match any existing point on layer "${record.layerId}"`
+            `MarkerId "${record.MarkerId ?? "—"}" doesn't match any existing point on layer "${record.LayerId}"`
           );
           return;
         }
-        namedTarget.anchored[record.markerId] = record;
+        namedTarget.anchored[canonicalId] = record;
         return;
       }
-      if (record.latitude !== undefined && record.longitude !== undefined) {
-        const id = record.id ?? record.markerId ?? `metric-overlay-${i}`;
+      if (record.Latitude !== undefined && record.Longitude !== undefined) {
+        const id = record.Id ?? record.MarkerId ?? `metric-overlay-${i}`;
         fallbackTarget.unanchored.push({
-          // shape/color/width/height forwarded straight from the record —
+          // Shape/Color/Width/Height forwarded straight from the record —
           // see MetricOverlayRecord's own comment — so one ad hoc point can
           // override the group's theme-derived style (buildOverlayGroup()
           // below) same as any config-authored point already can; omitted
@@ -718,53 +802,54 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
           // group's theme like every other ad hoc point.
           point: {
             id,
-            latitude: record.latitude,
-            longitude: record.longitude,
-            name: record.name ?? record.markerId,
-            shape: record.shape,
-            color: record.color,
-            width: record.width,
-            height: record.height,
-            tooltipMetrics: NxMapDemoComponent.toTooltipMetrics(record.tooltip),
-            tooltipColumns: NxMapDemoComponent.toTooltipColumns(record.tooltip),
-            tooltipLayout: NxMapDemoComponent.toTooltipLayout(record.tooltip)
+            latitude: record.Latitude,
+            longitude: record.Longitude,
+            name: record.Name ?? record.MarkerId,
+            shape: record.Shape,
+            color: record.Color,
+            width: record.Width,
+            height: record.Height,
+            tooltipMetrics: NxMapDemoComponent.toTooltipMetrics(record.Tooltip),
+            tooltipColumns: NxMapDemoComponent.toTooltipColumns(record.Tooltip)
           },
           record
         });
         return;
       }
-      this.reportDataOverlayProblem(`record has no layerId and no latitude/longitude to plot (markerId: ${record.markerId ?? "—"})`);
+      this.reportDataOverlayProblem(`record has no LayerId and no Latitude/Longitude to plot (MarkerId: ${record.MarkerId ?? "—"})`);
     });
 
     // Also rebuilds this group's OWN points (a shallow clone, never
     // mutating g.markerConfig.points — same "always derive from the
     // original snapshot" rule as groupsOriginal itself), stamping each
-    // matched point's tooltipMetrics from its own record's `.tooltip` map —
-    // independent of `selectedId`/hasMetric below, which only ever govern
-    // the SEPARATE on-map overlay label/color for the one active metric.
-    // A point with no match this round (or a record with no `.tooltip` of
-    // its own) keeps whatever tooltipMetrics it already had — starts
-    // undefined, same as before this existed.
+    // matched point's tooltipMetrics from its own record's `Tooltip.
+    // ComponentList` — independent of `selectedId`/hasMetric below, which
+    // only ever govern the SEPARATE on-map overlay label/color for the one
+    // active metric. A point with no match this round (or a record with no
+    // `Tooltip` of its own) keeps whatever tooltipMetrics it already had —
+    // starts undefined, same as before this existed.
     const applyToGroup = (g: MapGroup, anchored: Record<string, MetricOverlayRecord>): MapGroup => {
       const hasMetric = !!selectedId && (g.markerConfig?.points ?? []).some(p => p.id && anchored[p.id] !== undefined);
       const points = g.markerConfig?.points;
       const markerConfig =
-        points && points.some(p => p.id && anchored[p.id]?.tooltip)
+        points && points.some(p => p.id && anchored[p.id]?.Tooltip)
           ? {
               ...g.markerConfig,
               points: points.map(p =>
-                p.id && anchored[p.id]?.tooltip
+                p.id && anchored[p.id]?.Tooltip
                   ? {
                       ...p,
-                      tooltipMetrics: NxMapDemoComponent.toTooltipMetrics(anchored[p.id].tooltip),
-                      tooltipColumns: NxMapDemoComponent.toTooltipColumns(anchored[p.id].tooltip),
-                      tooltipLayout: NxMapDemoComponent.toTooltipLayout(anchored[p.id].tooltip)
+                      tooltipMetrics: NxMapDemoComponent.toTooltipMetrics(anchored[p.id].Tooltip),
+                      tooltipColumns: NxMapDemoComponent.toTooltipColumns(anchored[p.id].Tooltip)
                     }
                   : p
               )
             }
           : g.markerConfig;
-      return { ...g, markerConfig, activeMetricId: hasMetric ? selectedId : null, activeMetricValues: hasMetric ? anchored : null };
+      const activeMetricValues = hasMetric
+        ? Object.fromEntries(Object.entries(anchored).map(([id, r]) => [id, NxMapDemoComponent.toPointMetric(r)]))
+        : null;
+      return { ...g, markerConfig, activeMetricId: hasMetric ? selectedId : null, activeMetricValues };
     };
     // hostGroupsOriginal is the layer's own real, config-authored groups
     // (e.g. MOL's "mol" group) — its markerConfig.style (shape/color/
@@ -787,7 +872,9 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
         points: entries.map(e => e.point)
       },
       activeMetricId: entries.length ? selectedId : null,
-      activeMetricValues: entries.length ? Object.fromEntries(entries.map(e => [e.point.id as string, e.record])) : null
+      activeMetricValues: entries.length
+        ? Object.fromEntries(entries.map(e => [e.point.id as string, NxMapDemoComponent.toPointMetric(e.record)]))
+        : null
     });
     const rebuildGroups = (t: LayerTarget): MapGroup[] => [
       ...t.groupsOriginal.map(g => applyToGroup(g, t.anchored)),
@@ -1902,30 +1989,32 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // involved anywhere in this pipeline. Starts from
   // this.staticTooltipTemplate's own items (if any — a layer's explicit
   // MapConfig.tooltipTemplate pins that metric id's title/position), then
-  // adds one auto-generated item for every OTHER key any of `records`' own
-  // MetricOverlayRecord.tooltip maps mention (title from that metric's own
-  // PointMetric.label, falling back to the key itself uppercased) — so a
-  // metric id NO config anywhere has ever declared still gets a working
-  // tile the very first time the fetched data mentions it, exactly what
-  // "tomorrow it might be a different name/different count" needs.
+  // adds one auto-generated item for every OTHER component any of
+  // `records`' own MetricOverlayRecord.Tooltip.ComponentList entries
+  // mention (id via slugifyMetricId(Label), title straight from that same
+  // Label) — so a metric id NO config anywhere has ever declared still gets
+  // a working tile the very first time the fetched data mentions it,
+  // exactly what "tomorrow it might be a different name/different count"
+  // needs.
   //
   // `columns` here is the MAP-WIDE default only — a static layer's own
   // MapConfig.tooltipTemplate.columns when set, otherwise
   // DEFAULT_TOOLTIP_TEMPLATE.columns. It does NOT come from any record's
-  // own `tooltip.columns` — that reserved key is a PER-POINT override
-  // instead (see MapPoint.tooltipColumns' own comment): applyMetricSelection()
-  // forwards it onto just the one point that record matches/creates, never
+  // own `Tooltip.Columns` — that's a PER-POINT override instead (see
+  // MapPoint.tooltipColumns' own comment): applyMetricSelection() forwards
+  // it onto just the one point that record matches/creates, never
   // broadcast to every point the way a title/item is.
   private deriveTooltipTemplate(records: MetricOverlayRecord[]): TooltipTemplateConfig {
     const items = new Map<string, TooltipTemplateItem>();
     (this.staticTooltipTemplate?.items ?? []).forEach(item => items.set(item.metricId, item));
     records.forEach(record => {
-      Object.entries(record.tooltip ?? {}).forEach(([key, metric]) => {
-        if (key === "columns" || key === "template") {
+      (record.Tooltip?.ComponentList ?? []).forEach(component => {
+        if (!component.Label) {
           return;
         }
-        if (!items.has(key)) {
-          items.set(key, { metricId: key, title: (metric as PointMetric).label ?? key.toUpperCase() });
+        const metricId = NxMapDemoComponent.slugifyMetricId(component.Label);
+        if (!items.has(metricId)) {
+          items.set(metricId, { metricId, title: component.Label });
         }
       });
     });

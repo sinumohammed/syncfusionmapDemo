@@ -668,7 +668,7 @@ export class NXMapBuilderService {
     // layer's tooltipTemplate and its field slot exists automatically, no
     // code change. Per key: point.tooltipMetrics?.[key] (set by
     // NxMapDemoComponent.applyMetricSelection() from a matched
-    // MetricOverlayRecord.tooltip — see its own comment) supplies a real
+    // MetricOverlayRecord.Tooltip.ComponentList — see its own comment) supplies a real
     // reading when this point has one; otherwise every tile still renders
     // the "—" placeholder, same as before any metric data existed anywhere.
     // d2_<key>/d3_<key> stay a CSS `display` value, "none" unless value2/

@@ -44,6 +44,7 @@
     {
       "SupportedIdentity": 144,
       "Name": "TVP",
+      "ZeroAsHealthy": true,
       "Columns": 24,
       "Rows": 24,
       "xposition": 0,

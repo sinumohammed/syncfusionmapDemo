@@ -456,7 +456,10 @@
        looking unresponsive between the circular-chart click and the overlay
        markers/tooltips actually updating. -->
   <div class="nx-map-loading-overlay" *ngIf="metricOverlayLoading">
-    <span class="nx-map-spinner"></span>
+    <div class="nx-map-loading-card">
+      <span class="nx-map-spinner"></span>
+      <span class="nx-map-loading-label">Loading metric data…</span>
+    </div>
   </div>
 
   <!-- Brand watermark, pinned to the map's own bottom-left corner (not

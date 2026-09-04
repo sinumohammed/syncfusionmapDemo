@@ -56,21 +56,58 @@
 .nx-circular-chart-message--error {
   color: #c94a3f;
 }
-.nx-circular-chart-loader {
+/* One placeholder per real card the loading fetch will (probably) produce
+   — same 130px chart height + 4px card padding real cards use (see
+   nx-circular-chart.component.scss's own .nx-circular-chart-card /
+   <ejs-accumulationchart height="130px">), so the grid doesn't visibly
+   resize once real cards swap in. `overflow: hidden` clips the shimmer
+   sweep below to this card's own bounds. */
+.nx-circular-chart-skeleton {
+  position: relative;
+  height: 130px;
+  box-sizing: border-box;
+  padding: 4px;
+  border-radius: 6px;
+  background: #f1f3f4;
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  padding: 16px 8px;
+  gap: 12px;
+  overflow: hidden;
 }
-.nx-circular-chart-spinner {
-  width: 20px;
-  height: 20px;
-  border: 2px solid #ddd;
-  border-top-color: #666;
+/* The donut/pie ring's own placeholder — a plain thick-bordered circle,
+   same rough footprint as a real chart's default doughnut. */
+.nx-circular-chart-skeleton-ring {
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
-  animation: nx-circular-chart-spin 0.8s linear infinite;
+  border: 9px solid #e0e3e6;
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
-@keyframes nx-circular-chart-spin {
-  to {
-    transform: rotate(360deg);
+/* The metric name's own placeholder, under the ring — real cards center
+   their label INSIDE the ring, but a plain bar below reads clearly as
+   "text goes here" without trying to fake the ring's own hole. */
+.nx-circular-chart-skeleton-title {
+  width: 44%;
+  height: 9px;
+  border-radius: 4px;
+  background: #e0e3e6;
+}
+/* Sweeping highlight over the whole card — the actual "shimmer" cue,
+   layered on top of both placeholder shapes via a shared ::after so one
+   animation covers both without keyframing each shape separately. */
+.nx-circular-chart-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, 0.7) 50%, transparent 65%);
+  transform: translateX(-100%);
+  animation: nx-circular-chart-shimmer 1.6s ease-in-out infinite;
+}
+@keyframes nx-circular-chart-shimmer {
+  100% {
+    transform: translateX(100%);
   }
 }

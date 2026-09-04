@@ -3,9 +3,16 @@
 
   <!-- Loading (ApiUrl fetch in flight) takes priority over both the error
        and empty messages below — neither is known yet until the request
-       settles. -->
-  <div class="nx-circular-chart-loader" *ngIf="loading">
-    <span class="nx-circular-chart-spinner"></span>
+       settles. One grayed, shimmering placeholder card per skeletonItems
+       entry (rawConfig's own visible chart count — see
+       visibleCircularChartCount()'s own comment) in the SAME grid the real
+       cards use, so the loading state reads as "these specific charts are
+       about to appear" rather than a single generic spinner. -->
+  <div class="nx-circular-chart-grid" *ngIf="loading">
+    <div class="nx-circular-chart-skeleton" *ngFor="let _ of skeletonItems">
+      <span class="nx-circular-chart-skeleton-ring"></span>
+      <span class="nx-circular-chart-skeleton-title"></span>
+    </div>
   </div>
 
   <!-- Fetch error (ApiUrl set but the request itself failed) takes priority

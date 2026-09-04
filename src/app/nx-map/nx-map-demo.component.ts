@@ -531,6 +531,18 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
       this.reportDataOverlayProblem(`circular chart "${selectedId}" selected but no DataAPIURL is configured for this map`);
       return;
     }
+    // Clears whatever the PREVIOUS selection's own fetch last put on the
+    // map — same null-selection clear the no-selectedId branch above uses —
+    // BEFORE this new fetch even starts, not just once it resolves.
+    // Confirmed live: without this, clicking TVP then BSW while BSW's own
+    // fetch is still in flight (or fails outright) left TVP's overlay
+    // markers/labels sitting on the map indefinitely, since the only place
+    // that ever called applyMetricSelection() again was the NEXT
+    // successful `next` callback — a failed/slow fetch never got there.
+    // `selectedId` stays whatever this NEW click's own id is (not null) so
+    // the tooltip template/activeMetricId bookkeeping already reflects the
+    // metric now being fetched, even though there's no data for it yet.
+    this.applyMetricSelection(selectedId, []);
     this.metricOverlayLoading = true;
     this.configService.loadDataOverlay(url, selectedId).subscribe({
       next: records => {

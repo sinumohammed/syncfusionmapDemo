@@ -165,3 +165,20 @@ export function buildCircularChartConfigs(
   const matched = useConfigFallback ? ordered : ordered.filter(node => leaves.has(normalizeName(node.Name)));
   return matched.map(node => buildCircularChartConfig(node, leaves.get(normalizeName(node.Name))));
 }
+
+// How many circular chart cards THIS config alone (no trend data at all) says
+// should exist — same ComponentType/Hide unwrapping buildCircularChartConfigs()
+// itself does, minus the trend-leaf matching/ordering, since a skeleton
+// loader (NxCircularChartCollectionComponent's own `loading` state) needs
+// this BEFORE any trend response has come back to match against. Not
+// necessarily the exact count buildCircularChartConfigs() ends up rendering
+// once real data lands (a matched-only fetch can still drop configured
+// items with no corresponding trend leaf) — just the best available guess
+// for how many placeholder cards to show while waiting.
+export function visibleCircularChartCount(root: RawCircularChartCollectionNode | undefined): number {
+  if (!root) {
+    return 0;
+  }
+  const items = root.ComponentType === CIRCULAR_CHART_COLLECTION_COMPONENT_TYPE ? root.Configuration ?? [] : [root as RawCircularChartNode];
+  return items.filter(node => !node.Hide).length;
+}

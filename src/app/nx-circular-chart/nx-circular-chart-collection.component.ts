@@ -1,5 +1,5 @@
 import { ChangeDetectorRef, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from "@angular/core";
-import { buildCircularChartConfigs } from "./services/parent-circular-chart-config-transform";
+import { buildCircularChartConfigs, visibleCircularChartCount } from "./services/parent-circular-chart-config-transform";
 import { NxCircularChartConfigService } from "./services/nx-circular-chart-config.service";
 import { CircularChartConfig, CircularChartSelectionEvent, DEFAULT_PALETTE, RawCircularChartCollectionNode, TrendGroup } from "./model/nx-circular-chart-model";
 
@@ -61,6 +61,13 @@ export class NxCircularChartCollectionComponent implements OnChanges {
   // state" rule fetchFailed follows for a genuinely failed one.
   loading = false;
 
+  // How many skeleton placeholder cards to render while `loading` is true —
+  // one entry per index, just so *ngFor has something to iterate (the
+  // template never reads the value itself). Derived from rawConfig (see
+  // visibleCircularChartCount()'s own comment) once per ngOnChanges rather
+  // than as a getter re-run on every change-detection pass.
+  skeletonItems: number[] = [];
+
   // Bumped on every ngOnChanges run and captured per in-flight ApiUrl fetch
   // so a stale response from a superseded rawConfig can't overwrite a
   // newer one that resolved first.
@@ -79,6 +86,7 @@ export class NxCircularChartCollectionComponent implements OnChanges {
     // (per product decision: an ApiUrl on the config always wins).
     if (this.rawConfig?.ApiUrl) {
       this.loading = true;
+      this.skeletonItems = Array.from({ length: visibleCircularChartCount(this.rawConfig) }, (_, i) => i);
       this.configService.fetchTrendResponse(this.rawConfig.ApiUrl).subscribe({
         next: response => {
           if (token === this.requestToken) {

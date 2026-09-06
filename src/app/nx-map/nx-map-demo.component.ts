@@ -618,7 +618,6 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
         {
           value: Number(c.Value) || 0,
           unit: c.Unit,
-          isCompliant: c.IsCompliant ?? true,
           color: c.Color,
           label: c.Label
         }
@@ -636,7 +635,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   // Converts a matched/anchored MetricOverlayRecord's own reading (its
-  // Value/Unit/IsCompliant/... — the ONE active metric this whole fetch is
+  // Value/Unit/... — the ONE active metric this whole fetch is
   // about, independent of its separate Tooltip.ComponentList snapshot) into
   // the internal (lowercase) PointMetric shape MapGroup.activeMetricValues
   // and NXMapBuilderService.toMetricOverlayMarker() already expect — the
@@ -647,7 +646,6 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     return {
       value: Number(record.Value) || 0,
       unit: record.Unit,
-      isCompliant: record.IsCompliant ?? true,
       value2: record.Value2 !== undefined ? Number(record.Value2) || 0 : undefined,
       unit2: record.Unit2,
       value3: record.Value3 !== undefined ? Number(record.Value3) || 0 : undefined,

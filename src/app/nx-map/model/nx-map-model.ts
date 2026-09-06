@@ -150,13 +150,6 @@ export interface MapPoint extends BaseMapObject, GeoLocation, ShapeStyle {
 export interface PointMetric {
   value: number;
   unit?: string;
-  // Renamed from the old "high"/"normal" status string — false is the old
-  // "high" (an incident/out-of-range reading), true is the old "normal".
-  // false gets this reading's own `color` below when set, else a hardcoded
-  // non-compliant color (see toMetricOverlayMarker()'s own comment); true
-  // always gets the shared neutral label color regardless of `color`. Map
-  // coloring only ever looks at THIS field.
-  isCompliant: boolean;
   // Reserved for a tooltip tile's optional second/third line (see
   // TooltipTemplateConfig) — undefined today for every point in every mock
   // dataset, which is exactly what keeps that line hidden (see
@@ -180,25 +173,21 @@ export interface PointMetric {
   // wins over this — same "explicit config beats derived default"
   // precedence as everywhere else in this app.
   label?: string;
-  // This reading's own highlight color when isCompliant is false — straight
-  // from the data, no hardcoded per-metric-id palette anywhere in code
-  // (NXMapBuilderService no longer has a METRIC_COLORS lookup). Read by
-  // toMarker() for the hover tooltip tile's value color, and by
-  // toMetricOverlayMarker() (via a matched MetricOverlayRecord's own Color,
-  // converted onto this same lowercase field by NxMapDemoComponent.
-  // toPointMetric()) for the on-map overlay marker's color/shape once that
-  // metric's circular chart is clicked —
-  // see that method's own comment for the full priority order. Omit to
-  // fall back to the shared neutral label color, same as a compliant
-  // reading always gets regardless of this field.
+  // This reading's own highlight color, straight from the API response —
+  // no hardcoded per-metric-id palette anywhere in code (NXMapBuilderService
+  // no longer has a METRIC_COLORS lookup). Read by toMarker() for the hover
+  // tooltip tile's value color, and by toMetricOverlayMarker() (via a
+  // matched MetricOverlayRecord's own Color, converted onto this same
+  // lowercase field by NxMapDemoComponent.toPointMetric()) for the on-map
+  // overlay marker's color/shape once that metric's circular chart is
+  // clicked — see that method's own comment for the full priority order.
+  // Omit to fall back to that point's own mol.json/group/theme color.
   color?: string;
   // This reading's own explicit marker shape override — same tier-1
   // priority as `color` above in toMetricOverlayMarker()'s resolution
-  // order (an explicit reading.shape always wins outright, compliant or
-  // not). Unlike color, there's no isCompliant:false hardcoded fallback
-  // for shape — omit this to fall straight through to that point's own
-  // mol.json/group/theme shape, same as `color` does past its own
-  // NON_COMPLIANT_COLOR tier. Typed as MarkerShape (matching ShapeStyle.shape
+  // order (an explicit reading.shape always wins outright). Omit this to
+  // fall straight through to that point's own mol.json/group/theme shape,
+  // same as `color` does. Typed as MarkerShape (matching ShapeStyle.shape
   // exactly, since NxMapDemoComponent.toPointMetric() copies a matched
   // MetricOverlayRecord's own Shape straight onto this field) even though
   // whatever actually comes through here only ever needs case-insensitive
@@ -261,7 +250,6 @@ export interface MetricOverlayRecord {
   // TooltipComponentEntry.Value already has to allow for.
   Value?: string | number;
   Unit?: string;
-  IsCompliant?: boolean;
   Value2?: string | number;
   Unit2?: string;
   Value3?: string | number;
@@ -284,7 +272,7 @@ export interface MetricOverlayRecord {
 
   // The FULL multi-metric snapshot for this point's always-on hover
   // tooltip — independent of which single metric this record's own
-  // Value/IsCompliant/MarkerId are actually about (that trio still only
+  // Value/MarkerId are actually about (that pair still only
   // ever drives the ONE selected metric's on-map overlay label/color,
   // exactly as before this field existed). NxMapDemoComponent derives each
   // tile's own key from ComponentList's own Label (see
@@ -314,7 +302,6 @@ export interface TooltipComponentEntry {
   Color?: string;
   Value?: string | number;
   Unit?: string;
-  IsCompliant?: boolean;
 }
 
 // MetricOverlayRecord.Tooltip's own shape — Columns is a real field here,

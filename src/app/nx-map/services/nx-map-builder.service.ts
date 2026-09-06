@@ -48,23 +48,13 @@ export const EMPTY_PLACEHOLDER_SHAPE = {
   features: [{ type: "Feature", properties: {}, geometry: { type: "MultiPolygon", coordinates: [] } }]
 };
 
-// Shared label color for an isCompliant:true reading, and the fallback for
-// an isCompliant:false one that doesn't set its own PointMetric.color and
-// has no matching mol point color either (see toMetricOverlayMarker()'s
-// own comment) — no hardcoded per-metric-id palette anywhere in this file;
-// an isCompliant:false reading's own highlight color comes straight from
-// that reading's own data (see PointMetric.color's own comment) wherever
-// one is read below.
+// Shared neutral label color — the last-resort fallback when neither a
+// reading's own PointMetric.color nor any point/group/theme color resolves
+// (see toMetricOverlayMarker()'s own comment). No hardcoded per-metric-id
+// palette anywhere in this file; a reading's own highlight color comes
+// straight from the API response (see PointMetric.color's own comment)
+// wherever one is read below.
 const NORMAL_LABEL_COLOR = "#5f6368";
-
-// Hardcoded per user decision — parked here rather than in config for now;
-// move to a MapConfig/MapGroup field once there's an actual need to vary
-// it per deployment. Used by toMetricOverlayMarker() ONLY as the second
-// tier of its color priority: a reading with isCompliant:false and no own
-// `color` gets this instead of falling straight to the point's own mol.json
-// color, so a genuinely non-compliant reading always reads as "red" even
-// when its author never bothered to set `color`.
-const NON_COMPLIANT_COLOR = "red";
 
 // Genuinely empty starting point — no metric ids baked in here at all.
 // Used only as the very first template before ANY layer's own
@@ -678,7 +668,7 @@ export class NXMapBuilderService {
       const reading = point.tooltipMetrics?.[key];
       marker[`v_${key}`] = reading ? reading.value : "—";
       marker[`u_${key}`] = reading?.unit ?? "";
-      marker[`c_${key}`] = reading?.isCompliant === false ? reading?.color ?? NORMAL_LABEL_COLOR : "#9aa0a6";
+      marker[`c_${key}`] = reading?.color ?? NORMAL_LABEL_COLOR;
       marker[`v2_${key}`] = reading?.value2 ?? "";
       marker[`u2_${key}`] = reading?.unit2 ?? "";
       marker[`d2_${key}`] = reading?.value2 !== undefined ? "block" : "none";
@@ -696,34 +686,24 @@ export class NXMapBuilderService {
   // the point's generic value/color, per buildMarkerPoints()'s comment.
   // `fetchedValues` is MapGroup.activeMetricValues — the freshly-fetched
   // response from NXMapConfigService.loadDataOverlay(), keyed by point id —
-  // a point with no entry here is treated the same as a compliant reading
-  // (falls straight to its own mol.json style below), not as "no overlay".
+  // a point with no entry here is treated the same as one with no color of
+  // its own (falls straight to its own mol.json style below), not as "no
+  // overlay".
   //
-  // Color/shape resolution order, most specific wins (per explicit product
-  // decision — a genuinely non-compliant reading always reads as
-  // NON_COMPLIANT_COLOR/"red" even when its author never set `color`,
-  // rather than silently falling through to that point's own everyday
-  // color):
+  // Color/shape resolution order, most specific wins:
   //   1. This reading's OWN PointMetric.color/shape (data-driven — the
   //      metric-overlay API's own explicit override for this one click).
-  //   2. isCompliant === false (no matching tier-1 override) -> the
-  //      hardcoded NON_COMPLIANT_COLOR ("red", see its own comment on why
-  //      it's parked as a constant rather than a config field for now).
-  //      Shape has no equivalent hardcoded override here — an
-  //      isCompliant:false reading with no shape of its own still falls
-  //      through to tier 3.
-  //   3. No reading at all, OR isCompliant === true, OR still missing after
-  //      tiers 1-2 -> this point's own mol.json style (point.shape/
-  //      point.color), then its group's style, then the theme — same
-  //      point -> groupStyle -> theme precedence toMarker() already uses
-  //      for the always-visible base marker, so a metric click never makes
-  //      a compliant/unread point look any different from how it renders
-  //      normally.
+  //   2. No reading at all, OR still missing after tier 1 -> this point's
+  //      own mol.json style (point.shape/point.color), then its group's
+  //      style, then the theme — same point -> groupStyle -> theme
+  //      precedence toMarker() already uses for the always-visible base
+  //      marker, so a metric click never makes an unread point look any
+  //      different from how it renders normally. No hardcoded color/shape
+  //      fallback beyond the shared NORMAL_LABEL_COLOR neutral default.
   private toMetricOverlayMarker(point: MapPoint, lookupKey: string, fetchedValues: Record<string, PointMetric> | null | undefined, theme: MapTheme, groupStyle: ShapeStyle | undefined) {
     const reading = point.id ? fetchedValues?.[point.id] : undefined;
     const color =
       reading?.color ??
-      (reading?.isCompliant === false ? NON_COMPLIANT_COLOR : undefined) ??
       point.color ??
       groupStyle?.color ??
       theme.marker?.color ??

@@ -1,7 +1,7 @@
 import { ChangeDetectorRef, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from "@angular/core";
 import { buildCircularChartConfigs, visibleCircularChartCount } from "./services/parent-circular-chart-config-transform";
 import { NxCircularChartConfigService } from "./services/nx-circular-chart-config.service";
-import { CircularChartConfig, CircularChartSelectionEvent, DEFAULT_PALETTE, RawCircularChartCollectionNode, TrendGroup } from "./model/nx-circular-chart-model";
+import { CircularChartConfig, CircularChartSelectionEvent, DEFAULT_PALETTE, RawCircularChartCollectionNode, TrendNode } from "./model/nx-circular-chart-model";
 
 // Iterates NxCircularChartComponent — one <app-nx-circular-chart> per circular chart buildCircularChartConfigs()
 // resolves from the two inputs below, purely off its own returned length,
@@ -39,7 +39,7 @@ export class NxCircularChartCollectionComponent implements OnChanges {
   // data (the existing empty-ring state), same as a rawConfig with no
   // matching trend at all. IGNORED whenever rawConfig.ApiUrl is set (see
   // ngOnChanges()) — that mode fetches its own trend response instead.
-  @Input() trendResponse?: TrendGroup[];
+  @Input() trendResponse?: TrendNode[];
 
   @Output() sublayersSelected = new EventEmitter<CircularChartSelectionEvent>();
 
@@ -117,7 +117,7 @@ export class NxCircularChartCollectionComponent implements OnChanges {
     this.applyConfigs(this.trendResponse ?? [], !hasTrendResponse);
   }
 
-  private applyConfigs(trendResponse: TrendGroup[], useConfigFallback: boolean): void {
+  private applyConfigs(trendResponse: TrendNode[], useConfigFallback: boolean): void {
     this.circularCharts = this.rawConfig ? buildCircularChartConfigs(this.rawConfig, trendResponse, useConfigFallback) : [];
     this.selectedId = null;
     // Legend is derived from the UNION of every circular chart's own slice

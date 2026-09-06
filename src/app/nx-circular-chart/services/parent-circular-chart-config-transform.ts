@@ -4,8 +4,8 @@ import {
   CircularChartTypes,
   RawCircularChartCollectionNode,
   RawCircularChartNode,
-  TrendGroup,
-  TrendLeaf
+  TrendLeaf,
+  TrendNode
 } from "../model/nx-circular-chart-model";
 
 // Real upstream discriminant for "this node is a collection of circularCharts, not
@@ -27,21 +27,19 @@ function normalizeName(name: string | null | undefined): string {
     .replace(/^-+|-+$/g, "");
 }
 
-// Flattens every leaf across every group/node in the response into one
-// lookup keyed by its own (normalized) TrendName — the response's outer
-// group/node nesting carries no meaning for matching, only the innermost
-// TrendName does.
-function indexTrendLeaves(response: TrendGroup[] | null | undefined): Map<string, TrendLeaf> {
+// Flattens every leaf across every node in the response into one lookup
+// keyed by its own (normalized) TrendName — the response's outer node
+// nesting carries no meaning for matching, only the innermost TrendName
+// does.
+function indexTrendLeaves(response: TrendNode[] | null | undefined): Map<string, TrendLeaf> {
   const index = new Map<string, TrendLeaf>();
-  (response ?? []).forEach(group =>
-    (group.TrendsList ?? []).forEach(node =>
-      (node.TrendsList ?? []).forEach(leaf => {
-        const key = normalizeName(leaf.TrendName);
-        if (key) {
-          index.set(key, leaf);
-        }
-      })
-    )
+  (response ?? []).forEach(node =>
+    (node.TrendsList ?? []).forEach(leaf => {
+      const key = normalizeName(leaf.TrendName);
+      if (key) {
+        index.set(key, leaf);
+      }
+    })
   );
   return index;
 }
@@ -159,7 +157,7 @@ export function buildCircularChartConfig(node: RawCircularChartNode, leaf: Trend
 // matches than there are configured items.
 export function buildCircularChartConfigs(
   root: RawCircularChartCollectionNode,
-  trendResponse: TrendGroup[],
+  trendResponse: TrendNode[],
   useConfigFallback = false
 ): CircularChartConfig[] {
   const items = root.ComponentType === CIRCULAR_CHART_COLLECTION_COMPONENT_TYPE ? root.Configuration ?? [] : [root as RawCircularChartNode];

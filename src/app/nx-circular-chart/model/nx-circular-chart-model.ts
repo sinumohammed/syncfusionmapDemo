@@ -257,13 +257,13 @@ export interface RawCircularChartCollectionNode {
 }
 
 // ---- Trend API response shape ------------------------------------------
-// Nested three levels deep: an outer trend GROUP (TrendGroup.Name — not
-// used for matching), each holding its own TrendsList of trend NODES, each
-// of THOSE holding its own TrendsList of the actual per-metric leaves
-// parent-circular-chart-config-transform.ts reads. A real response can carry several
-// groups/nodes; every leaf across all of them is searched for a Name match,
-// regardless of which group/node it sits under — only the innermost
-// TrendName is the join key (confirmed via product decision, not guessed).
+// Nested two levels deep: the response is an array of trend NODES
+// (TrendNode.Name — not used for matching), each holding its own
+// TrendsList of the actual per-metric leaves parent-circular-chart-config-transform.ts
+// reads. A real response can carry several nodes; every leaf across all of
+// them is searched for a Name match, regardless of which node it sits
+// under — only the innermost TrendName is the join key (confirmed via
+// product decision, not guessed).
 
 export interface TrendDataPoint {
   SeriesID?: string;
@@ -320,9 +320,4 @@ export interface TrendLeaf {
 export interface TrendNode {
   Name?: string;
   TrendsList?: TrendLeaf[];
-}
-
-export interface TrendGroup {
-  Name?: string;
-  TrendsList?: TrendNode[];
 }

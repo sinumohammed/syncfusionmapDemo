@@ -3,17 +3,17 @@ import * as realParentConfigJson from "./nx-map/testing/real-parent-config.json"
 import { RawLayerNode, buildMapCollectionConfig } from "./nx-map/services/parent-config-transform";
 import { MapCollectionConfig, MapCircularChartSelection } from "./nx-map/model/nx-map-model";
 import * as realCircularChartParentConfigJson from "./nx-circular-chart/testing/real-circular-chart-parent-config.json";
-import * as trendResponseJson from "../assets/mock-api/trend-response.json";
-import { CircularChartSelectionEvent, RawCircularChartCollectionNode, TrendGroup } from "./nx-circular-chart/model/nx-circular-chart-model";
+import { CircularChartSelectionEvent, RawCircularChartCollectionNode } from "./nx-circular-chart/model/nx-circular-chart-model";
 
 // Standalone-demo stand-in for a real host application binding its own
-// widget payloads onto NxCircularChartCollectionComponent's `rawConfig`/
-// `trendResponse` @Input()s and NxMapCollectionComponent's `config` @Input —
-// neither component bundles a
-// default of its own, so something has to supply both for the demo to show
-// anything when run on its own. This is also the shared parent container the
-// two independent components sit side by side in: circular chart panel on the left,
-// map collection on the right.
+// widget payloads onto NxCircularChartCollectionComponent's `rawConfig`
+// @Input and NxMapCollectionComponent's `config` @Input — neither component
+// bundles a default of its own, so something has to supply both for the
+// demo to show anything when run on its own (the circular chart side's own
+// trend data comes from `rawConfig`'s own ApiUrl instead of a separate
+// @Input — see circularChartRawConfig's own comment). This is also the
+// shared parent container the two independent components sit side by side
+// in: circular chart panel on the left, map collection on the right.
 @Component({
   selector: "app-root",
   templateUrl: "./app.component.html",
@@ -36,13 +36,14 @@ export class AppComponent {
   // NxCircularChartCollectionComponent's own `rawConfig` input, which runs the
   // Name-vs-TrendName matching itself (see parent-circular-chart-config-transform.ts).
   // Bundled statically here purely as this demo's stand-in for whatever a
-  // real host fetches its widget config from.
+  // real host fetches its widget config from. Its own root `ApiUrl` field
+  // ("assets/mock-api/trend-response.json") is what actually supplies the
+  // trend data now — NxCircularChartCollectionComponent fetches that itself
+  // (NxCircularChartConfigService.fetchTrendResponse()) whenever ApiUrl is
+  // set, same live-fetch convention as nx-map's own DataAPIURL — so this
+  // component no longer needs a separate static `trendResponse` @Input to
+  // stand in for it.
   circularChartRawConfig = ((realCircularChartParentConfigJson as any).default ?? realCircularChartParentConfigJson) as RawCircularChartCollectionNode;
-  // trend-response.json stands in for a live trend API's own response — a
-  // SEPARATE input from circularChartRawConfig above (see
-  // NxCircularChartCollectionComponent's own comment for why), bundled statically
-  // for the same reason.
-  circularChartTrendResponse = ((trendResponseJson as any).default ?? trendResponseJson) as TrendGroup[];
 
   // Bound straight onto <app-nx-map-collection>'s own circularChartSelection @Input
   // in the template (see app.component.html) — this is the only point of

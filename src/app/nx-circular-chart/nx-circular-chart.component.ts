@@ -19,6 +19,14 @@ const DEFAULT_RADIUS_PERCENT = 80;
 // same 130px-square box (see that chart's own height="130px" width="100%"
 // in the template, and .nx-circular-chart-empty-ring's own comment).
 const CHART_BOX_PX = 130;
+// Must match .nx-circular-chart-empty-ring's own CSS border-width exactly —
+// read by healthyInnerSizePx() below to size the healthy fill to this
+// ring's own actual hole, not an approximate percentage of it (see that
+// getter's own comment).
+const EMPTY_RING_BORDER_PX = 14;
+// -45° = up-and-right, standard "notification dot" position on a round
+// avatar/ring — read by healthyCheckPosition() below.
+const HEALTHY_CHECK_ANGLE_RAD = -Math.PI / 4;
 
 // Fallback when a circular chart's own config.tooltipFormat (RawCircularChartNode.TooltipFormat
 // in real-circular-chart-parent-config.json) is unset — same Syncfusion placeholder
@@ -155,25 +163,60 @@ export class NxCircularChartComponent implements OnChanges {
     return `nx-circular-chart-${this.config?.id ?? "unknown"}`;
   }
 
-  // True when every slice is 0 — this metric has no readings at all on the
-  // current map data (as opposed to "all normal", which is real data: one
-  // slice at 0, the other at the full count, and renders as an ordinary
-  // 100%-filled pie same as any other split). A genuinely all-zero
-  // dataSource has nothing for Syncfusion's pie series to divide up, so
-  // ngOnChanges() below skips building a series for it entirely and the
-  // template swaps in .nx-circular-chart-empty-ring instead.
-  get isEmpty(): boolean {
-    return !!this.config && this.config.data.every(d => !d.y);
+  // True when there's no POSITIVE reading anywhere in this chart's own
+  // slices — every slice is either an explicit 0 or a genuinely missing
+  // (null) reading. A real Syncfusion pie has nothing to divide up in
+  // either case (a slice with a real >0 value alongside some 0/null
+  // siblings still renders fine — those siblings just draw as zero-width
+  // wedges, "as-is", same as before this got split out), so isEmpty below
+  // covers both this AND isAllZero.
+  private get hasNoPositiveValue(): boolean {
+    return !!this.config && !this.config.data.some(d => (d.y ?? 0) > 0);
   }
 
-  // Opt-in reinterpretation of isEmpty (config.zeroAsHealthy — see its own
+  // True when every slice has an explicit 0 reading, with NO nulls and no
+  // empty data array — real, COMPLETE data, it just happens to sum to zero
+  // (e.g. "zero incidents" is real data; "all normal" is a different,
+  // non-zero-summing case: one slice at 0, the other at the full count,
+  // rendering as an ordinary 100%-filled pie same as any other split).
+  get isAllZero(): boolean {
+    return !!this.config && this.config.data.length > 0 && this.config.data.every(d => d.y === 0);
+  }
+
+  // True whenever this chart has no positive reading anywhere AND isn't the
+  // CONFIRMED-all-zero case above — an empty data array, an all-null chart,
+  // or a mix of 0s and nulls with no positives at all (some readings came
+  // back, others are still missing — not enough to confirm "genuinely all
+  // zero"). Any of these renders the plain grey "No data" placeholder,
+  // never the zeroAsHealthy badge, regardless of that config's own setting
+  // (see isHealthy's own comment) — a real >0 reading alongside some 0/null
+  // siblings is NEITHER of these two states; those siblings just draw as
+  // zero-width wedges in the real chart, "as-is".
+  get isNoData(): boolean {
+    return this.hasNoPositiveValue && !this.isAllZero;
+  }
+
+  // Either kind of "nothing for Syncfusion's pie series to actually divide
+  // up" — isNoData OR isAllZero. ngOnChanges() below skips building a
+  // series for it entirely and the template swaps in
+  // .nx-circular-chart-empty-ring instead; which of the two it actually is
+  // then decides that ring's own text/badge (see the template's own
+  // isNoData/isHealthy bindings).
+  get isEmpty(): boolean {
+    return this.isNoData || this.isAllZero;
+  }
+
+  // Opt-in reinterpretation of isAllZero (config.zeroAsHealthy — see its own
   // comment for why this has to be a per-card config choice rather than
   // automatic) — an all-zero reading for a metric like "incidents" means
-  // "genuinely healthy, zero to report", not "no data received yet". The
+  // "genuinely healthy, zero to report". Deliberately keyed off isAllZero,
+  // NOT isEmpty/isNoData: a genuinely missing reading must never render as
+  // "healthy" just because config.zeroAsHealthy happens to be set — that
+  // badge only ever means "we heard back, and the answer was zero". The
   // template swaps in a green checkmark badge instead of the "No data"
   // empty-ring for this case, see .nx-circular-chart-healthy's own comment.
   get isHealthy(): boolean {
-    return this.isEmpty && !!this.config?.zeroAsHealthy;
+    return this.isAllZero && !!this.config?.zeroAsHealthy;
   }
 
   // config.healthyLabel (RawCircularChartNode.Label — see its own comment
@@ -211,18 +254,41 @@ export class NxCircularChartComponent implements OnChanges {
   }
 
   // The healthy badge's own green background needs to be a CIRCLE sized to
-  // this ring's own inner hole (config.innerRadius — same percentage
-  // buildSeries() applies to a real doughnut's own hole), not a generic
-  // pill/box behind the label text — product decision: the ring itself
-  // stays its usual grey (see .nx-circular-chart-empty-ring's own comment),
-  // so the "healthy" fill has to look like it belongs to THIS ring's own
-  // hole, not a separate shape floating on top of it. Pie has no real hole
-  // (buildSeries() forces innerRadius to "0%" for it) — falls back to a
-  // fixed 55% here purely so the label still has something to sit on, not
-  // because a solid pie has an inner radius of its own.
+  // fill this ring's own inner hole EXACTLY — not a generic pill/box behind
+  // the label text, and not an approximate percentage either (confirmed
+  // live: config.innerRadius's own percentage, e.g. the usual 72%, leaves a
+  // visible ring of white showing between the green fill and the ring's own
+  // grey border — the two were never guaranteed to agree, and never do once
+  // this ring's border stops being a round percentage of a round number).
+  // Deriving it straight from the ring's own actual geometry — its outer
+  // diameter (emptyRingSizePx) minus its own fixed EMPTY_RING_BORDER_PX on
+  // each side, same value .nx-circular-chart-empty-ring's own CSS border-width
+  // uses — instead guarantees the green fill exactly meets the grey border
+  // with no gap, for every chart type alike (this placeholder ring is
+  // always the same hollow shape now, Pie included — see its own comment).
   get healthyInnerSizePx(): number {
-    const percent = this.chartType === CircularChartTypes.Pie ? 55 : parseFloat(this.config?.innerRadius ?? "") || 72;
-    return (this.emptyRingSizePx * percent) / 100;
+    return this.emptyRingSizePx - 2 * EMPTY_RING_BORDER_PX;
+  }
+
+  // Center point (relative to the ring box's own top-left corner) for the
+  // healthy checkmark badge, sitting right ON this ROUND ring's own actual
+  // boundary — not its bounding box's corner. A round ring curves away from
+  // its own bounding square's corner (the ring's actual edge at 45° sits
+  // emptyRingSizePx/2 * (1 - cos45°) px inside that corner, ~30% of the
+  // radius for a typical size here), so CSS top/right offsets anchored to
+  // that corner (the previous approach) always left the badge floating
+  // visibly outside the ring instead of touching it (confirmed live).
+  // HEALTHY_CHECK_ANGLE_RAD (-45°, up-and-right) picks WHERE on the ring;
+  // the template centers the badge exactly on this point (transform:
+  // translate(-50%, -50%)), so half of it sits inside the ring's own grey
+  // band and half outside — the same overlapping-the-boundary look every
+  // "notification dot on a round avatar" uses.
+  get healthyCheckPosition(): { left: number; top: number } {
+    const radius = this.emptyRingSizePx / 2;
+    return {
+      left: radius + radius * Math.cos(HEALTHY_CHECK_ANGLE_RAD),
+      top: radius + radius * Math.sin(HEALTHY_CHECK_ANGLE_RAD)
+    };
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -252,7 +318,7 @@ export class NxCircularChartComponent implements OnChanges {
     }
     return (config.tooltipFormat ?? DEFAULT_TOOLTIP_FORMAT)
       .replace(/\$\{point\.x\}/g, slice.x)
-      .replace(/\$\{point\.y\}/g, String(slice.y));
+      .replace(/\$\{point\.y\}/g, String(slice.y ?? 0));
   }
 
   private buildSeries(config: CircularChartConfig): AccumulationSeriesModel[] {
@@ -288,7 +354,13 @@ export class NxCircularChartComponent implements OnChanges {
           }
           return {
             x: d.x,
-            y: d.y,
+            // Syncfusion's own pie math needs a real number — a null slice
+            // (genuinely missing reading, see CircularChartSlice.y's own
+            // comment) mixed in among otherwise-real slices renders as a
+            // zero-width wedge, same as an explicit 0 would; only the
+            // ALL-null/all-zero whole-chart cases (isNoData/isAllZero
+            // above) get their own distinct placeholder treatment.
+            y: d.y ?? 0,
             color,
             tooltip: this.resolveTooltipText(config, d)
           };

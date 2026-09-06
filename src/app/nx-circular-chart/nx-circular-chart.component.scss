@@ -107,15 +107,16 @@
   box-sizing: border-box;
   z-index: 0;
 }
-/* Pie has no hole — a solid filled disc instead of the default hollow
-   ring, same grey as the ring's own border color. See
-   NxCircularChartComponent.emptyChartType's own comment for why the empty
-   placeholder shape has to track chartType, not just isEmpty. */
-.nx-circular-chart-empty-ring--pie {
-  border: none;
-  background: #e3e5e8;
-}
-/* Right half only, matching buildSeries()'s own startAngle:270/endAngle:90
+/* Deliberately the SAME hollow-ring look for every chartType, Pie included
+   — a real populated Pie has no hole (a solid disc), but THIS placeholder
+   is never a real rendered pie, just a "no data"/zeroAsHealthy cue, and a
+   Pie-type card's own placeholder looking different from every other
+   card's (no border, solid fill) read as broken/inconsistent rather than
+   "this card happens to be a pie" (confirmed live: a Pie-type card with
+   real 0/null trend data, e.g. TVP with ZeroAsHealthy, otherwise rendered
+   a borderless grey disc with the healthy checkmark floating over it,
+   unlike every Doughnut/SemiCircle card's own visible ring). Right half
+   only below, matching buildSeries()'s own startAngle:270/endAngle:90
    for a real SemiCircle render (270° start sweeps clockwise through 0°/3
    o'clock to 90°/6 o'clock — the right half of the circle). Layered on top
    of the default ring styling above, not a replacement for it — a
@@ -160,14 +161,20 @@
   background: #e5f5ea;
   z-index: 0;
 }
-/* Sits right on the ring's own edge like a notification badge — NOT
-   centered inside it, so it doesn't collide with the center label
-   overlay (.nx-circular-chart-center, still absolutely centered over this
-   same ring). */
+/* Centered exactly on healthyCheckPosition() (nx-circular-chart.component.ts) —
+   a point ON THE RING'S OWN ACTUAL CIRCULAR BOUNDARY, not its bounding
+   box's corner. A round ring curves away from its bounding square's
+   corner, so a plain CSS top/right offset (the previous approach) always
+   left this badge floating visibly outside the ring instead of touching it
+   (confirmed live) — left/top are set inline per-instance instead (the
+   ring's own radius varies with config.radius, so this can't be a fixed
+   SCSS value), this rule just centers the badge ON that computed point
+   (rather than anchoring one of its own corners to it), so it overlaps the
+   ring's edge the same way a notification dot overlaps a round avatar's
+   own edge — half inside the ring's grey band, half outside. */
 .nx-circular-chart-healthy-check {
   position: absolute;
-  top: -6px;
-  right: -6px;
+  transform: translate(-50%, -50%);
   z-index: 1;
   line-height: 0;
 }

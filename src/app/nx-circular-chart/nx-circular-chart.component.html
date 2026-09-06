@@ -1,7 +1,7 @@
 <div
   class="nx-circular-chart-card"
   [class.nx-circular-chart-card--selected]="selected"
-  [class.nx-circular-chart-card--disabled]="isEmpty && !isHealthy"
+  [class.nx-circular-chart-card--disabled]="isNoData && !isHealthy"
   (click)="select.emit()"
 >
   <!-- Gradient defs referenced from a point's own color as url(#id) — see
@@ -29,11 +29,13 @@
     height="130px"
     width="100%"
   ></ejs-accumulationchart>
-  <!-- Every slice is 0 (no readings at all for this metric — neither the
-       trend API nor this circular chart's own config Data had anything, see
-       buildCircularChartConfig()'s own comment) — a real Syncfusion pie has
-       nothing to divide up in that case, so this renders a plain CSS ring
-       instead of attempting one (see isEmpty's own comment).
+  <!-- isEmpty (isNoData OR isAllZero — see their own comments) — either way
+       a real Syncfusion pie has nothing to divide up, so this renders a
+       plain CSS ring instead of attempting one. Which of the two decides
+       what's INSIDE that ring below: isNoData (genuinely missing readings)
+       always shows "No data" and dims the card; isAllZero (real readings
+       that happen to sum to zero) shows the zeroAsHealthy badge when set,
+       otherwise just the plain label — no "No data" text, no dimming.
        nx-circular-chart-card--disabled is a VISUAL cue only (dimmed) — the click
        itself stays live and behaves exactly like any other circular chart. An
        all-zero circular chart (e.g. no "high" readings at all) is still a real,
@@ -53,7 +55,6 @@
   <div class="nx-circular-chart-empty-box" *ngIf="isEmpty">
     <div
       class="nx-circular-chart-empty-ring"
-      [class.nx-circular-chart-empty-ring--pie]="chartType === CircularChartTypes.Pie"
       [class.nx-circular-chart-empty-ring--semicircle]="chartType === CircularChartTypes.SemiCircle"
       [style.width.px]="emptyRingSizePx"
       [style.height.px]="emptyRingSizePx"
@@ -70,7 +71,7 @@
            the ring's own outer edge, like a notification badge. -->
       <ng-container *ngIf="isHealthy">
         <span class="nx-circular-chart-healthy-inner" [style.width.px]="healthyInnerSizePx" [style.height.px]="healthyInnerSizePx"></span>
-        <span class="nx-circular-chart-healthy-check">
+        <span class="nx-circular-chart-healthy-check" [style.left.px]="healthyCheckPosition.left" [style.top.px]="healthyCheckPosition.top">
           <svg viewBox="0 0 24 24" width="16" height="16">
             <circle cx="12" cy="12" r="11" fill="#2f9e56"></circle>
             <path d="M7 12.5l3 3 7-7" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"></path>
@@ -81,13 +82,13 @@
   </div>
   <div
     class="nx-circular-chart-center"
-    [class.nx-circular-chart-center--empty]="isEmpty && !isHealthy"
+    [class.nx-circular-chart-center--empty]="isNoData && !isHealthy"
     [class.nx-circular-chart-center--healthy]="isHealthy"
     [style.left.px]="centerLabelPosition?.left"
     [style.top.px]="centerLabelPosition?.top"
   >
     {{ config?.label }}
-    <ng-container *ngIf="isEmpty && !isHealthy"><br /><span class="nx-circular-chart-empty-text">No data</span></ng-container>
+    <ng-container *ngIf="isNoData && !isHealthy"><br /><span class="nx-circular-chart-empty-text">No data</span></ng-container>
     <ng-container *ngIf="isHealthy"><br /><span class="nx-circular-chart-empty-text nx-circular-chart-empty-text--healthy">{{ healthyText }}</span></ng-container>
   </div>
   <div class="nx-circular-chart-badge" *ngFor="let badge of badges" [style.left.px]="badge.left" [style.top.px]="badge.top">

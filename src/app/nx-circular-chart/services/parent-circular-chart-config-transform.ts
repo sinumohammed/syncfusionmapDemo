@@ -66,10 +66,18 @@ function parseNodeData(data: CircularChartSlice[] | string | null | undefined): 
   }
 }
 
+// Keeps a genuinely missing reading (YValue null/undefined, or no Data[0]
+// at all) as `null` rather than coercing it to 0 like an ordinary
+// tolerant-numeric-parse would — see CircularChartSlice.y's own comment for
+// why that distinction has to survive past this point.
+function toSliceValue(raw: string | number | null | undefined): number | null {
+  return raw === null || raw === undefined ? null : Number(raw) || 0;
+}
+
 function buildSlices(leaf: TrendLeaf | undefined): CircularChartSlice[] {
   return (leaf?.Series ?? []).map(series => ({
     x: series.SeriesName ?? series.LegendName ?? "",
-    y: Number(series.Data?.[0]?.YValue) || 0,
+    y: toSliceValue(series.Data?.[0]?.YValue),
     color: series.Data?.[0]?.ItemStyle?.color || series.Color || undefined,
     // Per-slice tooltip text straight from the API's own Data[0].ToolTip —
     // see CircularChartSlice.tooltip's own comment for how NxCircularChartComponent uses

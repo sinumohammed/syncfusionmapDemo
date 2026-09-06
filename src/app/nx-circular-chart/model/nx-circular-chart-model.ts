@@ -29,7 +29,16 @@ export interface CircularChartSlice {
   // Slice label, also used as the pie's xName value and (absent `tooltip`
   // below) the tooltip text.
   x: string;
-  y: number;
+  // null means this slice's own reading is genuinely MISSING (the trend
+  // API's own Data[0].YValue was null/absent) — distinct from an explicit
+  // 0 (a real reading that happens to be zero, e.g. "zero incidents
+  // reported"). NxCircularChartComponent's isNoData/isAllZero getters key
+  // off exactly this distinction: an all-null chart always renders the
+  // plain grey "No data" placeholder (never the zeroAsHealthy badge, even
+  // when that's set), while an all-zero (no nulls) chart can. See
+  // buildSlices() in parent-circular-chart-config-transform.ts for where a
+  // raw YValue becomes this.
+  y: number | null;
   color?: string;
   // This slice's own hover-tooltip text, straight from the API's own
   // Data[0].ToolTip (parent-circular-chart-config-transform.ts's buildSlices()) —
@@ -259,7 +268,10 @@ export interface RawCircularChartCollectionNode {
 export interface TrendDataPoint {
   SeriesID?: string;
   XValue?: string;
-  YValue?: string | number;
+  // null/absent means this reading is genuinely missing — see
+  // CircularChartSlice.y's own comment for why buildSlices() keeps that
+  // distinct from an explicit 0.
+  YValue?: string | number | null;
   ToolTip?: string;
   ItemStyle?: { color?: string };
   ItemStyleJson?: string;

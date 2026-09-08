@@ -653,7 +653,8 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
       label: record.Label,
       color: record.Color,
       shape: record.Shape,
-      textColor: record.TextColor
+      textColor: record.TextColor,
+      showInfo: record.ShowInfo
     };
   }
 

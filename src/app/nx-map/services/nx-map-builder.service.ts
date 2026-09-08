@@ -38,6 +38,24 @@ const TILE_URL_TEMPLATES: Record<"osm" | "satellite", string> = {
   satellite: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/level/tileY/tileX"
 };
 
+// A layer/theme config file's own convention for "not set" on a style
+// string field is an explicit empty string, not omitting the key entirely
+// — confirmed live in mol.json/sogl.json (`markerConfig.style.color: ""`)
+// and alwusta-config.json (`shape: ""`). A plain `??` fallback chain treats
+// "" as a real value (only null/undefined are nullish), so it stops right
+// there instead of falling through to the next tier — this breaks the
+// on-map metric-overlay marker's own color outright (see
+// toMetricOverlayMarker()): with no reading.color and no point.color, the
+// chain landed on this "" groupStyle.color and rendered an invisible
+// (no-color) marker, confirmed live clicking a metric whose matched
+// point's group carries this empty-string convention. Every
+// point -> groupStyle -> theme chain below runs its candidates through
+// this first so "" is treated exactly like the field being absent, at
+// every tier.
+function nonEmpty<T extends string>(value: T | undefined): T | undefined {
+  return value ? value : undefined;
+}
+
 // Stand-in shapeData for a points/groups-only layer (MOL-style) — a
 // LayerFileEnvelope with no shapeData of its own still needs SOMETHING to
 // satisfy Syncfusion's SubLayer machinery, even though this layer draws no
@@ -605,12 +623,12 @@ export class NXMapBuilderService {
       // imageUrl anywhere in the chain falls straight through to the
       // ordinary shape resolution, unchanged from before this field existed.
       shape: this.capitalizeShape(
-        (point.imageUrl ?? groupStyle?.imageUrl ?? theme.marker?.imageUrl) !== undefined
+        nonEmpty(point.imageUrl) ?? nonEmpty(groupStyle?.imageUrl) ?? nonEmpty(theme.marker?.imageUrl)
           ? MarkerShape.Image
-          : point.shape ?? groupStyle?.shape ?? theme.marker?.shape ?? MarkerShape.Balloon
+          : nonEmpty(point.shape) ?? nonEmpty(groupStyle?.shape) ?? nonEmpty(theme.marker?.shape) ?? MarkerShape.Balloon
       ),
-      imageUrl: point.imageUrl ?? groupStyle?.imageUrl ?? theme.marker?.imageUrl,
-      color: point.color ?? groupStyle?.color ?? theme.marker?.color,
+      imageUrl: nonEmpty(point.imageUrl) ?? nonEmpty(groupStyle?.imageUrl) ?? nonEmpty(theme.marker?.imageUrl),
+      color: nonEmpty(point.color) ?? nonEmpty(groupStyle?.color) ?? nonEmpty(theme.marker?.color),
       // markerScaleFactor grows this on zoom (see its own comment) — this
       // point's/group's/theme's own configured size is still the BASE this
       // multiplies, so a deployment's own sizing intent (e.g. a bigger
@@ -668,7 +686,7 @@ export class NXMapBuilderService {
       const reading = point.tooltipMetrics?.[key];
       marker[`v_${key}`] = reading ? reading.value : "—";
       marker[`u_${key}`] = reading?.unit ?? "";
-      marker[`c_${key}`] = reading?.color ?? NORMAL_LABEL_COLOR;
+      marker[`c_${key}`] = nonEmpty(reading?.color) ?? NORMAL_LABEL_COLOR;
       marker[`v2_${key}`] = reading?.value2 ?? "";
       marker[`u2_${key}`] = reading?.unit2 ?? "";
       marker[`d2_${key}`] = reading?.value2 !== undefined ? "block" : "none";
@@ -703,23 +721,30 @@ export class NXMapBuilderService {
   private toMetricOverlayMarker(point: MapPoint, lookupKey: string, fetchedValues: Record<string, PointMetric> | null | undefined, theme: MapTheme, groupStyle: ShapeStyle | undefined) {
     const reading = point.id ? fetchedValues?.[point.id] : undefined;
     const color =
-      reading?.color ??
-      point.color ??
-      groupStyle?.color ??
-      theme.marker?.color ??
+      nonEmpty(reading?.color) ??
+      nonEmpty(point.color) ??
+      nonEmpty(groupStyle?.color) ??
+      nonEmpty(theme.marker?.color) ??
       NORMAL_LABEL_COLOR;
-    const shape = reading?.shape ?? point.shape ?? groupStyle?.shape ?? theme.marker?.shape;
+    const shape = nonEmpty(reading?.shape) ?? nonEmpty(point.shape) ?? nonEmpty(groupStyle?.shape) ?? nonEmpty(theme.marker?.shape);
     // Independent of `color` above (which still drives the icon) — an
     // explicit reading.textColor overrides just the label TEXT; omitted,
     // it falls back to the SAME already-resolved `color` the icon uses, so
     // a reading that sets neither still looks exactly as it always has
     // (text and icon sharing one color).
-    const textColor = reading?.textColor ?? color;
+    const textColor = nonEmpty(reading?.textColor) ?? color;
+
+    // reading.showInfo === false (a matched MetricOverlayRecord's own
+    // ShowInfo, see its own comment) blanks just this label's TEXT — the
+    // marker itself (icon/color/position above) still renders normally,
+    // this only empties what #marker-label-template's own
+    // .marker-label-text span shows for it.
+    const label = reading ? (reading.showInfo === false ? "" : `${point.name ?? ""}<br>${reading.value}${reading.unit ? " " + reading.unit : ""}`) : point.name;
 
     return {
       latitude: point.latitude,
       longitude: point.longitude,
-      label: reading ? `${point.name ?? ""}<br>${reading.value}${reading.unit ? " " + reading.unit : ""}` : point.name,
+      label,
       color,
       textColor,
       iconShape: this.toOverlayIconShape(shape),
@@ -832,13 +857,13 @@ export class NXMapBuilderService {
       const baseLayer: MarkerSettingsModel = {
         visible: g.visible ?? true,
         animationDuration: 0,
-        shape: this.capitalizeShape(g.markerConfig?.style?.shape ?? theme.marker?.shape),
-        fill: g.markerConfig?.style?.color ?? theme.marker?.color,
+        shape: this.capitalizeShape(nonEmpty(g.markerConfig?.style?.shape) ?? nonEmpty(theme.marker?.shape)),
+        fill: nonEmpty(g.markerConfig?.style?.color) ?? nonEmpty(theme.marker?.color),
         width: g.markerConfig?.style?.width ?? theme.marker?.width,
         height: g.markerConfig?.style?.height ?? theme.marker?.height,
         border: {
           width: g.markerConfig?.style?.border?.width ?? theme.marker?.border?.width ?? 1,
-          color: g.markerConfig?.style?.border?.color ?? theme.marker?.border?.color ?? "#285255"
+          color: nonEmpty(g.markerConfig?.style?.border?.color) ?? nonEmpty(theme.marker?.border?.color) ?? "#285255"
         },
         tooltipSettings,
         widthValuePath: "width",

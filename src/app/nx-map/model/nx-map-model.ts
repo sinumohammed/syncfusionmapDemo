@@ -203,6 +203,16 @@ export interface PointMetric {
   // more readable color for a specific reading, without having to touch
   // `color` (which would recolor the icon too).
   textColor?: string;
+  // Explicit false blanks just the on-map overlay's own LABEL TEXT (the
+  // matched point's name + this reading's value/unit — see
+  // toMetricOverlayMarker()'s own `label` construction) for THIS reading,
+  // straight from a matched MetricOverlayRecord's own ShowInfo (see its own
+  // comment) via NxMapDemoComponent.toPointMetric(). The marker itself
+  // (icon, color, position) still renders as normal — this only empties the
+  // text, it does NOT remove the point from activeMetricValues the way
+  // omitting a match entirely would. Omit (or true) to show the label as
+  // normal, same as before this field existed.
+  showInfo?: boolean;
 }
 
 // One entry in the response NXMapConfigService.loadDataOverlay() fetches
@@ -287,6 +297,18 @@ export interface MetricOverlayRecord {
   // map-wide default, a static layer's own MapConfig.tooltipTemplate.columns
   // when set, otherwise NXMapBuilderService.DEFAULT_TOOLTIP_TEMPLATE.columns).
   Tooltip?: MetricOverlayTooltip;
+  // Explicit false blanks just this record's own on-map overlay LABEL TEXT
+  // (its MarkerId's point name + Value + Unit — see PointMetric.showInfo's
+  // own comment for exactly what renders instead) for the currently
+  // selected metric — the overlay marker itself (icon, color, position)
+  // still renders as normal, this is NOT the same as the MarkerId never
+  // having matched this round. Does NOT touch this same record's own
+  // `Tooltip.ComponentList` either — that always-on hover-tooltip snapshot
+  // is already independent of the active-metric label (see this
+  // interface's own header comment) and keeps applying regardless. Omit
+  // (or true) to show the overlay label as normal, same as before this
+  // field existed.
+  ShowInfo?: boolean;
 }
 
 // One metric reading inside MetricOverlayRecord.Tooltip.ComponentList — the

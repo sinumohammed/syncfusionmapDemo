@@ -766,19 +766,24 @@
   flex-shrink: 0;
 }
 
-/* Grown per zoom level by NxMapDemoComponent.updateMarkerLabelScale() —
-   see its own comment. A triangle has no width/height of its own (drawn
-   entirely from border widths instead), so its "size" scales via
-   border-left/border-right (half-width) and border-bottom (full height)
-   directly, keeping the SAME 7:12 proportions the original fixed 7px/12px
-   values had. calc()'s own 12px fallback matches the original size, for
-   the brief window before the first zoomComplete ever sets the variable. */
+/* --icon-size is set PER-MARKER, inline, by injectMarkerLabelTemplate()'s
+   own template string — that point's own configured marker width (see
+   toMetricOverlayMarker()'s own comment), grown per zoom level by
+   NxMapDemoComponent.updateMarkerLabelScale() (baked into the builder's
+   markerScaleFactor before iconSize is computed, not a separate step
+   here). --marker-icon-size (the OLD single global size every overlay
+   icon used to share) and the hardcoded 12px are both just fallbacks now,
+   for the unlikely case iconSize is ever missing from the dataSource. A
+   triangle has no width/height of its own (drawn entirely from border
+   widths instead), so its "size" scales via border-left/border-right
+   (half-width) and border-bottom (full height) directly, keeping the SAME
+   7:12 proportions the original fixed 7px/12px values had. */
 ::ng-deep .marker-label-icon--triangle {
   width: 0;
   height: 0;
-  border-left: calc(var(--marker-icon-size, 12px) * 7 / 12) solid transparent;
-  border-right: calc(var(--marker-icon-size, 12px) * 7 / 12) solid transparent;
-  border-bottom: var(--marker-icon-size, 12px) solid var(--icon-color);
+  border-left: calc(var(--icon-size, var(--marker-icon-size, 12px)) * 7 / 12) solid transparent;
+  border-right: calc(var(--icon-size, var(--marker-icon-size, 12px)) * 7 / 12) solid transparent;
+  border-bottom: var(--icon-size, var(--marker-icon-size, 12px)) solid var(--icon-color);
   transform: translateY(-50%);
 }
 
@@ -794,10 +799,10 @@
    NxMapDemoComponent.applyMetricSelection()'s own comment on why a
    layer's native marker can't always be relied on to render too. */
 ::ng-deep .marker-label-icon--diamond {
-  /* Grown per zoom level by NxMapDemoComponent.updateMarkerLabelScale() —
-     see its own comment. 12px fallback matches the original fixed size. */
-  width: var(--marker-icon-size, 12px);
-  height: var(--marker-icon-size, 12px);
+  /* See the triangle rule above for --icon-size/--marker-icon-size/12px
+     precedence. */
+  width: var(--icon-size, var(--marker-icon-size, 12px));
+  height: var(--icon-size, var(--marker-icon-size, 12px));
   background: var(--icon-color);
   transform: translateY(-50%) rotate(45deg);
 }
@@ -806,8 +811,8 @@
    defaults to this for any resolved shape that isn't "triangle" or
    "diamond" (including no shape at all). */
 ::ng-deep .marker-label-icon--circle {
-  width: var(--marker-icon-size, 12px);
-  height: var(--marker-icon-size, 12px);
+  width: var(--icon-size, var(--marker-icon-size, 12px));
+  height: var(--icon-size, var(--marker-icon-size, 12px));
   border-radius: 50%;
   background: var(--icon-color);
   transform: translateY(-50%);

@@ -741,6 +741,23 @@ export class NXMapBuilderService {
     // .marker-label-text span shows for it.
     const label = reading ? (reading.showInfo === false ? "" : `${point.name ?? ""}<br>${reading.value}${reading.unit ? " " + reading.unit : ""}`) : point.name;
 
+    // Reported live: this overlay icon used to always render at a single
+    // hardcoded size (NxMapDemoComponent.MARKER_ICON_BASE_PX, via a global
+    // --marker-icon-size CSS var) no matter what width/height a point/its
+    // group/the theme actually configured — a mol.json point authored with
+    // a deliberately larger or smaller marker looked identical to every
+    // other point once a metric was selected. iconSize now uses the EXACT
+    // same point -> groupStyle -> theme width precedence toMarker() uses
+    // for the always-visible base marker (height is intentionally not
+    // read separately — every #marker-label-template icon shape is drawn
+    // square/isoceles from one CSS custom property, unlike toMarker()'s
+    // real Syncfusion width/height pair), times the SAME markerScaleFactor
+    // toMarker() itself is scaled by, so the overlay icon still grows on
+    // zoom exactly in step with the base marker underneath it, just
+    // anchored at this point's own configured size instead of a shared
+    // constant.
+    const iconSize = (point.width ?? groupStyle?.width ?? theme.marker?.width ?? 20) * this.markerScaleFactor;
+
     return {
       latitude: point.latitude,
       longitude: point.longitude,
@@ -748,6 +765,7 @@ export class NXMapBuilderService {
       color,
       textColor,
       iconShape: this.toOverlayIconShape(shape),
+      iconSize,
       __lookupKey: lookupKey
     };
   }

@@ -2207,21 +2207,25 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // template compiler chokes on bare ${...} placeholders — see
   // injectMarkerTooltipTemplate()'s own comment).
   //
-  // ${color}, ${textColor}, ${label}, and ${iconShape} come straight from
-  // toMetricOverlayMarker()'s own dataSource object in
+  // ${color}, ${textColor}, ${label}, ${iconShape}, and ${iconSize} come
+  // straight from toMetricOverlayMarker()'s own dataSource object in
   // nx-map-builder.service.ts — `label` is already "name<br>value" for the
   // active metric, `color` is that reading's resolved icon color (see that
   // method's own comment for the full reading.color/NON_COMPLIANT_COLOR/
   // point.color priority order), `textColor` is the SAME resolution but for
   // the label text specifically (falls back to `color` when the reading
   // doesn't set its own textColor, so icon and text stay in sync unless a
-  // reading deliberately splits them), and `iconShape` is "diamond"/
-  // "triangle"/"circle" selecting which .marker-label-icon--* CSS rule
-  // draws the icon — set once here as a CSS custom property
-  // (\`--icon-color\`) rather than a shape-specific inline style property,
-  // since different shapes need different CSS properties to carry the same
-  // color (border-bottom-color for a triangle, background for a diamond/
-  // circle).
+  // reading deliberately splits them), `iconShape` is "diamond"/"triangle"/
+  // "circle" selecting which .marker-label-icon--* CSS rule draws the icon
+  // — set once here as a CSS custom property (\`--icon-color\`) rather than
+  // a shape-specific inline style property, since different shapes need
+  // different CSS properties to carry the same color (border-bottom-color
+  // for a triangle, background for a diamond/circle) — and `iconSize` is
+  // that SAME point's own configured marker width (mol.json/group/theme,
+  // see toMetricOverlayMarker()'s own comment), set as a PER-MARKER
+  // \`--icon-size\` custom property so each overlay icon renders at the
+  // exact size that point was actually configured with, instead of every
+  // marker sharing one global size regardless of its own config.
   private injectMarkerLabelTemplate(): void {
     if (document.getElementById("marker-label-template")) {
       return;
@@ -2231,7 +2235,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     container.style.display = "none";
     container.innerHTML = `
       <div class="marker-label">
-        <span class="marker-label-icon marker-label-icon--\${iconShape}" style="--icon-color: \${color};"></span>
+        <span class="marker-label-icon marker-label-icon--\${iconShape}" style="--icon-color: \${color}; --icon-size: \${iconSize}px;"></span>
         <span class="marker-label-text" style="color: \${textColor};">\${label}</span>
       </div>
     `;

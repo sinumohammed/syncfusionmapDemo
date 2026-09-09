@@ -58,6 +58,55 @@
   z-index: 2 !important;
 }
 
+/* Syncfusion's own zoom toolbar (ZoomIn/ZoomOut/Reset) is invisible by
+   default against the OSM/satellite raster tiles the "Map"/"Satellite"
+   mapStyle options use (fine only against the plain "shape" base map's own
+   white background) — two independent, both confirmed live, stacked
+   causes:
+     1. Every background — the toolbar's own outer rect AND each button's
+        own circle — has fill="transparent" by default. CSS `fill` in an
+        author stylesheet beats Syncfusion's own SVG presentation
+        attribute (same technique path[id*="_Point_"] above already relies
+        on) — given each button its OWN white circle + .layer-btn's own
+        drop-shadow instead of one shared pill behind all three (a single
+        shared background behind all three read as one solid block, unlike
+        every other icon control on this map, which are each their own
+        separate button), plus a visible #dadce0 stroke (a soft drop-shadow
+        alone reads as too faint against a light background — the OSM/
+        "Simple" base styles are themselves near-white).
+     2. Independently of (1) rendering correctly at its own 100% opacity,
+        Syncfusion ALSO sets opacity="0.3" as an SVG presentation attribute
+        directly on the <g id="..._Zooming_KitCollection"> wrapping the
+        ENTIRE toolbar — a deliberate "faded until interacted with" idle
+        state, restored to 1 by Syncfusion's own JS on hover — multiplying
+        the whole toolbar down to 30% regardless of (1)'s fix. Forced back
+        to 1 below so the toolbar is fully visible from first paint,
+        matching every other icon control on this map (none of which fade
+        until hovered) — confirmed there's no CSS `:hover` alternative
+        either: Syncfusion overlays a full-width, unstyled hit-testing
+        <div> directly under <body> across this same toolbar's own
+        vertical band (elementFromPoint() at a button's own center returns
+        that div, not the circle), so a real cursor can never actually
+        trigger `:hover` on the circle itself in the first place.
+   Each button's own icon stroke is already an opaque grey (#737373),
+   visible against the new white background with no change of its own. */
+.nx-map ::ng-deep [id$="_Zooming_KitCollection"] {
+  opacity: 1 !important;
+}
+.nx-map ::ng-deep [id$="_Zooming_Rect"] {
+  fill: transparent !important;
+  stroke: transparent !important;
+}
+.nx-map ::ng-deep [id$="_ZoomIn_Rect"],
+.nx-map ::ng-deep [id$="_ZoomOut_Rect"],
+.nx-map ::ng-deep [id$="_Reset_Rect"] {
+  fill: #fff !important;
+  stroke: #dadce0 !important;
+  stroke-width: 1px !important;
+  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.3));
+  cursor: pointer;
+}
+
 /* width="100%"/height="100%" on ejs-maps (Syncfusion's own attrs)
    resolve against THIS element's box — so this needs a concrete
    height too, which it now gets from .nx-map's 100% above
@@ -113,6 +162,20 @@
   border-radius: 4px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
   cursor: pointer;
+}
+
+/* Same light-grey tint .basemap-panel button:hover already uses — one
+   consistent hover treatment across every icon control on this map (base
+   map switcher, fullscreen, layer list, coordinate picker). The zoom
+   toolbar's own buttons above don't get an equivalent :hover rule — a
+   real cursor can never trigger it there in the first place (see that
+   rule's own comment) — so they rely on always being visible by default
+   instead. Excluded for .active (its own blue tint below already signals
+   state, a grey hover on top of that would just look like a third,
+   confusing state) and :disabled (no hover feedback on a control that
+   can't be clicked). */
+.nx-map .layer-btn:hover:not(:disabled):not(.active) {
+  background: #f1f3f4;
 }
 
 /* Toggled-on state for a toolbar button — currently only the

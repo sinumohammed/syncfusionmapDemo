@@ -2629,7 +2629,17 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     const toolbarRect = toolbar.getBoundingClientRect();
     const containerRect = container.getBoundingClientRect();
 
-    this.layerBtnTop = Math.max(0, toolbarRect.top - containerRect.top);
+    // +2px: Syncfusion's own zoom toolbar is 41px tall but its actual
+    // round buttons only fill the middle 30px of that box (~5.5px padding
+    // above, ~5.5px below) — confirmed live via getBoundingClientRect() on
+    // both. Our own 36px-tall square buttons (.layer-btn), aligned flush
+    // to the toolbar's own top edge with no offset, sat visibly higher
+    // than the round buttons' own vertical center (their bottoms nearly
+    // matched, ~0.5px apart, but their tops were ~5.5px apart) — this
+    // closes most of that gap so the two button styles read as sharing one
+    // row instead of one looking offset from the other.
+    const zoomButtonCenteringOffsetPx = 2;
+    this.layerBtnTop = Math.max(0, toolbarRect.top - containerRect.top) + zoomButtonCenteringOffsetPx;
     this.layerBtnRight = Math.max(0, containerRect.right - toolbarRect.left + 8);
 
     // Panel spans from just under the button down to the map's actual

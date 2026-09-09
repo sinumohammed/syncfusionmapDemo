@@ -1849,6 +1849,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     this.layerGroupObserver?.disconnect();
     this.containerResizeObserver?.disconnect();
     clearTimeout(this.loadSettleResizeTimer);
+    clearTimeout(this.resetSettleResizeTimer);
   }
 
   private layerGroupObserver: MutationObserver | undefined;
@@ -2526,9 +2527,34 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // so Reset lands on exactly what buildZoom()/buildMap() would compute
   // fresh — not just whatever Syncfusion's own zoomSettings @Input happens
   // to hold after however much manual zooming/panning happened since.
+  //
+  // Also re-runs the SAME container-position correction
+  // scheduleLoadSettleResize() does for the very first load (see its own
+  // comment for the full mechanism/why mapsOnResize() specifically) —
+  // reported live in a real host integration (not this demo): a "shape"
+  // map's content starting scrolled slightly up inside its own container
+  // (its top edge, e.g. Musandam, cut off) after clicking Reset, exactly
+  // the same symptom scheduleLoadSettleResize() exists for on first mount,
+  // self-correcting the instant the map is dragged/panned. That fix is
+  // deliberately restricted to only the very first `loaded` (see its own
+  // comment on the confirmed-live double-flash regression from running it
+  // on every rebuild) — but a host page whose surrounding layout is STILL
+  // settling (e.g. a tab/panel animating) can just as easily have that
+  // same late-settle race land on a Reset click as on first mount, not
+  // only there. Scoped to Reset specifically (not folded into
+  // onMapLoaded() for every possible rebuild cause) so circular-chart-click
+  // and style-switch rebuilds — which already have their own normal
+  // hide-then-redraw and don't exhibit this — don't regain that same
+  // double-flash.
   private resetToConfiguredView(): void {
     this.applyBaseMapStyle(this.mapStyle);
+    clearTimeout(this.resetSettleResizeTimer);
+    this.resetSettleResizeTimer = setTimeout(() => {
+      this.mapInstance?.mapsOnResize(new Event("resize"));
+    }, 400);
   }
+
+  private resetSettleResizeTimer: ReturnType<typeof setTimeout> | undefined;
 
   // Draws each navigation line's path from start to end instead of having
   // it simply appear — a pure-CSS stroke-dashoffset reveal over Syncfusion's

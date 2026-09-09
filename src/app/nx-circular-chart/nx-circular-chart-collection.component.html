@@ -26,13 +26,24 @@
       *ngFor="let circularChart of circularCharts"
       [config]="circularChart"
       [selected]="selectedId === circularChart.id"
+      [palette]="seriesPalette"
       (select)="onCircularChartSelected(circularChart)"
     ></app-nx-circular-chart>
   </div>
 
   <div class="nx-circular-chart-legend" *ngIf="legendItems.length">
     <div class="nx-circular-chart-legend-item" *ngFor="let item of legendItems">
-      <span class="nx-circular-chart-swatch" [style.background]="item.color"></span>
+      <!-- Shape: "Image" (only reachable with a real ImageUrl — see
+           applyConfigs()'s own fallback-to-Circle when it's missing) draws
+           the configured icon directly instead of a CSS-shaped swatch. -->
+      <img class="nx-circular-chart-swatch nx-circular-chart-swatch--image" *ngIf="item.shape === 'Image'" [src]="item.imageUrl" alt="" />
+      <span
+        *ngIf="item.shape !== 'Image'"
+        class="nx-circular-chart-swatch nx-circular-chart-swatch--{{ item.shape.toLowerCase() }}"
+        [style.background]="item.shape === 'Triangle' || item.shape === 'InvertedTriangle' ? null : item.color"
+        [style.border-bottom-color]="item.shape === 'Triangle' ? item.color : null"
+        [style.border-top-color]="item.shape === 'InvertedTriangle' ? item.color : null"
+      ></span>
       {{ item.label }}
     </div>
   </div>

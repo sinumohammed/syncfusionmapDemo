@@ -37,6 +37,14 @@
   "Gap": null,
   "CollectionCSSClass": null,
   "ApiUrl": "assets/mock-api/trend-response.json",
+  "SeriesPallet": [
+    { "Color": "#1f4e79", "Shape": "Circle" },
+    { "Color": "#e07b39", "Shape": "Diamond" },
+    { "Color": "#3fae5a", "Shape": "Triangle" },
+    { "Color": "#c94a3f", "Shape": "Rectangle" },
+    { "Color": "#8e5ea2", "Shape": "InvertedTriangle" },
+    { "Color": "#3fbfbf", "Shape": "Balloon" }
+  ],
   "ComponentType": 7121,
   "ElementType": 7121,
   "Title": "DONUT COLLECTION",

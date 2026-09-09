@@ -1,7 +1,15 @@
 import { ChangeDetectorRef, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from "@angular/core";
 import { buildCircularChartConfigs, visibleCircularChartCount } from "./services/parent-circular-chart-config-transform";
 import { NxCircularChartConfigService } from "./services/nx-circular-chart-config.service";
-import { CircularChartConfig, CircularChartSelectionEvent, DEFAULT_PALETTE, RawCircularChartCollectionNode, TrendNode } from "./model/nx-circular-chart-model";
+import {
+  CircularChartConfig,
+  CircularChartSelectionEvent,
+  DEFAULT_SERIES_PALETTE,
+  RawCircularChartCollectionNode,
+  SeriesPaletteEntry,
+  SeriesPaletteShape,
+  TrendNode
+} from "./model/nx-circular-chart-model";
 
 // Iterates NxCircularChartComponent — one <app-nx-circular-chart> per circular chart buildCircularChartConfigs()
 // resolves from the two inputs below, purely off its own returned length,
@@ -44,7 +52,18 @@ export class NxCircularChartCollectionComponent implements OnChanges {
   @Output() sublayersSelected = new EventEmitter<CircularChartSelectionEvent>();
 
   circularCharts: CircularChartConfig[] = [];
-  legendItems: { label: string; color: string }[] = [];
+  // `shape` drives which .nx-circular-chart-swatch--* CSS rule the legend
+  // renders (see SeriesPaletteEntry's own comment on why this echoes a
+  // map marker's shape without any real dependency on nx-map) — always a
+  // real SeriesPaletteShape by the time it lands here, never the raw
+  // possibly-unrecognized config value (resolveSeriesPalette() below/
+  // toSwatchShape() already normalize it).
+  legendItems: { label: string; color: string; shape: SeriesPaletteShape; imageUrl?: string | null }[] = [];
+  // rawConfig.SeriesPallet when non-empty, else DEFAULT_SERIES_PALETTE — see
+  // SeriesPaletteEntry's own comment. Resolved once per applyConfigs() (not
+  // read inline at every use) so the legend and every child circular
+  // chart's own [palette] binding always agree on the exact same array.
+  seriesPalette: SeriesPaletteEntry[] = DEFAULT_SERIES_PALETTE;
   selectedId: string | null = null;
   // Set only when rawConfig.ApiUrl's own fetch errors — distinct from
   // circularCharts just coming back empty (a real "no data yet" response),
@@ -119,24 +138,44 @@ export class NxCircularChartCollectionComponent implements OnChanges {
 
   private applyConfigs(trendResponse: TrendNode[], useConfigFallback: boolean): void {
     this.circularCharts = this.rawConfig ? buildCircularChartConfigs(this.rawConfig, trendResponse, useConfigFallback) : [];
+    // rawConfig.SeriesPallet when the host actually configured one, else
+    // the shared DEFAULT_SERIES_PALETTE fallback — see SeriesPaletteEntry's
+    // own comment. Resolved once here, not per-chart/per-legend-item, so
+    // every child <app-nx-circular-chart>'s own [palette] binding below AND
+    // the legend built right after always agree on the exact same array.
+    this.seriesPalette = this.rawConfig?.SeriesPallet?.length ? this.rawConfig.SeriesPallet : DEFAULT_SERIES_PALETTE;
     this.selectedId = null;
     // Legend is derived from the UNION of every circular chart's own slice
     // labels/colors, not just the first chart's — different charts in the
     // same collection can each carry their own subset of categories (e.g.
     // DISSOLVED adding an "Other impact" slice no other chart has), and all
     // of them still need to show up in the one shared legend. Dedup by
-    // label, keeping the color/position from wherever that label was first
+    // label, keeping the color/shape from wherever that label was first
     // seen (ordered by circularCharts order, then by that chart's own slice
-    // order).
-    const seen = new Map<string, string>();
+    // order). Shape always comes from this.seriesPalette at that SAME
+    // index color would fall back to — a slice's own explicit `color`
+    // (CircularChartSlice has no shape field of its own) still borrows its
+    // legend shape from the palette slot, since nothing else defines one.
+    const seen = new Map<string, { color: string; shape: SeriesPaletteShape; imageUrl?: string | null }>();
     this.circularCharts.forEach(chart =>
       (chart.data ?? []).forEach((d, i) => {
         if (!seen.has(d.x)) {
-          seen.set(d.x, d.color ?? DEFAULT_PALETTE[i % DEFAULT_PALETTE.length]);
+          const paletteEntry = this.seriesPalette[i % this.seriesPalette.length];
+          // Shape: "Image" with no actual ImageUrl has nothing to render —
+          // see SeriesPaletteEntry.ImageUrl's own comment — falls back to
+          // "Circle" same as any other unrecognized shape rather than
+          // rendering a broken/empty swatch.
+          const resolvedShape = this.toSwatchShape(paletteEntry.Shape);
+          const shape = resolvedShape === "Image" && !paletteEntry.ImageUrl ? "Circle" : resolvedShape;
+          seen.set(d.x, {
+            color: d.color ?? paletteEntry.Color,
+            shape,
+            imageUrl: paletteEntry.ImageUrl
+          });
         }
       })
     );
-    this.legendItems = Array.from(seen, ([label, color]) => ({ label, color }));
+    this.legendItems = Array.from(seen, ([label, { color, shape, imageUrl }]) => ({ label, color, shape, imageUrl }));
     // ApiUrl mode reaches this callback from an RxJS `subscribe()` — a
     // DIFFERENT change-detection cycle than the one Angular already runs
     // for a synchronous ngOnChanges (the trendResponse-only, non-ApiUrl
@@ -148,6 +187,29 @@ export class NxCircularChartCollectionComponent implements OnChanges {
     // right after the data that feeds those child *ngFor'd components
     // changes, closes that gap.
     this.cdr.detectChanges();
+  }
+
+  // Case-insensitive normalization, same reasoning as nx-map's own
+  // capitalizeShape() (NXMapBuilderService) — a real upstream config's
+  // Shape casing has no reason to match this file's own SeriesPaletteShape
+  // literals exactly, and a raw JSON value is untyped at runtime regardless
+  // of what SeriesPaletteEntry.Shape claims. Anything absent or not one of
+  // the known values (a typo, "Image" with no ImageUrl handling built yet)
+  // falls back to "Circle" — the legend always shows SOME recognizable
+  // swatch rather than silently rendering nothing.
+  private static readonly KNOWN_SWATCH_SHAPES: SeriesPaletteShape[] = [
+    "Balloon",
+    "Circle",
+    "Diamond",
+    "Rectangle",
+    "Triangle",
+    "InvertedTriangle",
+    "Image"
+  ];
+
+  private toSwatchShape(shape: string | undefined | null): SeriesPaletteShape {
+    const match = shape ? NxCircularChartCollectionComponent.KNOWN_SWATCH_SHAPES.find(s => s.toLowerCase() === shape.toLowerCase()) : undefined;
+    return match ?? "Circle";
   }
 
   onCircularChartSelected(circularChart: CircularChartConfig): void {

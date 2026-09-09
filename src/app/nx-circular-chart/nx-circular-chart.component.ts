@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from "@angular/core";
 import { AccumulationChart, AccumulationSeriesModel, AccumulationTooltip, PieSeries } from "@syncfusion/ej2-angular-charts";
-import { CircularChartConfig, CircularChartTypes, DEFAULT_PALETTE } from "./model/nx-circular-chart-model";
+import { CircularChartConfig, CircularChartTypes, DEFAULT_SERIES_PALETTE, SeriesPaletteEntry } from "./model/nx-circular-chart-model";
 
 // Same registration pattern as nx-map-demo.component.ts's Maps.Inject(...)
 // — only the pieces this component actually renders (pie series, its
@@ -114,6 +114,14 @@ export class NxCircularChartComponent implements OnChanges {
   // upstream (see that component's own comment).
   @Input() config?: CircularChartConfig;
   @Input() selected = false;
+  // NxCircularChartCollectionComponent's own resolved rawConfig.SeriesPallet
+  // (or DEFAULT_SERIES_PALETTE when unset) — see buildSeries()'s own use of
+  // it for the same per-index fallback color DEFAULT_PALETTE used to
+  // provide directly, now sourced from the collection so a host's own
+  // SeriesPallet actually reaches here. Defaults to DEFAULT_SERIES_PALETTE
+  // so a standalone <app-nx-circular-chart> (no collection wrapper) keeps
+  // working exactly as before this existed.
+  @Input() palette: SeriesPaletteEntry[] = DEFAULT_SERIES_PALETTE;
 
   // Fired on a click anywhere on the card — no payload, since the
   // collection component already has this circular chart's own config/id in scope
@@ -334,6 +342,7 @@ export class NxCircularChartComponent implements OnChanges {
     // startAngle/endAngle pinned to a half turn instead.
     const chartType = config.chartType ?? CircularChartTypes.Doughnut;
     const isPie = chartType === CircularChartTypes.Pie;
+    const palette = this.palette.length ? this.palette : DEFAULT_SERIES_PALETTE;
     // config.applyGradient swaps each point's own flat `color` for a `url(#id)`
     // reference into this.gradients (rendered by the template into an
     // inline <svg><defs> ahead of the chart) — Syncfusion's own
@@ -345,7 +354,7 @@ export class NxCircularChartComponent implements OnChanges {
     return [
       {
         dataSource: config.data.map((d, i) => {
-          const baseColor = d.color ?? DEFAULT_PALETTE[i % DEFAULT_PALETTE.length];
+          const baseColor = d.color ?? palette[i % palette.length].Color;
           let color = baseColor;
           if (config.applyGradient) {
             const id = `${this.chartElementId}-grad-${i}`;

@@ -4,13 +4,49 @@
 // represents so a click can tell the host what to ask the map for. It has
 // no idea what a "sub-layer" or "marker" actually is.
 
+// Mirrors nx-map's own MarkerShape values (nx-map/model/nx-map-model.ts) by
+// NAME only — this module stays deliberately independent of nx-map's model
+// (see this file's own header comment), so this is a parallel string
+// vocabulary, not a shared type/import. The relationship is intentional,
+// just not a code dependency: a SeriesPaletteEntry's Shape is meant to
+// visually echo whatever shape a host configured for that SAME category's
+// marker over on the map (e.g. a mol.json point's own `shape`), so the
+// legend swatch here and that marker read as "the same thing" without
+// either side needing to know the other exists.
+export type SeriesPaletteShape = "Balloon" | "Circle" | "Diamond" | "Rectangle" | "Triangle" | "InvertedTriangle" | "Image";
+
+export interface SeriesPaletteEntry {
+  Color: string;
+  // Absent/unrecognized falls back to "Circle" — see
+  // NxCircularChartCollectionComponent's own legend-swatch shape resolution.
+  Shape?: SeriesPaletteShape;
+  // Only meaningful when Shape is "Image" — same convention as nx-map's own
+  // ShapeStyle.imageUrl. Shape: "Image" with this absent has no defined
+  // rendering yet; treat it the same as any other unrecognized shape
+  // (falls back to "Circle") until a real host config actually needs it.
+  ImageUrl?: string;
+}
+
 // Default slice palette, cycled by index — shared by NxCircularChartComponent
 // (a slice's own dataSource color, when CircularChartSlice.color is unset)
-// and NxCircularChartCollectionComponent (the legend swatches, derived from
-// the first circular chart's own slices). Kept here rather than duplicated
-// in each component so the two can never quietly drift out of sync with
-// each other.
-export const DEFAULT_PALETTE = ["#1f4e79", "#e07b39", "#3fae5a", "#c94a3f", "#8e5ea2", "#3fbfbf"];
+// and NxCircularChartCollectionComponent (the legend swatches' color AND
+// shape, derived from the union of every circular chart's own slices). Kept
+// here rather than duplicated in each component so the two can never
+// quietly drift out of sync with each other. Every real host config is
+// expected to supply its own RawCircularChartCollectionNode.SeriesPallet
+// instead (see that field's own comment) — this is only the fallback used
+// before one exists, or for whichever index runs past the end of a shorter
+// configured pallet. Every entry defaults to "Circle" here since the
+// original DEFAULT_PALETTE (a plain color array, no shape concept) never
+// distinguished shapes — only a host's own SeriesPallet does that now.
+export const DEFAULT_SERIES_PALETTE: SeriesPaletteEntry[] = [
+  { Color: "#1f4e79", Shape: "Circle" },
+  { Color: "#e07b39", Shape: "Circle" },
+  { Color: "#3fae5a", Shape: "Circle" },
+  { Color: "#c94a3f", Shape: "Circle" },
+  { Color: "#8e5ea2", Shape: "Circle" },
+  { Color: "#3fbfbf", Shape: "Circle" }
+];
 
 // Syncfusion's own AccumulationSeriesModel.type ('Pie'/'Doughnut') plus a
 // third SemiCircle case (a Doughnut with its startAngle/endAngle pinned to
@@ -254,6 +290,15 @@ export interface RawCircularChartCollectionNode {
   // (ignoring the `trendResponse` @Input entirely) — see its own comment.
   // Absent/null keeps the existing host-supplies-trendResponse behavior.
   ApiUrl?: string | null;
+  // Collection-wide slice/legend palette — cycled by index across every
+  // chart's own unmatched-color slices AND the union legend (see
+  // NxCircularChartCollectionComponent's own legendItems building), same
+  // role DEFAULT_SERIES_PALETTE plays when this is absent/empty. A real
+  // host is expected to set this per-collection, pairing each color with a
+  // Shape so the legend swatch echoes whatever marker shape that same
+  // category uses on the map (see SeriesPaletteEntry's own comment) — no
+  // implicit link to any actual map config, purely a parallel convention.
+  SeriesPallet?: SeriesPaletteEntry[] | null;
 }
 
 // ---- Trend API response shape ------------------------------------------

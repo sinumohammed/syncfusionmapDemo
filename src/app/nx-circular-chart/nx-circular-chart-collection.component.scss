@@ -41,11 +41,73 @@
   gap: 6px;
   white-space: nowrap;
 }
+/* Base swatch box — every shape variant below starts from this, only
+   overriding what its own silhouette needs. Mirrors nx-map's own
+   MarkerShape values by NAME (see SeriesPaletteEntry's own comment in
+   nx-circular-chart-model.ts for why that's a parallel vocabulary, not an
+   actual dependency on nx-map) — this is the legend-swatch-sized (10px)
+   rendering of the SAME shape set nx-map draws full marker icons for. */
 .nx-circular-chart-swatch {
   display: inline-block;
+  flex-shrink: 0;
   width: 10px;
   height: 10px;
+}
+
+/* Default shape (also nx-map's own default fallback, MarkerShape.Balloon,
+   but here the pin-drop silhouette specifically — see --balloon below for
+   that one). Kept as a plain rounded square, same as this swatch's
+   original (pre-shape) appearance, so a config with no SeriesPallet at all
+   still renders exactly as it always did (DEFAULT_SERIES_PALETTE defaults
+   every entry to "Circle" instead, so --rectangle only ever shows up for a
+   host that deliberately configures Shape: "Rectangle"). */
+.nx-circular-chart-swatch--rectangle {
   border-radius: 2px;
+}
+
+.nx-circular-chart-swatch--circle {
+  border-radius: 50%;
+}
+
+.nx-circular-chart-swatch--diamond {
+  transform: rotate(45deg);
+}
+
+/* CSS border-triangle trick — width/height: 0, the visible shape drawn
+   entirely from border widths. `color` is applied via
+   [style.border-bottom-color] in the template (a flat `background` has no
+   effect on a 0x0 box), same reasoning nx-map's own
+   .marker-label-icon--triangle rule uses. */
+.nx-circular-chart-swatch--triangle {
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-bottom: 10px solid transparent;
+}
+
+.nx-circular-chart-swatch--invertedtriangle {
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 10px solid transparent;
+}
+
+/* Classic map-pin/teardrop silhouette — a circle with one corner squared
+   off, then rotated so that corner points down. */
+.nx-circular-chart-swatch--balloon {
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+}
+
+/* Shape: "Image" (see SeriesPaletteEntry.ImageUrl's own comment) — a real
+   <img>, not a CSS-drawn shape, so a host can put an arbitrary icon (e.g.
+   matching a mol.json point's own imageUrl) directly on the legend. */
+.nx-circular-chart-swatch--image {
+  width: 12px;
+  height: 12px;
+  object-fit: contain;
 }
 .nx-circular-chart-message {
   padding: 16px 8px;

@@ -247,6 +247,14 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // synchronously, no fetch at all).
   metricOverlayLoading = false;
 
+  // True only while triggerSettleZoomCycle()'s own zoom-in/zoom-out is in
+  // flight — drives the same loading-overlay treatment as
+  // metricOverlayLoading so that corrective cycle (visibly a real zoom
+  // animation in and back out) is hidden behind a spinner instead of
+  // showing as a jarring, unexplained zoom flash on first load/reload and
+  // Reset.
+  settleZoomCycleActive = false;
+
   // buildAppConfig(parentConfig) — a description of WHERE each piece of
   // data comes from (inline/file/api), not the map data itself. See
   // ngOnChanges()/loadMap() for how it's resolved into the MapConfig[] the
@@ -1850,6 +1858,8 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     this.containerResizeObserver?.disconnect();
     clearTimeout(this.loadSettleResizeTimer);
     clearTimeout(this.resetSettleResizeTimer);
+    clearTimeout(this.settleZoomCycleTimer);
+    clearTimeout(this.settleZoomCycleHideTimer);
   }
 
   private layerGroupObserver: MutationObserver | undefined;
@@ -1920,27 +1930,33 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // at that exact measurement instant with no accompanying size change at
   // all, which a ResizeObserver never fires for. A real drag triggers
   // Syncfusion's own interactive pan handling, which DOES re-measure from
-  // current geometry — this is why panning "fixes" it. mapsOnResize()
-  // (see observeContainerResize()'s own comment for why THIS specific
-  // method, not refresh()) forces that same re-measure ourselves, once,
-  // a beat after `loaded` — long enough for a typical late layout settle to
-  // have already happened, short enough not to be visually noticeable.
-  // Only fires for the VERY FIRST `loaded` this component ever sees, not
-  // every rebuild — confirmed live this needs restricting: mapsOnResize()
-  // internally calls Syncfusion's own createSVG(), which wipes the ENTIRE
-  // SVG and rebuilds it from scratch, a real (if brief) blank-then-redraw,
-  // not just a resize. `loaded` also fires after every Reset/style-switch/
-  // circular-chart-click rebuild — those already have their OWN normal
-  // hide-then-redraw (applyBaseMapStyle()'s mapVisible toggle, or a plain
-  // mapOptions reassignment), and by the time any of them happens the
-  // surrounding host-page layout has long since settled, so calling this
-  // again there only adds a SECOND, unnecessary blank flash with no
-  // corrective value — confirmed live as a regression (Reset visibly
-  // hid/reappeared TWICE instead of once after this existed). The
-  // late-layout-settle problem this exists for is specifically a first-
-  // mount concern (a host app's surrounding layout still animating in
-  // right as this component first initializes), so restricting it to the
-  // first load keeps the fix without the extra flash everywhere else.
+  // current geometry — this is why panning "fixes" it.
+  //
+  // Two corrections were tried here first and confirmed live NOT to fix
+  // this (both in the real host integration app — this repo's own demo
+  // never reproduces the bug at all, in shape mode or otherwise):
+  //   1. mapInstance.mapsOnResize() — recomputes measured container SIZE
+  //      (via its own calculateSize()) but not the actual defect, which is
+  //      Syncfusion's internal pan/scale TRANSFORM being stale against the
+  //      by-then-settled container position.
+  //   2. Manually replaying onZoomComplete()'s own refresh()/marker-rebuild
+  //      logic — still doesn't touch the transform, for the same reason.
+  // What DOES fix it, confirmed live, is a genuine toolbar zoom-in then
+  // zoom-out — see triggerSettleZoomCycle()'s own comment for the
+  // mechanism and why that specific Syncfusion internal is the missing
+  // piece. Only fires for the VERY FIRST `loaded` this component ever
+  // sees, not every rebuild — confirmed live this needs restricting: a
+  // real zoom action is a visible (if brief) animated transform change,
+  // and by the time any later rebuild (Reset/style-switch/circular-chart-
+  // click) happens the surrounding host-page layout has long since
+  // settled, so running this again there only adds an unnecessary extra
+  // zoom flash with no corrective value there. The late-layout-settle
+  // problem this exists for is specifically a first-mount concern (a host
+  // app's surrounding layout still animating in right as this component
+  // first initializes), so restricting it to the first load keeps the fix
+  // without the extra flash everywhere else. resetToConfiguredView() below
+  // re-runs the same triggerSettleZoomCycle() correction scoped to Reset
+  // specifically, since that symptom was also reported live there.
   private hasScheduledInitialLoadSettle = false;
   private loadSettleResizeTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -1951,9 +1967,57 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     this.hasScheduledInitialLoadSettle = true;
     clearTimeout(this.loadSettleResizeTimer);
     this.loadSettleResizeTimer = setTimeout(() => {
-      this.mapInstance?.mapsOnResize(new Event("resize"));
+      this.triggerSettleZoomCycle();
     }, 400);
   }
+
+  private settleZoomCycleTimer: ReturnType<typeof setTimeout> | undefined;
+
+  // The actual fix for the "map content starts scrolled up inside its
+  // container, top edge (e.g. Musandam) cut off" symptom — confirmed live
+  // to self-correct on a real toolbar zoom-in then zoom-out, even landing
+  // back at the exact zoom level it started at. zoomModule.
+  // performZoomingByToolBar() (ej2-maps/src/maps/user-interaction/zoom.js
+  // — @private-annotated in the .d.ts but a real public property/method on
+  // the live instance; the SAME method the toolbar +/- buttons AND the
+  // keyboard +/- shortcuts call, per that file's own keyboard handler) is
+  // the entry point into Syncfusion's Zoom.prototype.applyTransform(),
+  // which is what actually recalculates the pan/scale transform against
+  // the container's current geometry — and ONLY ever runs from a real
+  // zoom action, which is exactly why mapsOnResize() (recomputes measured
+  // SIZE only) and a manual refresh()/marker-rebuild replay (see
+  // scheduleLoadSettleResize()'s own comment, both confirmed live NOT to
+  // fix this) both miss it. The 'zoomin' call is immediately visible;
+  // 'zoomout' is deferred long enough for 'zoomin's own animation
+  // (Zoom.prototype.animateTransform() — up to 1000ms by default in shape
+  // mode, see that method's own default) to have actually finished before
+  // reversing it, so the two don't collide mid-animation.
+  //
+  // Confirmed live the cycle itself works but is visibly a real zoom
+  // animation in and back out — settleZoomCycleActive drives the same
+  // nx-map-loading-overlay/spinner metricOverlayLoading already uses (see
+  // its own comment), covering the map for the cycle's full duration so
+  // the zoom flash never reaches the screen. Stays true past 'zoomout'
+  // itself firing, for that call's own animation to finish too, before
+  // the overlay lifts.
+  private triggerSettleZoomCycle(): void {
+    const zoomModule = (this.mapInstance as any)?.zoomModule;
+    if (!zoomModule || typeof zoomModule.performZoomingByToolBar !== "function") {
+      return;
+    }
+    this.settleZoomCycleActive = true;
+    zoomModule.performZoomingByToolBar("zoomin");
+    clearTimeout(this.settleZoomCycleTimer);
+    this.settleZoomCycleTimer = setTimeout(() => {
+      zoomModule.performZoomingByToolBar("zoomout");
+      clearTimeout(this.settleZoomCycleHideTimer);
+      this.settleZoomCycleHideTimer = setTimeout(() => {
+        this.settleZoomCycleActive = false;
+      }, 1200);
+    }, 1200);
+  }
+
+  private settleZoomCycleHideTimer: ReturnType<typeof setTimeout> | undefined;
 
   // Syncfusion recreates each layer group's own DOM element asynchronously
   // in reaction to builder.refresh()'s mutated mapOptions.layers array —
@@ -2529,28 +2593,31 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // to hold after however much manual zooming/panning happened since.
   //
   // Also re-runs the SAME container-position correction
-  // scheduleLoadSettleResize() does for the very first load (see its own
-  // comment for the full mechanism/why mapsOnResize() specifically) —
-  // reported live in a real host integration (not this demo): a "shape"
-  // map's content starting scrolled slightly up inside its own container
-  // (its top edge, e.g. Musandam, cut off) after clicking Reset, exactly
-  // the same symptom scheduleLoadSettleResize() exists for on first mount,
-  // self-correcting the instant the map is dragged/panned. That fix is
-  // deliberately restricted to only the very first `loaded` (see its own
-  // comment on the confirmed-live double-flash regression from running it
-  // on every rebuild) — but a host page whose surrounding layout is STILL
-  // settling (e.g. a tab/panel animating) can just as easily have that
-  // same late-settle race land on a Reset click as on first mount, not
-  // only there. Scoped to Reset specifically (not folded into
-  // onMapLoaded() for every possible rebuild cause) so circular-chart-click
-  // and style-switch rebuilds — which already have their own normal
+  // scheduleLoadSettleResize() does for the very first load (see
+  // triggerSettleZoomCycle()'s own comment for the full mechanism/why a
+  // real zoom-in-then-zoom-out cycle specifically, not mapsOnResize() or a
+  // manual refresh() replay — both confirmed live NOT to fix this) —
+  // reported live in a real host integration (not this demo, which never
+  // reproduces this bug at all): a "shape" map's content starting
+  // scrolled slightly up inside its own container (its top edge, e.g.
+  // Musandam, cut off) after clicking Reset, exactly the same symptom
+  // scheduleLoadSettleResize() exists for on first mount, self-correcting
+  // the instant the map is dragged/panned. That fix is deliberately
+  // restricted to only the very first `loaded` (see its own comment on
+  // the confirmed-live double-flash regression from running it on every
+  // rebuild) — but a host page whose surrounding layout is STILL settling
+  // (e.g. a tab/panel animating) can just as easily have that same
+  // late-settle race land on a Reset click as on first mount, not only
+  // there. Scoped to Reset specifically (not folded into onMapLoaded()
+  // for every possible rebuild cause) so circular-chart-click and
+  // style-switch rebuilds — which already have their own normal
   // hide-then-redraw and don't exhibit this — don't regain that same
   // double-flash.
   private resetToConfiguredView(): void {
     this.applyBaseMapStyle(this.mapStyle);
     clearTimeout(this.resetSettleResizeTimer);
     this.resetSettleResizeTimer = setTimeout(() => {
-      this.mapInstance?.mapsOnResize(new Event("resize"));
+      this.triggerSettleZoomCycle();
     }, 400);
   }
 

@@ -369,6 +369,19 @@
   pointer-events: none;
 }
 
+/* Nearly opaque variant of the overlay above, specifically for
+   settleZoomCycleActive (triggerSettleZoomCycle()'s own zoom-in/zoom-out
+   correction) — unlike the metric-fetch overlay, which stays translucent
+   and click-through so the map is still usable while real data loads,
+   THIS one exists purely to fully mask a real, brief zoom animation
+   happening underneath, so it needs to actually hide the map content
+   (not just tint it) and block interaction with the zoom toolbar mid-
+   cycle rather than let a click queue up against it. */
+.nx-map .nx-map-settle-overlay {
+  background: #fff;
+  pointer-events: auto;
+}
+
 /* Small white card holding the spinner + label — same chrome language as
    .click-toast (rounded, shadowed, off-white) so it reads as "this app's
    own status", not a bare spinner floating on the map. */

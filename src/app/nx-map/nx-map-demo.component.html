@@ -462,6 +462,17 @@
     </div>
   </div>
 
+  <!-- Covers the map while triggerSettleZoomCycle()'s own zoom-in/zoom-out
+       correction (see its own comment) is in flight, on first load/reload
+       and Reset — without this the fix itself is a visible, unexplained
+       zoom flash. -->
+  <div class="nx-map-loading-overlay nx-map-settle-overlay" *ngIf="settleZoomCycleActive">
+    <div class="nx-map-loading-card">
+      <span class="nx-map-spinner"></span>
+      <span class="nx-map-loading-label">Loading map…</span>
+    </div>
+  </div>
+
   <!-- Brand watermark, pinned to the map's own bottom-left corner (not
        the page) — a sibling of .map-container, so it sits outside
        Syncfusion's own SVG/zoom-pan transform entirely and stays fixed

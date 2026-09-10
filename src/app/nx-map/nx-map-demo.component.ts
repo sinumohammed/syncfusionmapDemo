@@ -224,9 +224,25 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   onFullscreenChange(): void {
     this.isFullscreen = !!document.fullscreenElement;
     // The map's own container size just changed (viewport-filling now, or
-    // back to its normal in-page size) — same re-measure the toolbar
-    // position needs after any other resize (see onWindowResize()).
-    setTimeout(() => this.alignLayerControl(), 150);
+    // back to its normal in-page size) — same toolbar re-measure any other
+    // resize needs (see onMapResize()'s own comment for why a flat
+    // one-shot delay isn't reliable — the toolbar can still be mid-move
+    // well past a short guess, confirmed live for a window drag-resize;
+    // the same risk applies here). scheduleAlignLayerControl()'s own
+    // stability poll (up to ~1.2s) replaces the flat 150ms delay this used
+    // to be.
+    this.resizeAlignAttempt = 0;
+    this.scheduleAlignLayerControl();
+    // Reported live: the layer/maximize buttons can end up sitting ON TOP
+    // of Syncfusion's own zoom toolbar buttons after a maximize/restore —
+    // the stability poll above only covers realignment for the
+    // fullscreen SIZE change itself, but the corrective work below
+    // (triggerSettleZoomCycle()'s own zoom-in/zoom-out, or a full
+    // applyBaseMapStyle() rebuild) moves the toolbar AGAIN, well after
+    // that poll has already settled and stopped watching. Scheduled from
+    // each call site below, once that corrective work should have
+    // actually finished.
+    clearTimeout(this.fullscreenAlignFinalTimer);
 
     // Reported live: a shape-mode map can go entirely invisible after
     // toggling fullscreen either direction (both entering AND leaving) —
@@ -237,14 +253,61 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     // ResizeObserver, which DOES already fire here since fullscreen is a
     // genuine size change, only recomputes SIZE and doesn't fix this),
     // just a more severe presentation (the whole map, not just its top
-    // edge). Same fix, run after fullscreenchange settles instead of after
+    // edge). Run after fullscreenchange settles instead of after
     // `loaded`/Reset — a real toolbar zoom-in/zoom-out is what actually
     // forces Syncfusion to recalculate against the new geometry.
+    //
+    // hasZoomedSinceFullscreenToggle (see its own comment) upgrades this to
+    // a FULL rebuild (applyBaseMapStyle(), same as Reset — the view snaps
+    // back to the configured center/zoom) whenever a real zoom happened
+    // since fullscreen was last toggled — confirmed live that a real zoom
+    // in between leaves a stale pan/translate baseline the lighter
+    // zoom-in/zoom-out cycle alone can't recover from. Plain
+    // maximize/restore with no zoom in between keeps the lighter,
+    // view-preserving fix. Consumed (reset false) either way, so the next
+    // toggle starts from a clean read of whether ANOTHER zoom happened
+    // since.
     clearTimeout(this.fullscreenSettleZoomTimer);
-    this.fullscreenSettleZoomTimer = setTimeout(() => this.triggerSettleZoomCycle(), 400);
+    clearTimeout(this.fullscreenRebuildSettleTimer);
+    const needsFullRebuild = this.hasZoomedSinceFullscreenToggle;
+    this.hasZoomedSinceFullscreenToggle = false;
+    this.fullscreenSettleZoomTimer = setTimeout(() => {
+      if (!needsFullRebuild) {
+        this.triggerSettleZoomCycle();
+        this.scheduleFinalAlignAfterSettleCycle();
+        return;
+      }
+      // Same two-step timing resetToConfiguredView() uses for the Reset
+      // button — applyBaseMapStyle()'s own destroy/recreate needs its own
+      // settle window before triggerSettleZoomCycle() runs against the
+      // freshly rebuilt instance, not the same tick.
+      this.applyBaseMapStyle(this.mapStyle);
+      this.fullscreenRebuildSettleTimer = setTimeout(() => {
+        this.triggerSettleZoomCycle();
+        this.scheduleFinalAlignAfterSettleCycle();
+      }, 400);
+    }, 400);
   }
 
   private fullscreenSettleZoomTimer: ReturnType<typeof setTimeout> | undefined;
+  private fullscreenRebuildSettleTimer: ReturnType<typeof setTimeout> | undefined;
+  private fullscreenAlignFinalTimer: ReturnType<typeof setTimeout> | undefined;
+
+  // triggerSettleZoomCycle()'s own zoom-in ('zoomin' immediately, 'zoomout'
+  // ~1200ms later, settled/hidden ~1200ms after THAT — see its own comment)
+  // regenerates/repositions Syncfusion's zoom toolbar right along with it —
+  // scheduleAlignLayerControl()'s own stability poll (already run earlier
+  // in onFullscreenChange(), for the fullscreen SIZE change itself) has
+  // long since finished and stopped watching by the time that happens, so
+  // this button realignment has to be scheduled fresh, timed past the
+  // cycle's own ~2.4s total duration.
+  private scheduleFinalAlignAfterSettleCycle(): void {
+    clearTimeout(this.fullscreenAlignFinalTimer);
+    this.fullscreenAlignFinalTimer = setTimeout(() => {
+      this.resizeAlignAttempt = 0;
+      this.scheduleAlignLayerControl();
+    }, 2600);
+  }
 
   // Filter-tree search box — plain text, matched case-insensitively against
   // layer/heading/group names and leaf labels (see matchesSearch() and the
@@ -1878,6 +1941,8 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     clearTimeout(this.settleZoomCycleTimer);
     clearTimeout(this.settleZoomCycleHideTimer);
     clearTimeout(this.fullscreenSettleZoomTimer);
+    clearTimeout(this.fullscreenRebuildSettleTimer);
+    clearTimeout(this.fullscreenAlignFinalTimer);
   }
 
   private layerGroupObserver: MutationObserver | undefined;
@@ -2024,6 +2089,13 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
       return;
     }
     this.settleZoomCycleActive = true;
+    // See onZoomComplete()'s own comment for why this needs to be
+    // suppressed: performZoomingByToolBar() is a REAL Syncfusion zoom
+    // action, so it fires the SAME `(zoomComplete)` event a genuine user
+    // zoom does — without this guard, this corrective cycle would
+    // wrongly mark itself as "a real zoom happened" for
+    // hasZoomedSinceFullscreenToggle's own tracking.
+    this.suppressZoomTrackingForSettleCycle = true;
     zoomModule.performZoomingByToolBar("zoomin");
     clearTimeout(this.settleZoomCycleTimer);
     this.settleZoomCycleTimer = setTimeout(() => {
@@ -2031,11 +2103,36 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
       clearTimeout(this.settleZoomCycleHideTimer);
       this.settleZoomCycleHideTimer = setTimeout(() => {
         this.settleZoomCycleActive = false;
+        this.suppressZoomTrackingForSettleCycle = false;
       }, 1200);
     }, 1200);
   }
 
   private settleZoomCycleHideTimer: ReturnType<typeof setTimeout> | undefined;
+  private suppressZoomTrackingForSettleCycle = false;
+
+  // Reported live: after a REAL zoom (wheel/double-click/toolbar, not this
+  // component's own triggerSettleZoomCycle() correction — see its own
+  // comment on why that's suppressed here) happens while fullscreen, a
+  // shape-mode map can go entirely invisible on the NEXT maximize/restore
+  // — worse than, and NOT fixed by, the plain triggerSettleZoomCycle()
+  // correction onFullscreenChange() already runs for every toggle. Root
+  // cause (best reconstruction — this repo's own demo never reproduces
+  // ANY of this class of bug, so it can't be confirmed by stepping through
+  // it live here): a real zoom caches a pan/translate offset anchored to
+  // the container's geometry AT THAT MOMENT (Syncfusion's own
+  // Zoom.prototype.applyTransform()); fullscreen toggling the container's
+  // SIZE afterward leaves that offset anchored to a container that no
+  // longer exists, and triggerSettleZoomCycle()'s own zoom-in/zoom-out
+  // nudge still computes its own transform relative to that SAME stale,
+  // now-nonsensical baseline — it can't recover from it, only a full
+  // destroy/recreate (applyBaseMapStyle(), same as Reset) discards it
+  // entirely. onFullscreenChange() below only pays that cost (a full
+  // rebuild, snapping the view back to the configured center/zoom) when
+  // this is true — plain maximize/restore with no zoom in between keeps
+  // the lighter, view-preserving triggerSettleZoomCycle() fix that already
+  // works for it.
+  private hasZoomedSinceFullscreenToggle = false;
 
   // Syncfusion recreates each layer group's own DOM element asynchronously
   // in reaction to builder.refresh()'s mutated mapOptions.layers array —
@@ -2476,6 +2573,13 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // to the plain refresh()-only version above if it makes things worse
   // again, same as last time.
   onZoomComplete(): void {
+    // See hasZoomedSinceFullscreenToggle's own comment — every real zoom
+    // fires this (`(zoomComplete)`, template-bound), but so does
+    // triggerSettleZoomCycle()'s own corrective zoom-in/zoom-out, which
+    // must NOT count as "a real zoom happened" here.
+    if (!this.suppressZoomTrackingForSettleCycle) {
+      this.hasZoomedSinceFullscreenToggle = true;
+    }
     clearTimeout(this.zoomRefreshTimer);
     this.zoomRefreshTimer = setTimeout(() => {
       if (this.mapInstance) {

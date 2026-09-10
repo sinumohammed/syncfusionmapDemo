@@ -227,7 +227,24 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     // back to its normal in-page size) — same re-measure the toolbar
     // position needs after any other resize (see onWindowResize()).
     setTimeout(() => this.alignLayerControl(), 150);
+
+    // Reported live: a shape-mode map can go entirely invisible after
+    // toggling fullscreen either direction (both entering AND leaving) —
+    // same root symptom triggerSettleZoomCycle() already exists for
+    // (Syncfusion's own internal pan/scale transform staying stale against
+    // the container's real, just-changed geometry — see that method's own
+    // comment for why mapsOnResize()/observeContainerResize()'s own
+    // ResizeObserver, which DOES already fire here since fullscreen is a
+    // genuine size change, only recomputes SIZE and doesn't fix this),
+    // just a more severe presentation (the whole map, not just its top
+    // edge). Same fix, run after fullscreenchange settles instead of after
+    // `loaded`/Reset — a real toolbar zoom-in/zoom-out is what actually
+    // forces Syncfusion to recalculate against the new geometry.
+    clearTimeout(this.fullscreenSettleZoomTimer);
+    this.fullscreenSettleZoomTimer = setTimeout(() => this.triggerSettleZoomCycle(), 400);
   }
+
+  private fullscreenSettleZoomTimer: ReturnType<typeof setTimeout> | undefined;
 
   // Filter-tree search box — plain text, matched case-insensitively against
   // layer/heading/group names and leaf labels (see matchesSearch() and the
@@ -1860,6 +1877,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     clearTimeout(this.resetSettleResizeTimer);
     clearTimeout(this.settleZoomCycleTimer);
     clearTimeout(this.settleZoomCycleHideTimer);
+    clearTimeout(this.fullscreenSettleZoomTimer);
   }
 
   private layerGroupObserver: MutationObserver | undefined;

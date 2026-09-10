@@ -168,6 +168,15 @@ export interface PointMetric {
   // hides that line entirely (NXMapBuilderService.toMarker()'s own
   // dt_<key>/dd_<key> fields), not just leaves it blank.
   date?: string;
+  // This reading's own threshold — straight from the data (a matched
+  // TooltipComponentEntry.Limit via NxMapDemoComponent.toTooltipMetrics()).
+  // Rendered as "value / limit" right in the tile's own value line
+  // (NXMapBuilderService.toMarker()'s own lim_<key>/limd_<key> fields),
+  // not a separate line the way date/value2/value3 are — a threshold
+  // reads naturally right next to the number it's judging, same
+  // convention as the "157/110" style a real ops dashboard uses.
+  // Undefined hides it entirely, same as every other optional field here.
+  limit?: number;
   // This metric's own display name, straight from the data — only
   // meaningful on an entry converted from MetricOverlayRecord.Tooltip.ComponentList (ignored
   // everywhere else PointMetric is used, e.g. activeMetricValues).
@@ -337,6 +346,13 @@ export interface TooltipComponentEntry {
   // (see PointMetric.date's own comment) — no parsing/timezone handling on
   // this side, whatever string the API sends is what shows.
   Date?: string;
+  // This one metric's own threshold — Color already tells a viewer a
+  // reading is out of range (e.g. red), but not by how much or against
+  // what; rendered as "value / Limit" right in the tile's own value line
+  // (see PointMetric.limit's own comment) so that context is visible
+  // without a separate lookup. Per-entry, same reasoning as Date — two
+  // metrics in the same fetch can have different limits.
+  Limit?: string | number;
 }
 
 // MetricOverlayRecord.Tooltip's own shape — Columns is a real field here,

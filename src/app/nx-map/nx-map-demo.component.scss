@@ -966,6 +966,21 @@
   margin-left: 2px;
 }
 
+/* This reading's own threshold (PointMetric.limit, lim_<key>/limd_<key>
+   in NXMapBuilderService.toMarker()) — deliberately styled MUCH lighter/
+   smaller than .mtt-value right next to it, so "157" (the actual reading,
+   already colored red/amber by c_<key> when it's out of range) stays the
+   thing the eye lands on first and "/ 110" (limd_<key>'s own display
+   toggle: "inline" only when a limit is actually present) reads as
+   secondary context, not a second number competing for attention. Own
+   color (not inherited from .mtt-value's red/amber) so the limit itself
+   never LOOKS like it's also the value that's out of range. */
+::ng-deep .marker-tooltip .mtt-limit {
+  font-size: 13px;
+  font-weight: 500;
+  color: #9aa0a6;
+}
+
 /* value2/value3 lines are always in the DOM (a static template
    placeholder can't add/remove elements per marker) but toggled to
    display:none per-point via the d2_<key>/d3_<key> fields

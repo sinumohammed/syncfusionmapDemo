@@ -66,7 +66,7 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon, Selec
 // Named tooltip-tile HTML layouts — selected via TooltipTemplateConfig.layout
 // (see its own comment), defaulting to "default" below. Every renderer gets
 // the exact same per-item Syncfusion ${field} placeholders to work with —
-// v_/u_/c_/v2_/u2_/d2_/v3_/u3_/d3_/dt_/dd_<metricId>, populated by
+// v_/u_/c_/v2_/u2_/d2_/v3_/u3_/d3_/dt_/dd_/lim_/limd_<metricId>, populated by
 // NXMapBuilderService.toMarker() for whatever metric ids
 // deriveTooltipTemplate() (below) ends up with — only the HTML/CSS
 // wrapping them differs between layouts. Ship a different tile shape for
@@ -82,7 +82,7 @@ const TOOLTIP_TILE_LAYOUTS: Record<string, (item: TooltipTemplateItem) => string
     return `
       <div class="mtt-stat">
         <div class="mtt-label">${title}</div>
-        <div class="mtt-value" style="color: \${c_${key}};">\${v_${key}} <span class="mtt-unit">\${u_${key}}</span></div>
+        <div class="mtt-value" style="color: \${c_${key}};">\${v_${key}}<span class="mtt-limit" style="display: \${limd_${key}};"> / \${lim_${key}}</span> <span class="mtt-unit">\${u_${key}}</span></div>
         <div class="mtt-timestamp" style="display: \${dd_${key}};">\${dt_${key}}</div>
         <div class="mtt-value2" style="display: \${d2_${key}};">\${v2_${key}} <span class="mtt-unit">\${u2_${key}}</span></div>
         <div class="mtt-value3" style="display: \${d3_${key}};">\${v3_${key}} <span class="mtt-unit">\${u3_${key}}</span></div>
@@ -877,7 +877,11 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
           unit: c.Unit,
           color: c.Color,
           label: c.Label,
-          date: c.Date
+          date: c.Date,
+          // c.Limit !== undefined (not just truthy) — a real Limit of 0 is
+          // still a real threshold to show, same "presence, not truthiness"
+          // guard toPointMetric()'s own Value2/Value3 coercion already uses.
+          limit: c.Limit !== undefined ? Number(c.Limit) || 0 : undefined
         }
       ]);
     return entries.length ? Object.fromEntries(entries) : undefined;

@@ -746,7 +746,7 @@ export class NXMapBuilderService {
       __lookupKey: lookupKey
     };
 
-    // Flat v_/u_/c_/v2_/u2_/d2_/v3_/u3_/d3_/dt_/dd_<key> fields for
+    // Flat v_/u_/c_/v2_/u2_/d2_/v3_/u3_/d3_/dt_/dd_/lim_/limd_<key> fields for
     // #marker-tooltip-template — Syncfusion's template is plain ${field}
     // substitution with no loops/conditionals, so every metric key the
     // template currently has a tile for (this.tooltipMetricKeys — see its
@@ -784,6 +784,15 @@ export class NXMapBuilderService {
       marker[`d3_${key}`] = reading?.value3 !== undefined ? "block" : "none";
       marker[`dt_${key}`] = reading ? this.formatDate(reading.date) : "";
       marker[`dd_${key}`] = reading ? "block" : "none";
+      // limd_<key> is "inline" (not "block" — see TOOLTIP_TILE_LAYOUTS'
+      // own default template in nx-map-demo.component.ts, this renders
+      // right inside the SAME line as the value/unit, "value / limit",
+      // not on its own line the way date/value2/value3 do) whenever this
+      // reading actually has a limit; "none" otherwise, same "no reading
+      // at all" vs. "reading, but no Limit" distinction dd_<key> above
+      // already draws for date.
+      marker[`lim_${key}`] = reading?.limit ?? "";
+      marker[`limd_${key}`] = reading?.limit !== undefined ? "inline" : "none";
     }
 
     return marker;

@@ -9,7 +9,7 @@ import {
   SimpleChanges,
   ViewChild
 } from "@angular/core";
-import { forkJoin, of } from "rxjs";
+import { forkJoin, of, Subscription } from "rxjs";
 import { catchError, map, switchMap } from "rxjs/operators";
 import {
   Maps,
@@ -342,6 +342,13 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // builder service expects. Definite-assignment: only ever set once
   // parentConfig actually arrives (ngOnChanges), never at construction.
   private nxAppConfig!: NXMapAppConfig;
+  // See loadMap()'s own comment on why this needs to be unsubscribable —
+  // unsubscribed both there (a fresh call supersedes any still-in-flight
+  // previous one) and in ngOnDestroy().
+  private loadMapSubscription?: Subscription;
+  // See applyCircularChartSelectionChange()'s own comment — same
+  // unsubscribed-on-supersede/destroy reasoning as loadMapSubscription.
+  private metricOverlaySubscription?: Subscription;
   private configs: MapConfig[] = [];
 
   // The main/static layers' own explicitly-authored tooltip layout, if
@@ -416,6 +423,21 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   private loadMap(appConfig: NXMapAppConfig): void {
+    // Reported live (real host integration, not this demo): switching away
+    // from the map's own tab while this fetch chain was still in flight
+    // (host destroys this component, e.g. *ngIf) left the subscription
+    // itself still running — RxJS/HttpClient don't cancel an in-flight
+    // request just because the component that started it got destroyed.
+    // Its `next` callback then fired AFTER teardown, feeding fresh
+    // mapOptions into (and triggering further async rendering against) a
+    // Syncfusion instance whose DOM was already gone — confirmed live as
+    // an uncaught TypeError deep inside Syncfusion's own async shape-render
+    // pipeline (Marker.markerRender's querySelectorAll on a null element).
+    // loadMapSubscription (unsubscribed both here, on a fresh call, and in
+    // ngOnDestroy() below) stops that callback from ever running once
+    // either happens — a genuinely stale fetch this component no longer
+    // cares about, not just a race to prevent.
+    this.loadMapSubscription?.unsubscribe();
     // Resolved SEQUENTIALLY (not inside the forkJoin below) specifically so
     // baseConfig.layerName — the one and only source of truth for the base
     // layer's name — is already known before anything that needs it (the
@@ -423,7 +445,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     // default parentLayerName) gets resolved. There's deliberately no
     // separate "base layer name" field on NXMapAppConfig to pass to those in
     // parallel instead — see its own comment for why.
-    this.configService
+    this.loadMapSubscription = this.configService
       .resolve(appConfig.baseLayerConfigSource)
       .pipe(
         switchMap(baseConfig =>
@@ -627,6 +649,13 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // every group's activeMetricId/activeMetricValues (and any unanchored
   // points from the previous selection) with no fetch at all.
   private applyCircularChartSelectionChange(): void {
+    // See loadMap()'s own comment on why an in-flight subscription needs
+    // to be unsubscribed rather than just left to resolve on its own —
+    // same reasoning here: a clear, or a new selection, supersedes
+    // whatever the PREVIOUS selection's own fetch is still doing, and this
+    // component being destroyed mid-fetch (ngOnDestroy() below) must not
+    // leave it running either.
+    this.metricOverlaySubscription?.unsubscribe();
     const selectedId = this.circularChartSelection?.selectedId ?? null;
     if (!selectedId) {
       this.metricOverlayLoading = false;
@@ -651,7 +680,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     // metric now being fetched, even though there's no data for it yet.
     this.applyMetricSelection(selectedId, []);
     this.metricOverlayLoading = true;
-    this.configService.loadDataOverlay(url, selectedId).subscribe({
+    this.metricOverlaySubscription = this.configService.loadDataOverlay(url, selectedId).subscribe({
       next: records => {
         this.metricOverlayLoading = false;
         this.applyMetricSelection(selectedId, records);
@@ -1970,6 +1999,12 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    // See loadMap()'s own comment — stops either fetch's `next`/`error`
+    // callback from firing after this component (and its <ejs-maps>' own
+    // DOM) is gone, confirmed live to otherwise crash deep inside
+    // Syncfusion's own async shape-render pipeline.
+    this.loadMapSubscription?.unsubscribe();
+    this.metricOverlaySubscription?.unsubscribe();
     this.layerGroupObserver?.disconnect();
     this.containerResizeObserver?.disconnect();
     clearTimeout(this.loadSettleResizeTimer);

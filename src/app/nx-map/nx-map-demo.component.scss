@@ -402,7 +402,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #f9fafb;
+  background: #eaf4ff;
   color: #101828;
   padding: 10px 12px;
   border-radius: 11px 11px 0 0;
@@ -1189,11 +1189,12 @@
 }
 
 /* Subtle highlight on an expanded node's own row — mirrors the
-   "currently open" row shading in the reference layer list. Light blue
-   tint, used sparingly here as a small accent against the otherwise
-   neutral panel. */
+   "currently open" row shading in the reference layer list. Plain
+   neutral grey now (not blue) — that accent moved up to
+   .layer-panel-header instead, so the blue tint reads as "this panel's
+   own title", not repeated on every expanded row underneath it. */
 .nx-map .layer-panel details[open] > summary {
-  background: #eaf4ff;
+  background: #f1f3f4;
   border-radius: 4px;
 }
 

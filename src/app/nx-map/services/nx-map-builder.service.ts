@@ -637,7 +637,13 @@ export class NXMapBuilderService {
   // apply to every point in it that doesn't override that field itself,
   // same as it already visibly does for the group's own aggregate
   // MarkerSettingsModel in buildMarkerPoints() below.
-  private toMarker(point: MapPoint, lookupKey: string, theme: MapTheme, groupStyle: ShapeStyle | undefined) {
+  private toMarker(
+    point: MapPoint,
+    lookupKey: string,
+    theme: MapTheme,
+    groupStyle: ShapeStyle | undefined,
+    activeReading: PointMetric | undefined
+  ) {
     // Resolved ONCE, ahead of the dataSource object below, so the tooltip's
     // own swatch (swatchShape/swatchColor/swatchImageUrl further down) can
     // reuse the EXACT same point -> groupStyle -> theme resolution the real
@@ -689,8 +695,21 @@ export class NXMapBuilderService {
       // InvertedTriangle included), not overlay's simplified 3-shape
       // subset. swatchImageUrl backs the "Image" case specifically — see
       // .mtt-swatch--image's own CSS comment.
+      //
+      // Reported live: once a circular chart metric is selected, a point
+      // whose CURRENT reading carries its own Color (MetricOverlayRecord.
+      // Color — the SAME value toMetricOverlayMarker() already uses to
+      // recolor the on-map overlay icon, passed in here as activeReading,
+      // this group's own activeMetricValues[point.id]) should show that
+      // SAME color in the tooltip swatch too — a point flagged red by the
+      // active metric shouldn't still show its plain mol.json/theme color
+      // on hover, that reads as contradicting the map itself. Wins over
+      // the base resolvedColor when present; deliberately NOT extended to
+      // swatchShape (only Color was asked for) — a point's swatch SHAPE
+      // still always reflects its real mol.json/theme shape regardless of
+      // the active metric's own Shape override.
       swatchShape: (resolvedShape ?? MarkerShape.Circle).toLowerCase(),
-      swatchColor: nonEmpty(resolvedColor) ?? NORMAL_LABEL_COLOR,
+      swatchColor: nonEmpty(activeReading?.color) ?? nonEmpty(resolvedColor) ?? NORMAL_LABEL_COLOR,
       swatchImageUrl: resolvedImageUrl ?? "",
       // markerScaleFactor grows this on zoom (see its own comment) — this
       // point's/group's/theme's own configured size is still the BASE this
@@ -937,7 +956,7 @@ export class NXMapBuilderService {
           groupName: g.name,
           object: point
         });
-        return this.toMarker(point, lookupKey, theme, g.markerConfig?.style);
+        return this.toMarker(point, lookupKey, theme, g.markerConfig?.style, point.id ? g.activeMetricValues?.[point.id] ?? undefined : undefined);
       });
 
       // #marker-tooltip-template (nx-map-demo.component.ts) — the hover card

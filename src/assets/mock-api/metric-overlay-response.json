@@ -3,6 +3,7 @@
     "LayerId": "MOL",
     "MarkerId": "maf",
     "Value": 60,
+    "Color": "#c94a3f",
     "Unit": "kPa",
     "Tooltip": {
       "ComponentList": [
@@ -48,6 +49,7 @@
     "MarkerId": "ns",
     "Value": 71.4,
     "Unit": "kPa",
+    "Color": "#c94a3f",
     "ShowInfo": false,
     "Tooltip": {
       "Template": "nibras",

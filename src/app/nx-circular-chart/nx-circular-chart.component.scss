@@ -1,18 +1,26 @@
 :host {
   display: block;
 }
+/* "Projected" card — raised off the panel's own white background via a
+   real shadow + white fill + light blue border AT REST, not just on
+   hover, so it reads as a physically distinct tile rather than a flat
+   region that merely gets an outline on mouseover. Brand blue (#47A1F6,
+   same source as nx-map's own "nibras" tooltip layout — see
+   nx-circular-chart-collection.component.scss's own comment) throughout. */
 .nx-circular-chart-card {
   position: relative;
   cursor: pointer;
-  border-radius: 6px;
-  padding: 4px;
-  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 6px;
+  background: #ffffff;
+  border: 1px solid rgba(71, 161, 246, 0.18);
+  box-shadow: 0 2px 6px rgba(20, 33, 61, 0.08);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 .nx-circular-chart-card:hover {
-  border-color: #1f4e79;
-  box-shadow: 0 2px 8px rgba(31, 78, 121, 0.25);
-  transform: translateY(-1px);
+  border-color: #47a1f6;
+  box-shadow: 0 6px 16px rgba(71, 161, 246, 0.3);
+  transform: translateY(-2px);
 }
 /* Syncfusion's own pie/doughnut hover feedback sets the HOVERED point's own
    opacity attribute to 0.5 (ej2-charts accumulation-chart/renderer/pie-series.js
@@ -29,8 +37,9 @@
   opacity: 1 !important;
 }
 .nx-circular-chart-card--selected {
-  background: #e6eef7;
-  outline: 1px solid #1f4e79;
+  background: #eaf4ff;
+  outline: 1.5px solid #47a1f6;
+  box-shadow: 0 6px 16px rgba(71, 161, 246, 0.3);
 }
 /* Neither the trend API nor this circular chart's own config Data had anything —
    see buildCircularChartConfig()'s own comment. Purely a visual "no data yet" cue

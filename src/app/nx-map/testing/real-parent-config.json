@@ -59,7 +59,7 @@
       "AccessRoleID": null,
       "PrintOrder": 2,
       "GenerateMissingADKInServerside": false,
-      "TooltipFormat": "{\"Columns\":3,\"Layout\":\"template2\",\"DateFormat\":\"yyyy-MM-dd HH:mm\"}",
+      "TooltipFormat": "{\"Columns\":3,\"Layout\":\"nibras\",\"DateFormat\":\"yyyy-MM-dd HH:mm\"}",
       "Replicate": 0,
       "Version": "1",
       "HeaderCssClass": 0,

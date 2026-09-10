@@ -463,8 +463,16 @@
   min-width: 0 !important;
   width: max-content !important;
   max-width: 220px !important;
-  padding: 8px 12px;
-  border-radius: 8px;
+  /* Reported live: nibras's own padding: 14px (and template2/compact's own
+     padding) win over this rule's tighter padding for the same
+     source-order reason min-width/width/max-width above needed
+     !important for — left a band of pointless white/empty space below
+     the title on a bare marker-name tooltip whenever one of those layouts
+     was active. !important for the same reason as above: this rule's
+     whole point is overriding whatever the active layout would otherwise
+     force. */
+  padding: 8px 12px !important;
+  border-radius: 8px !important;
 }
 
 ::ng-deep .marker-tooltip.mtt-name-only .mtt-title {
@@ -725,10 +733,36 @@
   color: #14213d;
 }
 
+/* Light tint of the logo's own #47A1F6 blue (not the literal color — see
+   this layout's own header comment on why the literal brand blue needs
+   lightening/darkening to stay readable depending on what's behind it) —
+   the WHOLE title row as a full-width band across the top of the card,
+   not just a pill behind the text. Negative margins pull it back out to
+   the card's own padding edges (14px, matching .mtt-layout-nibras' own
+   padding above) so the band actually reaches the card's left/right/top
+   edges instead of floating inset with white showing around it; its own
+   border-radius rounds just the top two corners to match the card's. */
 ::ng-deep .marker-tooltip.mtt-layout-nibras .mtt-header {
-  padding-bottom: 8px;
-  margin-bottom: 2px;
-  border-bottom: 1px solid rgba(71, 161, 246, 0.25);
+  background: #eaf4ff;
+  margin: -14px -14px 8px -14px;
+  padding: 10px 14px;
+  border-radius: 14px 14px 0 0;
+}
+
+/* Bare marker-name case (no chart clicked yet, or this marker's own id
+   had no match in the fetched data — .mtt-name-only, see its own
+   comment): .mtt-grid is hidden entirely, so the header's own -14px
+   negative margins (sized to escape the FULL nibras card's 14px padding
+   above) and its 8px trailing margin-bottom (meant to leave room for the
+   grid that follows it) both assume content that isn't there — left a
+   band of empty white space below the title. This combined 3-class
+   selector always outranks the 2-class rule above, so no !important
+   needed: the header simply BECOMES the whole (now much smaller,
+   mtt-name-only-sized) card, corners rounded on every side, no leftover
+   margin trying to make room for a grid that was never going to render. */
+::ng-deep .marker-tooltip.mtt-name-only.mtt-layout-nibras .mtt-header {
+  margin: 0;
+  border-radius: 8px;
 }
 
 ::ng-deep .marker-tooltip.mtt-layout-nibras .mtt-grid {

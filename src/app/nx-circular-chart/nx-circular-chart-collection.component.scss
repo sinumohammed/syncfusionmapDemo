@@ -3,43 +3,85 @@
   height: 100%;
   width: 100%;
 }
+/* Brand palette, same source as nx-map's own "nibras" tooltip layout
+   (nx-map-demo.component.scss) — pulled from nibras-logo.svg's own fills
+   (#47A1F6 blue, #00BEFF cyan, #FFCB05 gold, plus its own black/white) so
+   this panel and the map's tooltip read as one consistent brand rather
+   than two differently-designed pieces of the same app. */
 .nx-circular-chart-panel {
   display: flex;
   flex-direction: column;
   height: 100%;
   box-sizing: border-box;
-  padding: 12px;
-  /* No overflow-y here on purpose — an ancestor with any non-visible
-     overflow clips a hovered slice's tooltip too (CSS forces both
-     axes non-visible together once either one is), confirmed live
-     that was cutting the tooltip's text off. */
+  padding: 14px;
+  background: #ffffff;
+  border: 1.5px solid #47a1f6;
+  border-radius: 16px;
+  box-shadow: 0 8px 28px rgba(71, 161, 246, 0.16);
+  /* No overflow-y/overflow-x here on purpose — an ancestor with any
+     non-visible overflow clips a hovered slice's tooltip too (CSS forces
+     both axes non-visible together once either one is), confirmed live
+     that was cutting the tooltip's text off. .nx-circular-chart-title
+     below reaches this panel's own rounded top corners via matching
+     border-radius + negative margins instead of relying on this panel
+     clipping it — same technique nx-map's own "nibras" tooltip header
+     uses, chosen specifically because it needs no overflow:hidden here. */
 }
+/* Full-width band across the top of the panel (same visual language as
+   nx-map's own "nibras" tooltip title — see its own comment) rather than
+   plain text sitting in the white padding. Negative margins pull it back
+   out to the panel's own padding edges (14px, matching
+   .nx-circular-chart-panel's own padding above) so the band actually
+   reaches the panel's left/right/top edges; its own border-radius rounds
+   just the top two corners to match the panel's. */
 .nx-circular-chart-title {
   font-size: 14px;
   font-weight: 700;
-  color: #222;
-  margin-bottom: 8px;
+  color: #14213d;
+  background: #eaf4ff;
+  margin: -14px -14px 10px -14px;
+  padding: 10px 14px;
+  border-radius: 14px 14px 0 0;
+  border-bottom: 3px solid #ffcb05;
 }
 .nx-circular-chart-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
+  /* Wider than the original 8px — each card now has its own shadow/lift
+     (see nx-circular-chart.component.scss's own "projected" card
+     comment), which needs breathing room between cards to actually read
+     as separate raised tiles instead of touching/overlapping shadows. */
+  gap: 14px;
 }
+/* Its own bordered box (rather than legend items floating directly on
+   the panel's white background) — same brand blue, lighter tint than the
+   title band above so the two don't visually compete. */
 .nx-circular-chart-legend {
-  margin-top: 12px;
+  margin-top: 14px;
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  column-gap: 12px;
-  row-gap: 4px;
+  column-gap: 10px;
+  row-gap: 8px;
   font-size: 12px;
-  color: #333;
+  color: #14213d;
+  background: #f5faff;
+  border: 1px solid rgba(71, 161, 246, 0.3);
+  border-radius: 10px;
+  padding: 10px 12px;
 }
+/* Each entry as its own small pill/chip (white background, thin blue
+   border) instead of sitting bare against the legend box's own light
+   tint — reads as a set of distinct tags rather than a plain inline list. */
 .nx-circular-chart-legend-item {
   display: flex;
   align-items: center;
   gap: 6px;
   white-space: nowrap;
+  background: #ffffff;
+  border: 1px solid rgba(71, 161, 246, 0.35);
+  border-radius: 999px;
+  padding: 3px 10px 3px 6px;
 }
 /* Base swatch box — every shape variant below starts from this, only
    overriding what its own silhouette needs. Mirrors nx-map's own

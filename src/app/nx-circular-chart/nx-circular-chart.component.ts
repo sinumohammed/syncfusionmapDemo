@@ -114,11 +114,11 @@ export class NxCircularChartComponent implements OnChanges {
   // upstream (see that component's own comment).
   @Input() config?: CircularChartConfig;
   @Input() selected = false;
-  // NxCircularChartCollectionComponent's own resolved rawConfig.SeriesPallet
+  // NxCircularChartCollectionComponent's own resolved rawConfig.SeriesPalette
   // (or DEFAULT_SERIES_PALETTE when unset) — see buildSeries()'s own use of
   // it for the same per-index fallback color DEFAULT_PALETTE used to
   // provide directly, now sourced from the collection so a host's own
-  // SeriesPallet actually reaches here. Defaults to DEFAULT_SERIES_PALETTE
+  // SeriesPalette actually reaches here. Defaults to DEFAULT_SERIES_PALETTE
   // so a standalone <app-nx-circular-chart> (no collection wrapper) keeps
   // working exactly as before this existed.
   @Input() palette: SeriesPaletteEntry[] = DEFAULT_SERIES_PALETTE;

@@ -5,6 +5,7 @@ import {
   CircularChartConfig,
   CircularChartSelectionEvent,
   DEFAULT_SERIES_PALETTE,
+  parseSeriesPalette,
   RawCircularChartCollectionNode,
   SeriesPaletteEntry,
   SeriesPaletteShape,
@@ -59,8 +60,10 @@ export class NxCircularChartCollectionComponent implements OnChanges {
   // possibly-unrecognized config value (resolveSeriesPalette() below/
   // toSwatchShape() already normalize it).
   legendItems: { label: string; color: string; shape: SeriesPaletteShape; imageUrl?: string | null }[] = [];
-  // rawConfig.SeriesPallet when non-empty, else DEFAULT_SERIES_PALETTE — see
-  // SeriesPaletteEntry's own comment. Resolved once per applyConfigs() (not
+  // rawConfig.SeriesPalette (parsed via parseSeriesPalette() — see its own
+  // comment, it arrives as a JSON-encoded string on a real upstream config)
+  // when non-empty, else DEFAULT_SERIES_PALETTE — see SeriesPaletteEntry's
+  // own comment. Resolved once per applyConfigs() (not
   // read inline at every use) so the legend and every child circular
   // chart's own [palette] binding always agree on the exact same array.
   seriesPalette: SeriesPaletteEntry[] = DEFAULT_SERIES_PALETTE;
@@ -138,12 +141,15 @@ export class NxCircularChartCollectionComponent implements OnChanges {
 
   private applyConfigs(trendResponse: TrendNode[], useConfigFallback: boolean): void {
     this.circularCharts = this.rawConfig ? buildCircularChartConfigs(this.rawConfig, trendResponse, useConfigFallback) : [];
-    // rawConfig.SeriesPallet when the host actually configured one, else
-    // the shared DEFAULT_SERIES_PALETTE fallback — see SeriesPaletteEntry's
-    // own comment. Resolved once here, not per-chart/per-legend-item, so
-    // every child <app-nx-circular-chart>'s own [palette] binding below AND
-    // the legend built right after always agree on the exact same array.
-    this.seriesPalette = this.rawConfig?.SeriesPallet?.length ? this.rawConfig.SeriesPallet : DEFAULT_SERIES_PALETTE;
+    // rawConfig.SeriesPalette when the host actually configured one (a
+    // JSON-encoded string on a real upstream payload — see
+    // parseSeriesPalette()'s own comment), else the shared
+    // DEFAULT_SERIES_PALETTE fallback — see SeriesPaletteEntry's own
+    // comment. Resolved once here, not per-chart/per-legend-item, so every
+    // child <app-nx-circular-chart>'s own [palette] binding below AND the
+    // legend built right after always agree on the exact same array.
+    const parsedPalette = parseSeriesPalette(this.rawConfig?.SeriesPalette);
+    this.seriesPalette = parsedPalette?.length ? parsedPalette : DEFAULT_SERIES_PALETTE;
     this.selectedId = null;
     // Legend is derived from the UNION of every circular chart's own slice
     // labels/colors, not just the first chart's — different charts in the

@@ -33,12 +33,12 @@ export interface SeriesPaletteEntry {
 // shape, derived from the union of every circular chart's own slices). Kept
 // here rather than duplicated in each component so the two can never
 // quietly drift out of sync with each other. Every real host config is
-// expected to supply its own RawCircularChartCollectionNode.SeriesPallet
+// expected to supply its own RawCircularChartCollectionNode.SeriesPalette
 // instead (see that field's own comment) — this is only the fallback used
 // before one exists, or for whichever index runs past the end of a shorter
 // configured pallet. Every entry defaults to "Circle" here since the
 // original DEFAULT_PALETTE (a plain color array, no shape concept) never
-// distinguished shapes — only a host's own SeriesPallet does that now.
+// distinguished shapes — only a host's own SeriesPalette does that now.
 export const DEFAULT_SERIES_PALETTE: SeriesPaletteEntry[] = [
   { Color: "#1f4e79", Shape: "Circle" },
   { Color: "#e07b39", Shape: "Circle" },
@@ -47,6 +47,38 @@ export const DEFAULT_SERIES_PALETTE: SeriesPaletteEntry[] = [
   { Color: "#8e5ea2", Shape: "Circle" },
   { Color: "#3fbfbf", Shape: "Circle" }
 ];
+
+// RawCircularChartCollectionNode.SeriesPalette arrives from the real
+// upstream config as a JSON-ENCODED STRING, same convention as
+// RawCircularChartNode.Data/MainLayerSettings/LayerInlineJSON elsewhere in
+// this codebase (the real upstream payload never sends structured
+// sub-config as an actual array/object) — mirrors parseNodeData()'s own
+// tolerant-parse shape in parent-circular-chart-config-transform.ts (kept
+// here instead, alongside the type it parses into, since
+// NxCircularChartCollectionComponent needs it directly, not just the
+// transform). A plain SeriesPaletteEntry[] is also accepted, purely so
+// tests/inline callers can hand one in directly without stringifying it
+// first. Malformed JSON, a non-array, or anything else unusable all
+// resolve to `null` — NOT an empty array — so a caller can tell "no
+// SeriesPalette configured" (use DEFAULT_SERIES_PALETTE) apart from "one
+// was configured but is empty" the same way; today's only caller
+// (NxCircularChartCollectionComponent.applyConfigs()) currently treats
+// both the same, but keeping the distinction here costs nothing and gives
+// a future caller a real choice.
+export function parseSeriesPalette(raw: SeriesPaletteEntry[] | string | null | undefined): SeriesPaletteEntry[] | null {
+  if (Array.isArray(raw)) {
+    return raw;
+  }
+  if (!raw) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
 
 // Syncfusion's own AccumulationSeriesModel.type ('Pie'/'Doughnut') plus a
 // third SemiCircle case (a Doughnut with its startAngle/endAngle pinned to
@@ -298,7 +330,11 @@ export interface RawCircularChartCollectionNode {
   // Shape so the legend swatch echoes whatever marker shape that same
   // category uses on the map (see SeriesPaletteEntry's own comment) — no
   // implicit link to any actual map config, purely a parallel convention.
-  SeriesPallet?: SeriesPaletteEntry[] | null;
+  // A JSON-ENCODED STRING on the real upstream payload, same convention as
+  // RawCircularChartNode.Data — see parseSeriesPalette()'s own comment. A
+  // plain SeriesPaletteEntry[] is also accepted, purely so tests/inline
+  // callers can hand one in directly without stringifying it first.
+  SeriesPalette?: SeriesPaletteEntry[] | string | null;
 }
 
 // ---- Trend API response shape ------------------------------------------

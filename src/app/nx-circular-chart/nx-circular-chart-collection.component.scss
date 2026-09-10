@@ -57,7 +57,7 @@
 /* Default shape (also nx-map's own default fallback, MarkerShape.Balloon,
    but here the pin-drop silhouette specifically — see --balloon below for
    that one). Kept as a plain rounded square, same as this swatch's
-   original (pre-shape) appearance, so a config with no SeriesPallet at all
+   original (pre-shape) appearance, so a config with no SeriesPalette at all
    still renders exactly as it always did (DEFAULT_SERIES_PALETTE defaults
    every entry to "Circle" instead, so --rectangle only ever shows up for a
    host that deliberately configures Shape: "Rectangle"). */

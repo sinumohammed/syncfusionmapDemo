@@ -77,6 +77,44 @@
     </button>
   </div>
 
+  <!-- Warning icon — only rendered at all while mapProblems has anything
+       in it (see its own comment: the union of layerProblems and
+       metricOverlayProblems — any static config issue, layer/shape file
+       load failure, or metric-overlay fetch problem), so a clean map
+       never shows this control. Same button + dropdown pattern as
+       .basemap-control above, just a static message list instead of
+       selectable options. -->
+  <div class="warning-control" *ngIf="mapProblems.length" [style.top.px]="layerBtnTop" [style.right.px]="warningBtnRight">
+    <button
+      type="button"
+      class="layer-btn layer-btn--warning"
+      [title]="mapProblems.length + ' map ' + (mapProblems.length === 1 ? 'issue' : 'issues')"
+      (click)="toggleWarningPanel()"
+    >
+      <svg viewBox="0 0 24 24" width="19" height="19" fill="none">
+        <path
+          d="M12 4 2 20h20L12 4Z"
+          stroke="#d97706"
+          stroke-width="1.6"
+          stroke-linejoin="round"
+          fill="#fef3c7"
+        />
+        <path d="M12 10.5v4.5" stroke="#d97706" stroke-width="1.8" stroke-linecap="round" />
+        <circle cx="12" cy="17.3" r="1" fill="#d97706" />
+      </svg>
+    </button>
+
+    <div class="warning-panel" *ngIf="warningPanelOpen">
+      <div class="warning-panel-header">Map issues ({{ mapProblems.length }})</div>
+      <ul class="warning-panel-list">
+        <li *ngFor="let problem of mapProblems">
+          <div class="warning-panel-message">{{ problem.message }}</div>
+          <div class="warning-panel-hint" *ngIf="problem.hint"><strong>Hint:</strong> {{ problem.hint }}</div>
+        </li>
+      </ul>
+    </div>
+  </div>
+
   <!-- Coordinate-picker toggle — a dev tool, not a real map feature:
        while active, clicking empty map area drops a temporary marker
        labeled with that click's own lat/long (see

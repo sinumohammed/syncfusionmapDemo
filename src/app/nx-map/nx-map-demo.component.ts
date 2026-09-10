@@ -177,15 +177,25 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     return this.layerBtnRight + 36 + 8;
   }
 
-  // Furthest-left of the four controls now — same chained-offset pattern
-  // as basemapBtnRight above.
+  // Same chained-offset pattern as basemapBtnRight above.
   get maximizeBtnRight(): number {
     return this.basemapBtnRight + 36 + 8;
   }
 
+  // Sits just left of maximize — only actually rendered while mapProblems
+  // has anything in it (see its own comment), same *ngIf-gated-control
+  // pattern the coordinate-picker toggle already uses.
+  // coordinatePickerBtnRight below accounts for this slot only being
+  // reserved when the warning icon is actually visible, so the
+  // coordinate-picker toggle doesn't leave (or need) an empty gap
+  // whenever there are no problems to show.
+  get warningBtnRight(): number {
+    return this.maximizeBtnRight + 36 + 8;
+  }
+
   // Furthest-left control — the coordinate-picker toggle.
   get coordinatePickerBtnRight(): number {
-    return this.maximizeBtnRight + 36 + 8;
+    return (this.mapProblems.length ? this.warningBtnRight : this.maximizeBtnRight) + 36 + 8;
   }
 
   // Dev-tool toggle: while true, clicking empty map area (anywhere
@@ -319,6 +329,37 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // see showToast()/onMarkerClick()/onMapClick().
   toastMessage: string | null = null;
 
+  // Every reportLayerProblem() message from the CURRENT loaded map config —
+  // a bad LayerFileLists/LayerAPIURL entry, a layer file with no
+  // layerConfig, the main layer's own shape file missing, or the whole
+  // config failing to load at all (see loadMap()'s own error handling).
+  // Reset once per loadMap() call (a fresh config load supersedes
+  // whatever the previous one left behind), NOT per circular-chart
+  // selection — these describe the map's own STATIC setup, not a
+  // particular click, so they need to persist across selections/clears
+  // the way metricOverlayProblems below deliberately doesn't. `hint` is
+  // an optional short "how to actually fix this" suggestion — reportLayerProblem()/
+  // reportDataOverlayProblem() supply one wherever the fix is concrete
+  // enough to state (e.g. "check LayerFileLists' spelling"), omitted
+  // where it wouldn't be (a generic upstream failure with no specific
+  // culprit to point at).
+  layerProblems: { message: string; hint?: string }[] = [];
+  // Every reportDataOverlayProblem() message from the CURRENT circular
+  // chart selection's own fetch — see applyCircularChartSelectionChange()'s
+  // own comment for when this resets (per selection, unlike layerProblems
+  // above).
+  metricOverlayProblems: { message: string; hint?: string }[] = [];
+  // Union of both lists above, in report order — what the warning icon
+  // (warningBtnRight) and its dropdown actually render: hidden entirely
+  // while empty, shown listing every current problem (of EITHER kind)
+  // once any exist. Recomputed on every read rather than cached — both
+  // source arrays are small and change rarely enough that this isn't
+  // worth the extra state to keep in sync.
+  get mapProblems(): { message: string; hint?: string }[] {
+    return [...this.layerProblems, ...this.metricOverlayProblems];
+  }
+  warningPanelOpen = false;
+
   // True only while applyCircularChartSelectionChange()'s own metric-overlay
   // fetch is actually in flight (a real network round trip to
   // nxAppConfig.dataApiUrl) — drives a spinner over the map itself so a
@@ -438,6 +479,12 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     // either happens — a genuinely stale fetch this component no longer
     // cares about, not just a race to prevent.
     this.loadMapSubscription?.unsubscribe();
+    // A fresh config load supersedes whatever the PREVIOUS one's own
+    // reportLayerProblem() calls left behind — see layerProblems' own
+    // comment for why this resets HERE (once per load) rather than per
+    // circular-chart selection the way metricOverlayProblems does.
+    this.layerProblems = [];
+    this.warningPanelOpen = false;
     // Resolved SEQUENTIALLY (not inside the forkJoin below) specifically so
     // baseConfig.layerName — the one and only source of truth for the base
     // layer's name — is already known before anything that needs it (the
@@ -477,7 +524,10 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
                         // gets dropped, while every other file/layer still
                         // loads normally.
                         catchError(() => {
-                          this.reportLayerProblem(`layer file "${source.url}" not found — skipping it`);
+                          this.reportLayerProblem(
+                            `layer file "${source.url}" not found — skipping it`,
+                            "Check the file exists at that path, or fix the spelling of this name in LayerFileLists."
+                          );
                           return of(null);
                         })
                       )
@@ -488,7 +538,10 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
                 ? this.configService.resolve<LayerFileEnvelope[]>({ source: "api", url: appConfig.layerApiUrl }).pipe(
                     // Same reasoning as the LayerFileLists catchError above.
                     catchError(() => {
-                      this.reportLayerProblem(`layer API "${appConfig.layerApiUrl}" failed to load — skipping it`);
+                      this.reportLayerProblem(
+                        `layer API "${appConfig.layerApiUrl}" failed to load — skipping it`,
+                        "Check LayerAPIURL is reachable and returns a valid LayerFileEnvelope[] response."
+                      );
                       return of([] as LayerFileEnvelope[]);
                     })
                   )
@@ -513,7 +566,8 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
                     }
                     if (!envelope.layerConfig) {
                       this.reportLayerProblem(
-                        `layer entry has no "layerConfig" (layerName unknown) — skipping it. This field is only optional for the MAIN/base layer's own shape file.`
+                        `layer entry has no "layerConfig" (layerName unknown) — skipping it. This field is only optional for the MAIN/base layer's own shape file.`,
+                        "Add a layerConfig object (with at least layerName) to this entry's file/API/inline JSON."
                       );
                       return false;
                     }
@@ -558,7 +612,8 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
           })
         )
       )
-      .subscribe(({ baseConfig, baseShape, staticLayers }) => {
+      .subscribe({
+        next: ({ baseConfig, baseShape, staticLayers }) => {
         // "simple" is a config-only alias for "shape" — lets a host write
         // the friendlier name in baseMapType/availableBaseMapTypes without
         // the internal baseMapType type (and every comparison against it,
@@ -568,6 +623,19 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
         // ever sees "shape".
         if ((baseConfig.baseMapType as string) === "simple") {
           baseConfig.baseMapType = "shape";
+        }
+        // NXMapConfigService.resolveShapeData() already console.errors a
+        // missing shape file on its own (it has no access to this
+        // component's warning list) — only ever meaningful for a "shape"
+        // base map (a tile main layer, osm/satellite, never had a shape
+        // file to begin with, so baseShape being undefined there is
+        // normal, not a problem). Surfaced here, where baseShape is
+        // already in scope, instead of threading it through the service.
+        if ((baseConfig.baseMapType ?? "shape") === "shape" && !baseShape) {
+          this.reportLayerProblem(
+            `no shape file found for the main layer "${baseConfig.layerName}" — it will have no visible boundary`,
+            `Add a shape file at assets/nx-map/layers/${slugifyLayerFileName(baseConfig.layerName)}.json, or set this layer's baseMapType to "osm"/"satellite" instead.`
+          );
         }
         this.baseConfig = baseConfig;
         this.baseShape = baseShape;
@@ -623,8 +691,25 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
         // static config alone provides (or nothing, if it doesn't set one
         // either), same "empty until a circular chart fetch actually happens" state
         // as before deriveTooltipTemplate() existed.
-        this.applyTooltipTemplate([]);
-        this.rebuildMap();
+          this.applyTooltipTemplate([]);
+          this.rebuildMap();
+        },
+        // Reported live risk (never actually reproduced — every individual
+        // fetch this chain makes already has its own catchError, see
+        // above): if something upstream of all of those somehow still
+        // throws (a genuinely unexpected failure, not one of the already-
+        // handled missing-file cases), this used to have no error handler
+        // at all — the whole map silently never finished loading, with
+        // nothing in the UI to explain why. This is the same "any config
+        // issue needs to show up as a warning" backstop the per-source
+        // catchError calls above already provide for their own known
+        // failure cases.
+        error: () => {
+          this.reportLayerProblem(
+            "map configuration failed to load — check the browser console for details",
+            "Check MainLayerSettings is valid JSON, and the browser console for the actual underlying error."
+          );
+        }
       });
   }
 
@@ -656,6 +741,20 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     // component being destroyed mid-fetch (ngOnDestroy() below) must not
     // leave it running either.
     this.metricOverlaySubscription?.unsubscribe();
+    // Reported live: no visible way to tell a metric-overlay fetch hit
+    // problems (a bad MarkerId/LayerId, a missing DataAPIURL, ...) short
+    // of opening devtools — reportDataOverlayProblem() already
+    // console.error()s and toasts each one, but a toast is gone in 2.5s.
+    // metricOverlayProblems collects them for the warning icon
+    // (warningBtnRight, see mapProblems' own comment) to surface
+    // persistently, cleared here at the START of every new
+    // selection/clear — same "supersedes whatever the previous selection
+    // left behind" reasoning as applyMetricSelection(selectedId, [])
+    // below, so a fresh click's own warnings don't sit mixed in with a
+    // past selection's. layerProblems is deliberately NOT touched here —
+    // see its own comment for why those persist across selections.
+    this.metricOverlayProblems = [];
+    this.warningPanelOpen = false;
     const selectedId = this.circularChartSelection?.selectedId ?? null;
     if (!selectedId) {
       this.metricOverlayLoading = false;
@@ -664,7 +763,10 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     }
     const url = this.nxAppConfig.dataApiUrl;
     if (!url) {
-      this.reportDataOverlayProblem(`circular chart "${selectedId}" selected but no DataAPIURL is configured for this map`);
+      this.reportDataOverlayProblem(
+        `circular chart "${selectedId}" selected but no DataAPIURL is configured for this map`,
+        "Set DataAPIURL on this map's own COMPONENT_NX_MAP configuration."
+      );
       return;
     }
     // Clears whatever the PREVIOUS selection's own fetch last put on the
@@ -683,11 +785,30 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     this.metricOverlaySubscription = this.configService.loadDataOverlay(url, selectedId).subscribe({
       next: records => {
         this.metricOverlayLoading = false;
+        // A real backend returning something that isn't a JSON array (an
+        // error object, a wrapped {data: [...]} envelope, an empty
+        // string body, ...) still resolves as a normal HTTP success —
+        // Angular's HttpClient only trusts the declared response TYPE,
+        // it never validates the actual shape at runtime. Without this,
+        // that reaches applyMetricSelection()'s own records.forEach()
+        // straight into a raw "records.forEach is not a function"
+        // exception instead of a reportable warning.
+        if (!Array.isArray(records)) {
+          this.reportDataOverlayProblem(
+            `circular chart "${selectedId}" fetched a metric overlay response that isn't a JSON array`,
+            "Check the API returns a plain JSON array of records, not a wrapped object or an error body."
+          );
+          this.applyMetricSelection(selectedId, []);
+          return;
+        }
         this.applyMetricSelection(selectedId, records);
       },
       error: () => {
         this.metricOverlayLoading = false;
-        this.reportDataOverlayProblem(`circular chart "${selectedId}" failed to fetch its metric overlay data`);
+        this.reportDataOverlayProblem(
+          `circular chart "${selectedId}" failed to fetch its metric overlay data`,
+          "Check that DataAPIURL is reachable and returns a valid response for this request."
+        );
       }
     });
   }
@@ -812,20 +933,31 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // console.error + a visible toast (existing mechanism, already used for
   // marker/shape click confirmations) — one bad MetricOverlayRecord is
   // loud but never blocks the rest of the array from still plotting.
-  private reportDataOverlayProblem(reason: string): void {
+  // `hint` (optional — omit where there's no concrete fix to point at) is
+  // a short "how to actually fix this" suggestion shown alongside the
+  // problem itself in the warning panel, not just what went wrong.
+  private reportDataOverlayProblem(reason: string, hint?: string): void {
     const message = `[NXMap] Metric overlay: ${reason}.`;
     console.error(message);
     this.showToast(message);
+    // "Metric overlay: " prefix (not the console/toast message's own
+    // "[NXMap] " bracket, which is console-specific noise) — the warning
+    // panel now mixes this with layerProblems in one list (see
+    // mapProblems' own comment), so each entry needs to say which kind of
+    // problem it is on its own.
+    this.metricOverlayProblems = [...this.metricOverlayProblems, { message: `Metric overlay: ${reason}.`, hint }];
   }
 
-  // Same console.error + toast mechanism as reportDataOverlayProblem(),
-  // for problems found while building the static layer list itself (as
-  // opposed to a metric overlay record) — currently just the missing-
-  // layerConfig guard in loadMap().
-  private reportLayerProblem(reason: string): void {
+  // Same console.error + toast mechanism as reportDataOverlayProblem()
+  // (including its own optional `hint`), for problems found while
+  // building the static layer list itself (as opposed to a metric
+  // overlay record) — currently just the missing-layerConfig guard in
+  // loadMap().
+  private reportLayerProblem(reason: string, hint?: string): void {
     const message = `[NXMap] Layer: ${reason}.`;
     console.error(message);
     this.showToast(message);
+    this.layerProblems = [...this.layerProblems, { message: `Layer: ${reason}.`, hint }];
   }
 
   // Fixed id/name for the synthetic group applyMetricSelection() maintains
@@ -934,7 +1066,10 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
         // "MOL").
         const namedTarget = targets.find(t => t.name.toLowerCase() === record.LayerId?.toLowerCase());
         if (!namedTarget) {
-          this.reportDataOverlayProblem(`LayerId "${record.LayerId}" doesn't match any known layer (MarkerId: ${record.MarkerId ?? "—"})`);
+          this.reportDataOverlayProblem(
+            `LayerId "${record.LayerId}" doesn't match any known layer (MarkerId: ${record.MarkerId ?? "—"})`,
+            `Check LayerId matches one of this map's configured layer names exactly (case-insensitive): ${targets.map(t => t.name).join(", ")}.`
+          );
           return;
         }
         // Case-insensitive lookup (collectPointIds()'s own comment) —
@@ -946,7 +1081,8 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
         const canonicalId = record.MarkerId ? namedTarget.pointIds.get(record.MarkerId.toLowerCase()) : undefined;
         if (!canonicalId) {
           this.reportDataOverlayProblem(
-            `MarkerId "${record.MarkerId ?? "—"}" doesn't match any existing point on layer "${record.LayerId}"`
+            `MarkerId "${record.MarkerId ?? "—"}" doesn't match any existing point on layer "${record.LayerId}"`,
+            "Check MarkerId matches an existing point's id on that layer (case-insensitive), or add Latitude/Longitude to this record to plot it as a new point instead."
           );
           return;
         }
@@ -979,7 +1115,10 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
         });
         return;
       }
-      this.reportDataOverlayProblem(`record has no LayerId and no Latitude/Longitude to plot (MarkerId: ${record.MarkerId ?? "—"})`);
+      this.reportDataOverlayProblem(
+        `record has no LayerId and no Latitude/Longitude to plot (MarkerId: ${record.MarkerId ?? "—"})`,
+        "Add LayerId to match an existing point, or add Latitude/Longitude to plot this record as a brand-new point."
+      );
     });
 
     // Also rebuilds this group's OWN points (a shallow clone, never
@@ -1221,6 +1360,10 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   toggleBasemapPanel(): void {
     this.basemapPanelOpen = !this.basemapPanelOpen;
+  }
+
+  toggleWarningPanel(): void {
+    this.warningPanelOpen = !this.warningPanelOpen;
   }
 
   // Whether a group has anything to expand at all — drives groupEntryTpl's
@@ -2904,6 +3047,13 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
       const basemapControl = this.elRef.nativeElement.querySelector(".basemap-control");
       if (!(basemapControl?.contains(target) ?? false)) {
         this.basemapPanelOpen = false;
+      }
+    }
+
+    if (this.warningPanelOpen) {
+      const warningControl = this.elRef.nativeElement.querySelector(".warning-control");
+      if (!(warningControl?.contains(target) ?? false)) {
+        this.warningPanelOpen = false;
       }
     }
   }

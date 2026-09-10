@@ -167,5 +167,11 @@
       ],
       "Columns": 2
     }
+  },
+  {
+    "LayerId": "MOL",
+    "MarkerId": "not-a-real-marker",
+    "Value": 99,
+    "Unit": "kPa"
   }
 ]

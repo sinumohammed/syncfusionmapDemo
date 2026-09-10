@@ -9,10 +9,30 @@
   width: 100%;
 }
 
+/* "Projected" outer container — same brand treatment as
+   nx-circular-chart-collection.component.scss's own panel (blue border,
+   rounded corners, soft blue-tinted shadow, same nibras-logo.svg palette)
+   so the map and the circular chart panel read as one consistent brand,
+   with a visible gap on every side instead of sitting full-bleed against
+   its parent. width/height are calc(100% - 10px) (not the plain 100% this
+   used to be) specifically so the 5px margin below doesn't push this
+   element outside its own parent's bounds — a plain percentage size plus
+   a margin would overflow by exactly 2x the margin otherwise. */
 .nx-map {
   position: relative;
-  height: 100%;
-  width: 100%;
+  height: calc(100% - 10px);
+  width: calc(100% - 10px);
+  margin: 5px;
+  border: 1.5px solid #47a1f6;
+  border-radius: 16px;
+  box-shadow: 0 8px 28px rgba(71, 161, 246, 0.16);
+  /* Without this, the border above is ADDED on top of the calc()'d
+     width/height (this file has no global box-sizing:border-box reset,
+     confirmed live) — the 5px right/bottom margin ended up rendering ~2px
+     narrower than the 5px left/top margin, since the border pushed the
+     whole box that much further past where the calc() intended it to
+     end. border-box folds the border into that same width/height instead. */
+  box-sizing: border-box;
 }
 
 /* Syncfusion's Maps root renders its own internal layers (zoom
@@ -25,6 +45,24 @@
 .nx-map ::ng-deep ejs-maps {
   position: relative;
   z-index: 0;
+}
+
+/* Rounds just the map's own rendered SVG content to match .nx-map's own
+   border-radius above — deliberately NOT overflow:hidden on .nx-map
+   itself (or on <ejs-maps>), confirmed live via DOM inspection that the
+   real on-hover marker tooltip (#..._mapsTooltip) renders inside
+   <ejs-maps>'s own "Secondary_Element" child, a SIBLING of this <svg>, not
+   a descendant of it — clipping at the .nx-map/ejs-maps level would have
+   cut that tooltip off near any edge, same risk
+   nx-circular-chart-collection.component.scss's own panel comment
+   explains for its slice tooltips. Scoping the clip to just the <svg>
+   child (Syncfusion's own map content, which otherwise keeps square
+   corners regardless of the container's rounded border) leaves
+   Secondary_Element — and everything Syncfusion renders into it,
+   tooltip included — completely unclipped. */
+.nx-map ::ng-deep .map-container > svg {
+  border-radius: 14.5px;
+  overflow: hidden;
 }
 
 /* Both live as siblings inside Syncfusion's own "Secondary_Element"

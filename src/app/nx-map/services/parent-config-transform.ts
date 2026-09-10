@@ -69,10 +69,41 @@ export interface RawLayerNode {
   // App-wide default theme (NXMapAppConfig.theme) — null/absent keeps every
   // layer falling through to its own MapConfig.theme, then "default".
   Theme?: string | null;
+  // App-wide hover-tooltip defaults — a JSON-ENCODED STRING (same
+  // convention as MainLayerSettings/LayerInlineJSON, the real upstream
+  // payload never sends structured sub-config as an actual object), a
+  // pre-existing generic widget-schema field (present on every real
+  // ComponentType, always null until now) repurposed here specifically for
+  // this. See RawTooltipFormat's own comment for its shape and
+  // NXMapAppConfig.tooltipFormat for how it's consumed — null/absent keeps
+  // every default this drives exactly as it was before this field existed
+  // (a static layer's own MapConfig.tooltipTemplate.columns/layout when
+  // set, otherwise DEFAULT_TOOLTIP_TEMPLATE's; the hardcoded date
+  // format/fallback in NXMapBuilderService).
+  TooltipFormat?: string | null;
   // Only meaningful on the root MAP COLLECTION node — one entry per map
   // (see buildMapCollectionConfig()). Not read for a map's own children
   // anymore (see this interface's own comment above).
   Configuration?: RawLayerNode[] | null;
+}
+
+// RawLayerNode.TooltipFormat's own parsed shape — app-wide fallback
+// defaults for the hover tooltip, one level BELOW a static layer's own
+// MapConfig.tooltipTemplate (which still wins when it sets its own
+// Columns/Layout — see buildAppConfig()'s own comment) but ABOVE
+// NXMapBuilderService's hardcoded DEFAULT_TOOLTIP_TEMPLATE/date
+// format/fallback. Columns/Layout mirror TooltipTemplateConfig.columns/
+// .layout exactly (same "template2" etc. mtt-layout-* CSS class
+// convention — see that field's own comment); DateFormat is new,
+// consumed by NXMapBuilderService.setDateFormat()/formatDate() to render
+// each tooltip tile's own reading timestamp (MetricOverlayRecord.
+// Tooltip.ComponentList[].Date) — yyyy/MM/dd/HH/mm/ss tokens, see
+// formatDate()'s own comment for why it reads the ISO string's own literal
+// fields rather than going through a real Date object.
+export interface RawTooltipFormat {
+  Columns?: number;
+  Layout?: string;
+  DateFormat?: string;
 }
 
 // Lowercases and collapses any run of non-alphanumeric characters to a
@@ -108,10 +139,30 @@ function layerFileSourcesOf(node: RawLayerNode): DataSource<LayerFileEnvelope>[]
   }));
 }
 
+// Unlike MainLayerSettings/LayerInlineJSON (required/already-structured,
+// let a malformed value throw loudly), TooltipFormat is a brand-new,
+// entirely optional repurposing of a field every existing real config
+// already carries as null — tolerant-parse here (mirrors nx-circular-
+// chart's own parseSeriesPalette()) so a malformed value just falls back
+// to every default this would otherwise override, instead of crashing map
+// load entirely over a cosmetic tooltip setting.
+function parseTooltipFormat(raw: string | null | undefined): RawTooltipFormat | undefined {
+  if (!raw) {
+    return undefined;
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 // Converts one RawLayerNode (the base/only layer left in this shape) into
 // the exact NXMapAppConfig shape NxMapDemoComponent already expects.
 export function buildAppConfig(root: RawLayerNode): NXMapAppConfig {
   const defaultSelectedLayerNames = parseCommaList(root.LayersDefaultSelected);
+  const tooltipFormat = parseTooltipFormat(root.TooltipFormat);
   return {
     baseLayerConfigSource: { source: "inline", value: JSON.parse(root.MainLayerSettings) },
     layerFileSources: layerFileSourcesOf(root),
@@ -122,7 +173,14 @@ export function buildAppConfig(root: RawLayerNode): NXMapAppConfig {
     // reads more honestly as "no restriction" than an empty list of names.
     defaultSelectedLayerNames: defaultSelectedLayerNames.length ? defaultSelectedLayerNames : undefined,
     dataApiUrl: root.DataAPIURL ?? undefined,
-    theme: root.Theme ?? undefined
+    theme: root.Theme ?? undefined,
+    tooltipFormat: tooltipFormat
+      ? {
+          columns: tooltipFormat.Columns,
+          layout: tooltipFormat.Layout ?? undefined,
+          dateFormat: tooltipFormat.DateFormat ?? undefined
+        }
+      : undefined
   };
 }
 

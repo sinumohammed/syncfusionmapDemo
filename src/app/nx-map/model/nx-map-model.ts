@@ -161,6 +161,13 @@ export interface PointMetric {
   unit2?: string;
   value3?: number;
   unit3?: string;
+  // This reading's own timestamp — straight from the data (a matched
+  // TooltipComponentEntry.Date via NxMapDemoComponent.toTooltipMetrics()),
+  // rendered as-is (no parsing/reformatting) under this tile's primary
+  // value, small font, same convention as value2/value3 above: undefined
+  // hides that line entirely (NXMapBuilderService.toMarker()'s own
+  // dt_<key>/dd_<key> fields), not just leaves it blank.
+  date?: string;
   // This metric's own display name, straight from the data — only
   // meaningful on an entry converted from MetricOverlayRecord.Tooltip.ComponentList (ignored
   // everywhere else PointMetric is used, e.g. activeMetricValues).
@@ -324,18 +331,29 @@ export interface TooltipComponentEntry {
   Color?: string;
   Value?: string | number;
   Unit?: string;
+  // This one metric's own reading timestamp — per-entry (not shared across
+  // the whole ComponentList/Tooltip), so two metrics in the same fetch can
+  // carry different reading times. Rendered as-is under that tile's value
+  // (see PointMetric.date's own comment) — no parsing/timezone handling on
+  // this side, whatever string the API sends is what shows.
+  Date?: string;
 }
 
 // MetricOverlayRecord.Tooltip's own shape — Columns is a real field here,
 // not a magic reserved key mixed in among the metrics themselves the way
 // the old free-form Record<string, PointMetric | number | string> map's own
-// "columns"/"template" keys used to be. (No per-point tile-STYLE override
-// in this shape — MapPoint.tooltipLayout now only ever comes from the
-// map-wide default; add a `Template` field here the same way if a future
-// API needs that back.)
+// "columns"/"template" keys used to be.
 export interface MetricOverlayTooltip {
   Columns?: number;
   ComponentList?: TooltipComponentEntry[];
+  // Per-point tile-STYLE override — a named .mtt-layout-* CSS variant (see
+  // NxMapDemoComponent's TOOLTIP_TILE_LAYOUTS/nx-map-demo.component.scss),
+  // forwarded onto this record's own point as MapPoint.tooltipLayout (see
+  // NxMapDemoComponent.toTooltipLayout()) — same per-point-override role
+  // Columns already plays for tooltipColumns. Absent leaves the point on
+  // the map-wide default (RawTooltipFormat.Layout/MapConfig.
+  // tooltipTemplate.layout), same as before this field existed.
+  Template?: string;
 }
 
 // One tile in the hover tooltip's metric grid — `metricId` can be any

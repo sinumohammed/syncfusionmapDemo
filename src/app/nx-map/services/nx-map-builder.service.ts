@@ -346,6 +346,42 @@ export class NXMapBuilderService {
     this.defaultTooltipLayout = layout;
   }
 
+  // Set via setDateFormat(), called by NxMapDemoComponent alongside the
+  // other tooltip-template defaults with NXMapAppConfig.tooltipFormat's own
+  // DateFormat/nothing (see that field's own comment) — pattern tokens
+  // yyyy/MM/dd/HH/mm/ss, applied by formatDate() below. dateFallback is
+  // shown verbatim (NOT run through the pattern — it's already
+  // pre-formatted text, a deployment's own placeholder) whenever a reading
+  // has no Date at all, instead of hiding that tile's date line the way an
+  // earlier version of this feature did — see toMarker()'s own comment.
+  private dateFormat = "yyyy-MM-dd HH:mm";
+  private dateFallback = "2026-05-13 09:15";
+
+  setDateFormat(format: string | undefined, fallback: string | undefined): void {
+    this.dateFormat = format ?? this.dateFormat;
+    this.dateFallback = fallback ?? this.dateFallback;
+  }
+
+  // Reads the calendar/clock fields straight off the ISO string's own text
+  // (yyyy-MM-ddTHH:mm:ss, e.g. "2026-06-23T16:00:00+04:00") via regex,
+  // deliberately NOT `new Date(raw)` — parsing into a real Date object and
+  // reading its fields back out converts to the BROWSER's own local
+  // timezone, silently shifting a reading's displayed time away from
+  // whatever wall-clock time the API's own offset actually meant (e.g.
+  // "16:00+04:00" would show as a different hour for a viewer in another
+  // timezone) — this shows the reading's own local time as sent, not the
+  // viewer's. Falls back to dateFallback for anything absent or not
+  // matching that shape (a malformed/unexpected Date value shouldn't
+  // silently show a wrong or empty tile).
+  private formatDate(raw: string | undefined): string {
+    const match = raw ? /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/.exec(raw) : null;
+    if (!match) {
+      return this.dateFallback;
+    }
+    const [, yyyy, MM, dd, HH, mm, ss] = match;
+    return this.dateFormat.replace(/yyyy/g, yyyy).replace(/MM/g, MM).replace(/dd/g, dd).replace(/HH/g, HH).replace(/mm/g, mm).replace(/ss/g, ss);
+  }
+
   // One lookup array per layer, each aligned with that layer's flat
   // `polygons` array from buildPolygon() (circles pushed first, then real
   // polygons — built in that exact order so indexes always match).
@@ -602,6 +638,17 @@ export class NXMapBuilderService {
   // same as it already visibly does for the group's own aggregate
   // MarkerSettingsModel in buildMarkerPoints() below.
   private toMarker(point: MapPoint, lookupKey: string, theme: MapTheme, groupStyle: ShapeStyle | undefined) {
+    // Resolved ONCE, ahead of the dataSource object below, so the tooltip's
+    // own swatch (swatchShape/swatchColor/swatchImageUrl further down) can
+    // reuse the EXACT same point -> groupStyle -> theme resolution the real
+    // on-map marker's own shape/imageUrl/color fields use, instead of
+    // risking the two drifting apart if this logic ever changed in only
+    // one place.
+    const resolvedImageUrl = nonEmpty(point.imageUrl) ?? nonEmpty(groupStyle?.imageUrl) ?? nonEmpty(theme.marker?.imageUrl);
+    const resolvedShape = this.capitalizeShape(
+      resolvedImageUrl ? MarkerShape.Image : nonEmpty(point.shape) ?? nonEmpty(groupStyle?.shape) ?? nonEmpty(theme.marker?.shape) ?? MarkerShape.Balloon
+    );
+    const resolvedColor = nonEmpty(point.color) ?? nonEmpty(groupStyle?.color) ?? nonEmpty(theme.marker?.color);
     const marker: Record<string, unknown> = {
       latitude: point.latitude,
       longitude: point.longitude,
@@ -622,13 +669,29 @@ export class NXMapBuilderService {
       // when shape is "Image" (see ShapeStyle.imageUrl's own comment). No
       // imageUrl anywhere in the chain falls straight through to the
       // ordinary shape resolution, unchanged from before this field existed.
-      shape: this.capitalizeShape(
-        nonEmpty(point.imageUrl) ?? nonEmpty(groupStyle?.imageUrl) ?? nonEmpty(theme.marker?.imageUrl)
-          ? MarkerShape.Image
-          : nonEmpty(point.shape) ?? nonEmpty(groupStyle?.shape) ?? nonEmpty(theme.marker?.shape) ?? MarkerShape.Balloon
-      ),
-      imageUrl: nonEmpty(point.imageUrl) ?? nonEmpty(groupStyle?.imageUrl) ?? nonEmpty(theme.marker?.imageUrl),
-      color: nonEmpty(point.color) ?? nonEmpty(groupStyle?.color) ?? nonEmpty(theme.marker?.color),
+      shape: resolvedShape,
+      imageUrl: resolvedImageUrl,
+      color: resolvedColor,
+      // Reported live: the hover tooltip's title gave no visual hint of
+      // which shape/color this marker actually renders as on the map — a
+      // small swatch in the tooltip header, matching the real marker
+      // exactly, lets a user connect the two without having to guess.
+      // #marker-tooltip-template's own header (nx-map-demo.component.ts's
+      // injectMarkerTooltipTemplate()) renders it via
+      // .mtt-swatch--${swatchShape} (lowercase — CSS class names are
+      // case-sensitive and `shape` above is Title-cased for Syncfusion's
+      // OWN ShapeStyle.shape, a completely different consumer), same
+      // shape-name vocabulary (and the same "any unrecognized shape falls
+      // back to a plain circle" convention) toMetricOverlayMarker()'s own
+      // iconShape/toOverlayIconShape() already established for the ON-MAP
+      // overlay label icon — kept independent of that one since this
+      // swatch needs the FULL shape set (Balloon/Rectangle/
+      // InvertedTriangle included), not overlay's simplified 3-shape
+      // subset. swatchImageUrl backs the "Image" case specifically — see
+      // .mtt-swatch--image's own CSS comment.
+      swatchShape: (resolvedShape ?? MarkerShape.Circle).toLowerCase(),
+      swatchColor: nonEmpty(resolvedColor) ?? NORMAL_LABEL_COLOR,
+      swatchImageUrl: resolvedImageUrl ?? "",
       // markerScaleFactor grows this on zoom (see its own comment) — this
       // point's/group's/theme's own configured size is still the BASE this
       // multiplies, so a deployment's own sizing intent (e.g. a bigger
@@ -664,7 +727,7 @@ export class NXMapBuilderService {
       __lookupKey: lookupKey
     };
 
-    // Flat v_/u_/c_/v2_/u2_/d2_/v3_/u3_/d3_<key> fields for
+    // Flat v_/u_/c_/v2_/u2_/d2_/v3_/u3_/d3_/dt_/dd_<key> fields for
     // #marker-tooltip-template — Syncfusion's template is plain ${field}
     // substitution with no loops/conditionals, so every metric key the
     // template currently has a tile for (this.tooltipMetricKeys — see its
@@ -679,9 +742,16 @@ export class NXMapBuilderService {
     // MetricOverlayRecord.Tooltip.ComponentList — see its own comment) supplies a real
     // reading when this point has one; otherwise every tile still renders
     // the "—" placeholder, same as before any metric data existed anywhere.
-    // d2_<key>/d3_<key> stay a CSS `display` value, "none" unless value2/
-    // value3 is actually present (PointMetric's own optional second/third
-    // line — see its comment).
+    // d2_<key>/d3_<key>/dd_<key> stay a CSS `display` value, "none" unless
+    // value2/value3/a reading at all is actually present (PointMetric's
+    // own optional second/third line and reading timestamp — see their
+    // own comments). dt_<key> unlike v2_/v3_ is NEVER blank once a reading
+    // exists — formatDate() (see its own comment) falls back to
+    // dateFallback (a deployment's own placeholder text, set via
+    // setDateFormat()) when this specific reading has no Date of its own,
+    // so the date line only disappears entirely for a tile with no
+    // reading at all (still showing the "—" placeholder above it), not for
+    // one that has a reading but happens to be missing just its Date.
     for (const key of this.tooltipMetricKeys) {
       const reading = point.tooltipMetrics?.[key];
       marker[`v_${key}`] = reading ? reading.value : "—";
@@ -693,6 +763,8 @@ export class NXMapBuilderService {
       marker[`v3_${key}`] = reading?.value3 ?? "";
       marker[`u3_${key}`] = reading?.unit3 ?? "";
       marker[`d3_${key}`] = reading?.value3 !== undefined ? "block" : "none";
+      marker[`dt_${key}`] = reading ? this.formatDate(reading.date) : "";
+      marker[`dd_${key}`] = reading ? "block" : "none";
     }
 
     return marker;

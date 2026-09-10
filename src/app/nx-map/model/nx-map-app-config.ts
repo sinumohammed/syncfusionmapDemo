@@ -43,4 +43,22 @@ export interface NXMapAppConfig {
   // this ONCE here instead of repeating the same theme on every layer's own
   // config.
   theme?: string;
+  // App-wide hover-tooltip fallback defaults — from
+  // RawLayerNode.TooltipFormat (parent-config-transform.ts's
+  // parseTooltipFormat()), a JSON-encoded string on the real upstream
+  // payload. columns/layout sit one level BELOW a static layer's own
+  // MapConfig.tooltipTemplate.columns/.layout (that still wins when set —
+  // see NxMapDemoComponent.loadMap()'s own merge) but ABOVE
+  // NXMapBuilderService.DEFAULT_TOOLTIP_TEMPLATE's hardcoded fallback.
+  // dateFormat (NXMapBuilderService.setDateFormat()/formatDate()) has no
+  // per-layer override today — this is its only configurable source above
+  // NXMapBuilderService's own hardcoded default pattern. The fallback TEXT
+  // shown when a reading has no Date at all (NXMapBuilderService's own
+  // dateFallback) is not configurable from here at all yet — always that
+  // service's own hardcoded placeholder.
+  tooltipFormat?: {
+    columns?: number;
+    layout?: string;
+    dateFormat?: string;
+  };
 }

@@ -446,11 +446,23 @@
 /* No circular chart metric selected -> injectMarkerTooltipTemplate() omits
    .mtt-grid entirely and adds this class instead of the metrics-card
    sizing above, so a bare marker name doesn't get stretched to the same
-   240px/14-16px card meant for a multi-tile metrics tooltip. */
+   240px/14-16px card meant for a multi-tile metrics tooltip.
+   min-width/width/max-width are !important: this element ALSO carries a
+   .mtt-layout-* class (mtt-layout-template2's own min-width: 260px,
+   compact's own 180px, ...) whenever a static layer's config sets one as
+   its map-wide default (TooltipTemplateConfig.layout/RawTooltipFormat.
+   Layout) — same two-class specificity as this rule, so without
+   !important, whichever rule happens to come LATER in this stylesheet
+   wins regardless of which one actually describes this element's real
+   content. Confirmed live: a bare marker-name tooltip (no metric fetched
+   yet) rendered at template2's fixed 260px width instead of shrinking to
+   its own short text. This rule's whole POINT is "ignore whatever the
+   active layout would otherwise force," so it has to win outright, not
+   just usually. */
 ::ng-deep .marker-tooltip.mtt-name-only {
-  min-width: 0;
-  width: max-content;
-  max-width: 220px;
+  min-width: 0 !important;
+  width: max-content !important;
+  max-width: 220px !important;
   padding: 8px 12px;
   border-radius: 8px;
 }
@@ -469,17 +481,94 @@
   display: none;
 }
 
+/* justify-content: flex-start (not the original space-between) — this
+   header only ever had .mtt-title as its one child before the swatch
+   below existed, so space-between was inert; now that there are two
+   children, they need to sit together at the start, not pushed to
+   opposite ends. */
 ::ng-deep .marker-tooltip .mtt-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: flex-start;
+  gap: 8px;
 }
 
 ::ng-deep .marker-tooltip .mtt-title {
   font-size: 16px;
   font-weight: 700;
   color: #1a1a1a;
+}
+
+/* This marker's own actual shape/color/imageUrl (NXMapBuilderService.
+   toMarker()'s swatchShape/swatchColor/swatchImageUrl — see its own
+   comment), rendered ahead of the title so hovering a marker visually
+   confirms which one it is. Sized small and fixed (flex-shrink: 0) so a
+   long marker name never squeezes it. Base rule below is the "circle"
+   look (also the fallback appearance for any unrecognized shape); every
+   other .mtt-swatch--* variant only overrides what its own silhouette
+   needs, same pattern nx-circular-chart's own swatch shapes use
+   (nx-circular-chart-collection.component.scss) — kept as separate CSS
+   here rather than shared, since that module deliberately stays
+   independent of nx-map's. */
+::ng-deep .marker-tooltip .mtt-swatch {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--swatch-color, #5f6368);
+}
+
+::ng-deep .marker-tooltip .mtt-swatch--diamond {
+  border-radius: 0;
+  transform: rotate(45deg);
+}
+
+::ng-deep .marker-tooltip .mtt-swatch--rectangle {
+  border-radius: 2px;
+}
+
+/* CSS border-triangle trick, same as nx-map's own
+   .marker-label-icon--triangle — width/height: 0, the visible shape drawn
+   entirely from border widths, colored via border-bottom (not
+   `background`, which has no effect on a 0x0 box). */
+::ng-deep .marker-tooltip .mtt-swatch--triangle {
+  width: 0;
+  height: 0;
+  background: none;
+  border-radius: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-bottom: 12px solid var(--swatch-color, #5f6368);
+}
+
+::ng-deep .marker-tooltip .mtt-swatch--invertedtriangle {
+  width: 0;
+  height: 0;
+  background: none;
+  border-radius: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 12px solid var(--swatch-color, #5f6368);
+}
+
+/* Map-pin/teardrop silhouette — MarkerShape.Balloon's own actual on-map
+   look (Syncfusion's default marker shape) is closer to a real pin than a
+   plain circle, so this echoes that instead of falling back to the base
+   circle rule above. */
+::ng-deep .marker-tooltip .mtt-swatch--balloon {
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+}
+
+/* swatchImageUrl (see NXMapBuilderService.toMarker()'s own comment) as a
+   real background image instead of a flat color — only reachable when
+   this marker actually resolved an imageUrl (toMarker() forces shape to
+   "Image" whenever one exists, see ShapeStyle.imageUrl's own comment), so
+   --swatch-image is always meaningful here, never a stale/empty url(''). */
+::ng-deep .marker-tooltip .mtt-swatch--image {
+  background: var(--swatch-image) center / cover no-repeat;
+  border-radius: 3px;
 }
 
 ::ng-deep .marker-tooltip .mtt-badge {
@@ -607,6 +696,65 @@
   color: #6b7280;
 }
 
+/* Same structural idea as "template2" above (each tile its own tinted
+   tile in a boxed card) — palette pulled from
+   C:\Users\sinum\Downloads\nibras-logo.svg's own fill colors (#FFCB05
+   gold, #00BEFF cyan, #47A1F6 blue, plus the logo's own black/white), but
+   a clean white card with a blue border rather than template2's dark
+   theme — reported live as reading more professional than the original
+   near-black version. Label/unit use DARKENED shades of the logo's own
+   cyan/blue (#0f6fb2/#0099b3, not the literal #47A1F6/#00BEFF) — the
+   literal brand colors are tuned for a dark background and fail basic
+   contrast directly on white; this keeps the same blue/cyan brand
+   identity while staying actually readable. Select it the same way as
+   any other named layout — RawLayerNode.TooltipFormat's own Layout:
+   "nibras" (app-wide default, see RawTooltipFormat's own comment),
+   MapConfig.tooltipTemplate.layout (per static layer), or
+   MetricOverlayTooltip.Template/MapPoint.tooltipLayout (per point) —
+   nothing else in the pipeline needs to know this layout exists. */
+::ng-deep .marker-tooltip.mtt-layout-nibras {
+  min-width: 260px;
+  padding: 14px;
+  background: #ffffff;
+  border: 1.5px solid #47a1f6;
+  border-radius: 14px;
+  box-shadow: 0 6px 20px rgba(71, 161, 246, 0.2);
+}
+
+::ng-deep .marker-tooltip.mtt-layout-nibras .mtt-title {
+  color: #14213d;
+}
+
+::ng-deep .marker-tooltip.mtt-layout-nibras .mtt-header {
+  padding-bottom: 8px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid rgba(71, 161, 246, 0.25);
+}
+
+::ng-deep .marker-tooltip.mtt-layout-nibras .mtt-grid {
+  gap: 8px;
+}
+
+::ng-deep .marker-tooltip.mtt-layout-nibras .mtt-stat {
+  background: rgba(71, 161, 246, 0.06);
+  border: 1px solid rgba(71, 161, 246, 0.25);
+  border-radius: 10px;
+  padding: 8px 10px;
+  text-align: center;
+}
+
+::ng-deep .marker-tooltip.mtt-layout-nibras .mtt-label {
+  color: #0f6fb2;
+}
+
+::ng-deep .marker-tooltip.mtt-layout-nibras .mtt-value {
+  color: #14213d;
+}
+
+::ng-deep .marker-tooltip.mtt-layout-nibras .mtt-unit {
+  color: #0099b3;
+}
+
 ::ng-deep .marker-tooltip .mtt-label {
   font-size: 10px;
   font-weight: 700;
@@ -666,10 +814,17 @@
   margin-left: 3px;
 }
 
+/* This tile's own reading date/time (PointMetric.date, dt_<key>/dd_<key>
+   in NXMapBuilderService.toMarker()) — sits directly under .mtt-value,
+   same small/muted treatment as .mtt-label but not uppercase, since it's
+   already a real formatted date, not a title. display toggled per-tile
+   via dd_<key> (see toMarker()'s own comment), same "none" unless present
+   convention .mtt-value2/.mtt-value3 already use. */
 ::ng-deep .marker-tooltip .mtt-timestamp {
-  font-size: 12px;
+  font-size: 10px;
   color: #9aa0a6;
-  margin-top: 10px;
+  margin-top: 3px;
+  white-space: nowrap;
 }
 
 /* #marker-label-template's rendered content (see

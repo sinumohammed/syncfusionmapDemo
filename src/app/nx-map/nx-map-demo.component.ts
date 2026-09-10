@@ -66,7 +66,7 @@ Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon, Selec
 // Named tooltip-tile HTML layouts — selected via TooltipTemplateConfig.layout
 // (see its own comment), defaulting to "default" below. Every renderer gets
 // the exact same per-item Syncfusion ${field} placeholders to work with —
-// v_/u_/c_/v2_/u2_/d2_/v3_/u3_/d3_<metricId>, populated by
+// v_/u_/c_/v2_/u2_/d2_/v3_/u3_/d3_/dt_/dd_<metricId>, populated by
 // NXMapBuilderService.toMarker() for whatever metric ids
 // deriveTooltipTemplate() (below) ends up with — only the HTML/CSS
 // wrapping them differs between layouts. Ship a different tile shape for
@@ -83,6 +83,7 @@ const TOOLTIP_TILE_LAYOUTS: Record<string, (item: TooltipTemplateItem) => string
       <div class="mtt-stat">
         <div class="mtt-label">${title}</div>
         <div class="mtt-value" style="color: \${c_${key}};">\${v_${key}} <span class="mtt-unit">\${u_${key}}</span></div>
+        <div class="mtt-timestamp" style="display: \${dd_${key}};">\${dt_${key}}</div>
         <div class="mtt-value2" style="display: \${d2_${key}};">\${v2_${key}} <span class="mtt-unit">\${u2_${key}}</span></div>
         <div class="mtt-value3" style="display: \${d3_${key}};">\${v3_${key}} <span class="mtt-unit">\${u3_${key}}</span></div>
       </div>
@@ -578,6 +579,24 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
         // cover every metric id the data mentions).
         this.staticTooltipTemplate =
           baseConfig.tooltipTemplate ?? staticLayers.map((s: { config: MapConfig }) => s.config.tooltipTemplate).find((t: any) => !!t);
+        // nxAppConfig.tooltipFormat (RawLayerNode.TooltipFormat — see its
+        // own comment) sits one level below the per-layer
+        // staticTooltipTemplate above but above DEFAULT_TOOLTIP_TEMPLATE's
+        // hardcoded fallback — deriveTooltipTemplate() already falls
+        // through to DEFAULT_TOOLTIP_TEMPLATE.columns whenever
+        // staticTooltipTemplate itself is unset, so folding tooltipFormat's
+        // own columns/layout into staticTooltipTemplate HERE (only for
+        // whichever field staticTooltipTemplate doesn't already set) is
+        // what makes it the actual middle tier without deriveTooltipTemplate
+        // needing to know about nxAppConfig at all.
+        if (this.nxAppConfig.tooltipFormat) {
+          this.staticTooltipTemplate = {
+            columns: this.staticTooltipTemplate?.columns ?? this.nxAppConfig.tooltipFormat.columns ?? DEFAULT_TOOLTIP_TEMPLATE.columns,
+            layout: this.staticTooltipTemplate?.layout ?? this.nxAppConfig.tooltipFormat.layout,
+            items: this.staticTooltipTemplate?.items ?? []
+          };
+        }
+        this.builder.setDateFormat(this.nxAppConfig.tooltipFormat?.dateFormat, undefined);
         // No records yet at initial load — this renders whatever the
         // static config alone provides (or nothing, if it doesn't set one
         // either), same "empty until a circular chart fetch actually happens" state
@@ -707,7 +726,8 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
           value: Number(c.Value) || 0,
           unit: c.Unit,
           color: c.Color,
-          label: c.Label
+          label: c.Label,
+          date: c.Date
         }
       ]);
     return entries.length ? Object.fromEntries(entries) : undefined;
@@ -720,6 +740,20 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // point on the map-wide default, same as before this existed.
   private static toTooltipColumns(tooltip: MetricOverlayTooltip | undefined): number | undefined {
     return typeof tooltip?.Columns === "number" ? tooltip.Columns : undefined;
+  }
+
+  // Tooltip.Template is the per-point tile-STYLE override MetricOverlayTooltip's
+  // own comment anticipated ("add a Template field here the same way if a
+  // future API needs that back") — same role as Columns above, just for
+  // MapPoint.tooltipLayout instead of tooltipColumns: a CSS class name
+  // (e.g. "nibras", "compact", "template2" — see TOOLTIP_TILE_LAYOUTS'
+  // sibling .mtt-layout-* rules in nx-map-demo.component.scss) scoping
+  // this ONE point's own tooltip to a different named layout than the
+  // map-wide default, without needing a static MapConfig.tooltipTemplate/
+  // RawTooltipFormat change to do it. Undefined here just leaves the
+  // point on the map-wide default, same as before this existed.
+  private static toTooltipLayout(tooltip: MetricOverlayTooltip | undefined): string | undefined {
+    return typeof tooltip?.Template === "string" && tooltip.Template ? tooltip.Template : undefined;
   }
 
   // Converts a matched/anchored MetricOverlayRecord's own reading (its
@@ -909,7 +943,8 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
             width: record.Width,
             height: record.Height,
             tooltipMetrics: NxMapDemoComponent.toTooltipMetrics(record.Tooltip),
-            tooltipColumns: NxMapDemoComponent.toTooltipColumns(record.Tooltip)
+            tooltipColumns: NxMapDemoComponent.toTooltipColumns(record.Tooltip),
+            tooltipLayout: NxMapDemoComponent.toTooltipLayout(record.Tooltip)
           },
           record
         });
@@ -939,7 +974,8 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
                   ? {
                       ...p,
                       tooltipMetrics: NxMapDemoComponent.toTooltipMetrics(anchored[p.id].Tooltip),
-                      tooltipColumns: NxMapDemoComponent.toTooltipColumns(anchored[p.id].Tooltip)
+                      tooltipColumns: NxMapDemoComponent.toTooltipColumns(anchored[p.id].Tooltip),
+                      tooltipLayout: NxMapDemoComponent.toTooltipLayout(anchored[p.id].Tooltip)
                     }
                   : p
               )
@@ -2248,7 +2284,21 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // anything.
   //
   // ${name} is the marker's own name (bound from toMarker()'s dataSource
-  // object). toMarker() in nx-map-builder.service.ts precomputes
+  // object); ${swatchShape}/${swatchColor}/${swatchImageUrl}, same source,
+  // drive the small shape+color swatch ahead of the title (see
+  // NXMapBuilderService.toMarker()'s own comment) — the exact same
+  // shape/color/imageUrl the real on-map marker itself renders with, so
+  // hovering a marker visually confirms "this is the one that looks like
+  // that". --swatch-image's own url(${swatchImageUrl}) is deliberately
+  // UNQUOTED — confirmed live that Syncfusion's own ${field} substitution
+  // mangles a value sitting inside single quotes (url('${swatchImageUrl}')
+  // rendered with everything past `url(` silently dropped, corrupting the
+  // whole style attribute — the browser was then left parsing the raw
+  // slash-separated path text as bogus unquoted HTML attributes). The path
+  // itself (e.g. "assets/nx-map/icons/tank.svg") has no characters CSS's
+  // own unquoted url() needs quoting for, so dropping the quotes sidesteps
+  // it entirely — don't reintroduce them here without re-confirming this
+  // is still an issue. toMarker() in nx-map-builder.service.ts precomputes
   // v_/u_/c_/v2_/u2_/d2_/v3_/u3_/d3_<key> fields for each of
   // NXMapBuilderService's own tooltipMetricKeys, since Syncfusion's
   // ${field} template substitution has no loop construct of its own.
@@ -2305,6 +2355,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     container.innerHTML = `
       <div class="marker-tooltip \${layoutClass}${tiles ? "" : " mtt-name-only"}\${tooltipEmptyClass}">
         <div class="mtt-header">
+          <span class="mtt-swatch mtt-swatch--\${swatchShape}" style="--swatch-color: \${swatchColor}; --swatch-image: url(\${swatchImageUrl});"></span>
           <span class="mtt-title">\${name}</span>
         </div>
         ${grid}

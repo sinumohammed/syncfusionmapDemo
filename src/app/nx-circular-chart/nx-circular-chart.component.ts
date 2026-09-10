@@ -442,13 +442,34 @@ export class NxCircularChartComponent implements OnChanges {
     const radiusPercent = parseFloat(this.config?.radius ?? "") || DEFAULT_RADIUS_PERCENT;
     const radius = (CHART_BOX_PX * radiusPercent) / 200 + 2;
 
-    this.centerLabelPosition = { left: center.x, top: center.y };
+    // Reported live: the center label sat slightly left/up of the ring's
+    // actual visual center, not dead center. Root cause: center.x/y are
+    // pieModule's own coordinates relative to the CHART's own origin
+    // (<ejs-accumulationchart>'s own top-left corner) — but
+    // .nx-circular-chart-center is `position: absolute` against
+    // .nx-circular-chart-card (its nearest `position: relative`
+    // ancestor), not against the chart element itself, and the chart sits
+    // inset from the card's own top-left corner by that card's own
+    // padding + border (nx-circular-chart.component.scss's own
+    // .nx-circular-chart-card) — a gap this math never accounted for, so
+    // every point landed short by exactly that inset. Measuring the
+    // chart's own element against the card via getBoundingClientRect()
+    // (not a hardcoded padding/border constant — stays correct regardless
+    // of any future card style change) gives the real offset to add back,
+    // for both the center label and the per-slice badges below (same
+    // chart-relative center.x/y baseline, same bug).
+    const chartEl = chart.element as HTMLElement | undefined;
+    const card = chartEl?.closest(".nx-circular-chart-card") as HTMLElement | null;
+    const offsetLeft = chartEl && card ? chartEl.getBoundingClientRect().left - card.getBoundingClientRect().left : 0;
+    const offsetTop = chartEl && card ? chartEl.getBoundingClientRect().top - card.getBoundingClientRect().top : 0;
+
+    this.centerLabelPosition = { left: center.x + offsetLeft, top: center.y + offsetTop };
     this.badges = points.map((p: any) => {
       const radians = (p.midAngle * Math.PI) / 180;
       return {
         text: this.formatValue(p.y),
-        left: center.x + radius * Math.cos(radians),
-        top: center.y + radius * Math.sin(radians)
+        left: center.x + offsetLeft + radius * Math.cos(radians),
+        top: center.y + offsetTop + radius * Math.sin(radians)
       };
     });
   }

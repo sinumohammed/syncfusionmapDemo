@@ -229,6 +229,21 @@ export interface PointMetric {
   // omitting a match entirely would. Omit (or true) to show the label as
   // normal, same as before this field existed.
   showInfo?: boolean;
+  // A short ordered run of this metric's own past readings (oldest first),
+  // straight from the data (a matched TooltipComponentEntry.History via
+  // NxMapDemoComponent.toTooltipMetrics()) — drives the small trend
+  // sparkline NXMapBuilderService.toMarker() precomputes into this tile's
+  // own spark_<key> SVG field (see its own comment), revealed on hovering
+  // that tile (nx-map-demo.component.scss's own .mtt-stat--has-spark
+  // rule). Undefined/fewer than 2 points renders no sparkline at all —
+  // one point has no trend to draw, same as any other optional field here.
+  // Each point's own `limit` (independent of this reading's own top-level
+  // `limit` above — a threshold can move over time, same reasoning as
+  // `value`) draws that day's own limit marker on the chart, so a viewer
+  // can see exactly which date(s) crossed it, not just the CURRENT
+  // reading's own value/limit — omit per-point to leave that date with no
+  // limit marker at all (a flat run of dates that never had one).
+  history?: { date?: string; value: number; limit?: number }[];
 }
 
 // One entry in the response NXMapConfigService.loadDataOverlay() fetches
@@ -353,6 +368,20 @@ export interface TooltipComponentEntry {
   // without a separate lookup. Per-entry, same reasoning as Date — two
   // metrics in the same fetch can have different limits.
   Limit?: string | number;
+  // A short ordered run of this metric's own past readings, oldest first —
+  // drives the trend sparkline shown on hovering this tile (see
+  // PointMetric.history's own comment for how it's consumed). Each entry's
+  // own Value/Limit are coerced to numbers the same tolerant way this
+  // entry's own Value/Limit already are (NxMapDemoComponent.
+  // toTooltipMetrics()); Date is carried straight through, used as that
+  // point's own x-axis label on the chart. Limit is per-entry, same
+  // reasoning as this whole entry's own top-level Limit above — a
+  // threshold isn't necessarily constant over the history window — and is
+  // what lets the chart mark exactly which date(s) crossed it, not just
+  // whether the CURRENT reading did. Omit entirely (or fewer than 2
+  // entries) for a tile with no sparkline at all — every existing record
+  // already works exactly as before without this field.
+  History?: { Date?: string; Value?: string | number; Limit?: string | number }[];
 }
 
 // MetricOverlayRecord.Tooltip's own shape — Columns is a real field here,

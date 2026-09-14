@@ -478,6 +478,7 @@
     (resize)="onMapResize()"
     (loaded)="onMapLoaded()"
     (zoomComplete)="onZoomComplete()"
+    (tooltipRenderComplete)="onMapTooltipRenderComplete($event)"
   >
   </ejs-maps>
 
@@ -508,6 +509,24 @@
     <div class="nx-map-loading-card">
       <span class="nx-map-spinner"></span>
       <span class="nx-map-loading-label">Loading map…</span>
+    </div>
+  </div>
+
+  <!-- Maximized trend chart — opened by clicking the "⤢" button in a
+       marker tooltip's own sparkline dock (see setupSparklineDock()'s own
+       comment: that button is raw Syncfusion-template DOM, not Angular-
+       bound, so its click reaches openSparklineMaximize() through a
+       delegated listener rather than a template event binding here). A
+       real Angular overlay (unlike the tooltip itself), so it stays open
+       independent of hover/mouse position — closable by its own ✕ button
+       or by clicking the backdrop. -->
+  <div class="nx-map-spark-modal-backdrop" *ngIf="maximizedSparkline" (click)="closeSparklineMaximize()">
+    <div class="nx-map-spark-modal" (click)="$event.stopPropagation()">
+      <div class="nx-map-spark-modal-header">
+        <span class="nx-map-spark-modal-title">{{ maximizedSparkline?.title }} — trend</span>
+        <button type="button" class="icon-btn" title="Close" (click)="closeSparklineMaximize()">✕</button>
+      </div>
+      <div class="nx-map-spark-modal-body" [innerHTML]="maximizedSparkline?.svg"></div>
     </div>
   </div>
 

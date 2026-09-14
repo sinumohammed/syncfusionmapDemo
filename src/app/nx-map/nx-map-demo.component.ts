@@ -9,6 +9,7 @@ import {
   SimpleChanges,
   ViewChild
 } from "@angular/core";
+import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
 import { forkJoin, of, Subscription } from "rxjs";
 import { catchError, map, switchMap } from "rxjs/operators";
 import {
@@ -80,12 +81,14 @@ const TOOLTIP_TILE_LAYOUTS: Record<string, (item: TooltipTemplateItem) => string
     const key = item.metricId;
     const title = item.title ?? key.toUpperCase();
     return `
-      <div class="mtt-stat">
+      <div class="mtt-stat \${sparkClass_${key}}" data-metric="${key}" data-spark-title="${title}">
         <div class="mtt-label">${title}</div>
         <div class="mtt-value" style="color: \${c_${key}};">\${v_${key}}<span class="mtt-limit" style="display: \${limd_${key}};"> / \${lim_${key}}</span> <span class="mtt-unit">\${u_${key}}</span></div>
         <div class="mtt-timestamp" style="display: \${dd_${key}};">\${dt_${key}}</div>
         <div class="mtt-value2" style="display: \${d2_${key}};">\${v2_${key}} <span class="mtt-unit">\${u2_${key}}</span></div>
         <div class="mtt-value3" style="display: \${d3_${key}};">\${v3_${key}} <span class="mtt-unit">\${u3_${key}}</span></div>
+        <template class="mtt-spark-src">\${spark_${key}}</template>
+        <template class="mtt-spark-big-src">\${sparkBig_${key}}</template>
       </div>
     `;
   }
@@ -441,7 +444,8 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   constructor(
     private builder: NXMapBuilderService,
     private configService: NXMapConfigService,
-    private elRef: ElementRef<HTMLElement>
+    private elRef: ElementRef<HTMLElement>,
+    private sanitizer: DomSanitizer
   ) {
     this.themeNames = this.builder.getThemeNames();
   }
@@ -881,7 +885,15 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
           // c.Limit !== undefined (not just truthy) — a real Limit of 0 is
           // still a real threshold to show, same "presence, not truthiness"
           // guard toPointMetric()'s own Value2/Value3 coercion already uses.
-          limit: c.Limit !== undefined ? Number(c.Limit) || 0 : undefined
+          limit: c.Limit !== undefined ? Number(c.Limit) || 0 : undefined,
+          // Same tolerant Value/Limit coercion as this entry's own
+          // Value/Limit above, per history point — see PointMetric.
+          // history's own comment.
+          history: c.History?.map(h => ({
+            date: h.Date,
+            value: Number(h.Value) || 0,
+            limit: h.Limit !== undefined ? Number(h.Limit) || 0 : undefined
+          }))
         }
       ]);
     return entries.length ? Object.fromEntries(entries) : undefined;
@@ -2138,6 +2150,8 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     this.wireResetButton();
     this.observeLayerGroupCreation();
     this.observeContainerResize();
+    this.setupStickyMarkerTooltip();
+    this.setupSparklineDock();
     // Syncfusion renders the zoom toolbar asynchronously after the
     // component initializes — give it a moment before measuring.
     setTimeout(() => {
@@ -2154,6 +2168,10 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     this.metricOverlaySubscription?.unsubscribe();
     this.layerGroupObserver?.disconnect();
     this.containerResizeObserver?.disconnect();
+    this.stickyTooltipObserver?.disconnect();
+    document.removeEventListener("mousemove", this.stickyPointerMoveHandler, NxMapDemoComponent.POINTER_TRACK_CAPTURE);
+    const sparkRoot = this.elRef.nativeElement.querySelector(".nx-map");
+    sparkRoot?.removeEventListener("click", this.sparklineDockClickHandler);
     clearTimeout(this.loadSettleResizeTimer);
     clearTimeout(this.resetSettleResizeTimer);
     clearTimeout(this.settleZoomCycleTimer);
@@ -2165,6 +2183,283 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   private layerGroupObserver: MutationObserver | undefined;
   private containerResizeObserver: ResizeObserver | undefined;
+  private stickyTooltipObserver: MutationObserver | undefined;
+
+  // Live cursor position (viewport coordinates), kept up to date by a
+  // single cheap document-level mousemove listener — read by
+  // stickyTooltipObserver's callback below to judge, AT THE MOMENT
+  // Syncfusion removes the tooltip, whether the pointer is still
+  // plausibly headed for/over it (see setupStickyMarkerTooltip()'s own
+  // comment for why this can't just be "is the pointer already over the
+  // tooltip DOM" — by the time that could ever become true, the node is
+  // usually already gone).
+  private lastPointerX = -1;
+  private lastPointerY = -1;
+  private stickyPointerMoveHandler = (e: MouseEvent): void => {
+    this.lastPointerX = e.clientX;
+    this.lastPointerY = e.clientY;
+  };
+  // CAPTURE phase (the trailing `true` on add/removeEventListener below),
+  // not the default bubble phase — confirmed live via console logging
+  // that onMapTooltipRenderComplete() (used by pullTooltipTowardPointer())
+  // otherwise still saw lastPointerX/Y stuck at their initial -1/-1 even
+  // while genuinely hovering a marker: Syncfusion's own mousemove listener
+  // is attached directly to the map's own element (a DESCENDANT of
+  // document), and its handling — synchronously triggering
+  // tooltipRenderComplete, which this component's own handler runs
+  // straight off — all happens during the event's CAPTURE/AT-TARGET pass,
+  // before it ever bubbles up to reach a plain bubble-phase listener on
+  // document. Capturing here runs this update FIRST, before the event
+  // even reaches the map element, so the fresh position is always ready
+  // by the time Syncfusion's own synchronous chain needs it.
+  private static readonly POINTER_TRACK_CAPTURE = true;
+
+  // The tooltip's own bounding rect, cached the moment it renders (see
+  // onMapTooltipRenderComplete() and its own (tooltipRenderComplete)
+  // binding in the template) — has to be captured WHILE the element is
+  // still attached; by the time stickyTooltipObserver's callback runs
+  // (after Syncfusion has already removed it), getBoundingClientRect()
+  // on a detached node returns an all-zero rect.
+  private lastTooltipRect: DOMRect | undefined;
+
+  // Reported live: hovering a marker's tooltip — or one of its own tiles,
+  // for the trend sparkline (see TOOLTIP_TILE_LAYOUTS' own mtt-spark-wrap)
+  // — closes it almost immediately, before the pointer can ever actually
+  // reach it; confirmed live a second time even after an initial fix
+  // attempt here (see git history/PR discussion), which gated resurrecting
+  // the tooltip on "the pointer is already over the tooltip element" —
+  // that condition can never become true in time: Syncfusion's own
+  // MapsTooltip module (read directly from @syncfusion/ej2-maps'
+  // ej2-maps.umd.min.js) removes the tooltip element from the DOM
+  // (`Y.remove(...)`, a real removal, not a CSS hide) on essentially the
+  // very next mousemove/mouseleave off the marker's own (small) hit area —
+  // well before the pointer has had time to travel the gap to the
+  // tooltip's own floating position, so "already over it" never gets a
+  // chance to fire.
+  //
+  // Fixed instead by judging proximity, not prior hover state: whenever
+  // Syncfusion removes the tooltip, check the CURRENT live pointer
+  // position (lastPointerX/Y above) against the tooltip's own cached rect
+  // (lastTooltipRect), padded generously (STICKY_TOOLTIP_PAD_PX) to cover
+  // the gap between the marker and the floating card. Inside that padded
+  // rect -> the user is plainly still trying to reach/use the tooltip,
+  // so the exact same DOM node is immediately re-appended right back
+  // where Syncfusion just removed it from. Outside it -> a genuine
+  // "moved away", left removed. Bails out (never resurrects) if a FRESH
+  // tooltip already exists in the DOM — Syncfusion may have already
+  // started rendering a new one for a different marker in the same tick,
+  // and reinserting the old node then would show two at once.
+  private setupStickyMarkerTooltip(): void {
+    document.addEventListener("mousemove", this.stickyPointerMoveHandler, NxMapDemoComponent.POINTER_TRACK_CAPTURE);
+
+    this.stickyTooltipObserver = new MutationObserver(mutations => {
+      for (const mutation of mutations) {
+        mutation.removedNodes.forEach(node => {
+          if (!(node instanceof HTMLElement) || !node.classList.contains("EJ2-maps-Tooltip")) {
+            return;
+          }
+          if (document.getElementsByClassName("EJ2-maps-Tooltip").length > 0) {
+            return;
+          }
+          const rect = this.lastTooltipRect;
+          if (!rect) {
+            return;
+          }
+          const pad = NxMapDemoComponent.STICKY_TOOLTIP_PAD_PX;
+          const withinX = this.lastPointerX >= rect.left - pad && this.lastPointerX <= rect.right + pad;
+          const withinY = this.lastPointerY >= rect.top - pad && this.lastPointerY <= rect.bottom + pad;
+          if (withinX && withinY) {
+            mutation.target.appendChild(node);
+          }
+        });
+      }
+    });
+    // document.body, not just .nx-map — Syncfusion renders the tooltip
+    // into <ejs-maps>'s own "Secondary_Element" child (see this file's own
+    // scss comment on [id$="_mapsTooltip"]), but removeTooltip() reads
+    // straight from document.getElementsByClassName(), which is what this
+    // mirrors here — watching broadly is what makes this resilient to
+    // exactly which container Syncfusion happens to nest it under.
+    this.stickyTooltipObserver.observe(document.body, { childList: true, subtree: true });
+  }
+
+  // How far past the tooltip's own edge counts as "still reaching for it"
+  // — needs to comfortably cover the real gap between a marker's own tiny
+  // hit area and the floating card Syncfusion positions near it (confirmed
+  // live: too small a pad still lets the resurrection race lose on a fast
+  // mouse move). Generous on purpose; the downside of too-generous is only
+  // that the tooltip lingers slightly past where a user would expect, not
+  // that it fails to reopen.
+  private static readonly STICKY_TOOLTIP_PAD_PX = 60;
+
+  // (tooltipRenderComplete) — see the template's own binding. Two jobs:
+  //
+  // 1. Pulls the tooltip most of the way back toward the actual hovered
+  //    point — reported live the gap Syncfusion's own positioning leaves
+  //    between a marker and its tooltip made reaching the tooltip itself
+  //    (to read a tile's own sparkline dock, or just to keep it open —
+  //    see setupStickyMarkerTooltip()'s own comment on why crossing that
+  //    gap matters at all) "a little tricky". lastPointerX/Y (tracked by
+  //    stickyPointerMoveHandler for that same sticky-tooltip fix) is the
+  //    real screen position that just triggered this render, so it
+  //    doubles as "where the hovered point is" here. TOOLTIP_PULL_RATIO
+  //    shrinks the gap rather than eliminating it (translating ALL the
+  //    way to the pointer would put the tooltip right under the cursor,
+  //    which Syncfusion's own auto-flip positioning specifically avoids
+  //    for a reason — it'd sit ON TOP of the marker instead of next to
+  //    it) — it keeps the SAME side Syncfusion chose (above/below/left/
+  //    right, already picked to stay on-screen near a map edge) and just
+  //    closes most of the distance.
+  // 2. Caches the (POST-pull) rect setupStickyMarkerTooltip()'s observer
+  //    needs, while the element is still attached (see lastTooltipRect's
+  //    own comment for why this can't be measured later). Re-measured
+  //    once more on the next animation frame in case Syncfusion
+  //    repositions it after this initial complete event (confirmed live
+  //    this can happen for a marker near the map's own edge, where the
+  //    tooltip flips side to stay on-screen) — the pull is reapplied
+  //    there too, against whatever the NEW position is.
+  private static readonly TOOLTIP_PULL_RATIO = 0.65;
+
+  // args.element (below) is Syncfusion's own INNER content node (the
+  // Tooltip widget's own `.element`, confirmed live via DOM inspection to
+  // be "..._mapsTooltipparent_template", a plain unstyled child) — the
+  // ACTUAL positioned box (position: absolute; left/top, class
+  // "EJ2-maps-Tooltip", id "..._mapsTooltip") is that node's OWN parent.
+  // Confirmed live: applying the pull transform to args.element directly
+  // had no visible effect at all — a transform on an unpositioned child
+  // that fills its parent doesn't move the parent's own box. This walks
+  // up to that real positioned ancestor first; falls back to the node
+  // itself if the structure ever changes and it's already the right one.
+  private resolveOuterTooltipEl(el: HTMLElement): HTMLElement {
+    return (el.closest(".EJ2-maps-Tooltip") as HTMLElement | null) ?? el;
+  }
+
+  private pullTooltipTowardPointer(el: HTMLElement): void {
+    if (this.lastPointerX < 0 || this.lastPointerY < 0) {
+      return;
+    }
+    const rect = el.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const dx = (this.lastPointerX - centerX) * NxMapDemoComponent.TOOLTIP_PULL_RATIO;
+    const dy = (this.lastPointerY - centerY) * NxMapDemoComponent.TOOLTIP_PULL_RATIO;
+    // Added on top of whatever left/top Syncfusion already set inline
+    // (position: absolute) — a transform, not a left/top rewrite, so this
+    // never has to know/recompute Syncfusion's own coordinate system.
+    el.style.transform = `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px)`;
+  }
+
+  onMapTooltipRenderComplete(args: { element?: Element }): void {
+    const inner = args?.element;
+    if (!(inner instanceof HTMLElement)) {
+      return;
+    }
+    const outer = this.resolveOuterTooltipEl(inner);
+    this.pullTooltipTowardPointer(outer);
+    this.lastTooltipRect = outer.getBoundingClientRect();
+    requestAnimationFrame(() => {
+      if (document.body.contains(outer)) {
+        this.pullTooltipTowardPointer(outer);
+        this.lastTooltipRect = outer.getBoundingClientRect();
+      }
+    });
+  }
+
+  // Set only while the "maximize" chart modal (below) is open — a bigger
+  // redraw of whichever tile's trend the user last clicked maximize on,
+  // rendered as a real Angular overlay (see the template's own
+  // .nx-map-spark-modal) rather than more raw-DOM string building, since
+  // this one DOES live inside Angular's own change detection (no
+  // Syncfusion template lookup involved). `svg` is sanitized once here
+  // (bypassSecurityTrustHtml) since it's trusted, self-generated markup
+  // (NXMapBuilderService.buildSparklineSvg() — no user-authored HTML ever
+  // reaches this), not because it's otherwise unsafe.
+  maximizedSparkline: { title: string; svg: SafeHtml } | null = null;
+
+  openSparklineMaximize(title: string, svgMarkup: string): void {
+    if (!svgMarkup) {
+      return;
+    }
+    this.maximizedSparkline = { title, svg: this.sanitizer.bypassSecurityTrustHtml(svgMarkup) };
+  }
+
+  closeSparklineMaximize(): void {
+    this.maximizedSparkline = null;
+  }
+
+  // CLICK, not hover — a tile with data-spark-title is a decent-sized
+  // target, but the shared dock sits BELOW the whole tile grid, and
+  // reaching its own maximize button meant moving the pointer down PAST
+  // every other tile first; reported live that crossing switched the
+  // dock to whichever tile the pointer happened to pass over on the way,
+  // so it was never showing the metric actually being reached for by the
+  // time the pointer got there. A click is a single deliberate act on
+  // exactly one tile — the pointer's path getting there doesn't matter.
+  //
+  // One delegated handler (not one per tile/dock/button — all three get
+  // rebuilt from scratch on virtually every mousemove tick while the
+  // tooltip shows, see setupStickyMarkerTooltip()'s own comment; a
+  // listener attached to any one instance would be gone the moment
+  // Syncfusion replaces it) straight from .nx-map itself, which persists
+  // for this component's whole lifetime — checks the maximize button
+  // first (it sits INSIDE a tile-less area of the dock, never inside a
+  // .mtt-stat, so there's no ambiguity about which branch a given click
+  // belongs to).
+  private sparklineDockClickHandler = (e: Event): void => {
+    const target = e.target as HTMLElement;
+    const maximizeBtn = target?.closest?.(".mtt-spark-maximize") as HTMLElement | null;
+    if (maximizeBtn) {
+      this.openSparklineMaximize(maximizeBtn.getAttribute("data-title") ?? "", maximizeBtn.getAttribute("data-svg") ?? "");
+      return;
+    }
+    const tile = target?.closest?.(".mtt-stat--has-spark") as HTMLElement | null;
+    if (!tile) {
+      return;
+    }
+    const tooltipEl = tile.closest(".marker-tooltip");
+    const dock = tooltipEl?.querySelector(".mtt-spark-dock");
+    if (!dock) {
+      return;
+    }
+    // Visual "which tile am I looking at" cue — cleared off every tile in
+    // THIS tooltip first (there's only ever one active at a time), then
+    // set on the one just clicked.
+    tooltipEl?.querySelectorAll(".mtt-stat--spark-active").forEach(el => el.classList.remove("mtt-stat--spark-active"));
+    tile.classList.add("mtt-stat--spark-active");
+    const smallSrc = tile.querySelector(".mtt-spark-src") as HTMLTemplateElement | null;
+    const bigSrc = tile.querySelector(".mtt-spark-big-src") as HTMLTemplateElement | null;
+    const title = tile.getAttribute("data-spark-title") ?? "";
+    const titleEl = dock.querySelector(".mtt-spark-dock-title");
+    const bodyEl = dock.querySelector(".mtt-spark-dock-body");
+    if (titleEl) {
+      titleEl.textContent = title;
+    }
+    if (bodyEl) {
+      bodyEl.innerHTML = smallSrc?.innerHTML ?? "";
+    }
+    const dockMaximizeBtn = dock.querySelector(".mtt-spark-maximize");
+    if (dockMaximizeBtn) {
+      // Stashed as attributes on the button itself (via setAttribute, so
+      // the browser handles quoting/escaping the raw SVG markup — no
+      // manual escaping needed) rather than captured in this closure —
+      // Syncfusion rebuilds this whole tooltip's innerHTML on virtually
+      // every mousemove tick while it's showing (see
+      // setupStickyMarkerTooltip()'s own comment), so the button a LATER
+      // click on maximize actually reads from is a fresh node each time;
+      // only data living ON that fresh node survives to be read back.
+      dockMaximizeBtn.setAttribute("data-title", title);
+      dockMaximizeBtn.setAttribute("data-svg", bigSrc?.innerHTML ?? "");
+    }
+    dock.classList.add("mtt-spark-dock--visible");
+  };
+
+  private setupSparklineDock(): void {
+    const root = this.elRef.nativeElement.querySelector(".nx-map");
+    if (!root) {
+      return;
+    }
+    root.addEventListener("click", this.sparklineDockClickHandler);
+  }
 
   // Syncfusion's own resize handling (mapInstance's internal listener, and
   // every plain @HostListener("window:resize") in this file) only ever
@@ -2515,8 +2810,31 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     // margin-top gap and the outer card's min-width, below, so a
     // name-only tooltip sizes to the name instead of the metrics-card
     // dimensions.
+    // One shared trend-chart dock per tooltip, AFTER every tile (not one
+    // embedded strip per tile — reported live as too small/cramped to
+    // actually read). Hidden until setupSparklineDock()'s delegated CLICK
+    // handler (not hover — reported live that reaching the dock's own
+    // maximize button meant crossing over other tiles first, which kept
+    // switching it to whichever tile the pointer passed over on the way)
+    // populates + reveals it from whichever tile was actually clicked
+    // (its own hidden .mtt-spark-src/.mtt-spark-big-src — see
+    // TOOLTIP_TILE_LAYOUTS' own comment); stays showing that metric until
+    // a DIFFERENT tile is clicked, so moving the pointer down into the
+    // dock itself (to read it, or click maximize) never loses it. Omitted
+    // for a tile-less (name-only) tooltip, same as .mtt-grid above —
+    // nothing to ever populate it with.
+    const dock = tiles
+      ? `
+      <div class="mtt-spark-dock">
+        <div class="mtt-spark-dock-header">
+          <span class="mtt-spark-dock-title"></span>
+          <button type="button" class="mtt-spark-maximize" title="Maximize trend">⤢</button>
+        </div>
+        <div class="mtt-spark-dock-body"></div>
+      </div>`
+      : "";
     const grid = tiles
-      ? `<div class="mtt-grid" style="grid-template-columns: repeat(\${columns}, 1fr);">${tiles}</div>`
+      ? `<div class="mtt-grid" style="grid-template-columns: repeat(\${columns}, 1fr);">${tiles}</div>${dock}`
       : "";
 
     // A single CSS grid, not pre-split into fixed `columns`-many-wide rows

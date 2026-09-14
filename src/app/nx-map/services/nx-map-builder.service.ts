@@ -793,9 +793,233 @@ export class NXMapBuilderService {
       // already draws for date.
       marker[`lim_${key}`] = reading?.limit ?? "";
       marker[`limd_${key}`] = reading?.limit !== undefined ? "inline" : "none";
+      // spark_<key>/sparkBig_<key> are this tile's own precomputed trend
+      // chart, already rendered as plain inline <svg> strings at two sizes
+      // — see buildSparklineSvg()'s own comment for why (Syncfusion's
+      // ${field} substitution has no loop construct, so this has to be
+      // built here, once per marker, not derived from a template). Both
+      // "" whenever this reading has fewer than 2 history points, same
+      // "nothing to draw" case as every other optional field above.
+      // Neither is shown inline in the tile itself any more — see
+      // NxMapDemoComponent's own template comment on the shared
+      // .mtt-spark-dock this feeds instead (one dock per tooltip, hover a
+      // tile to populate it — was one embedded strip per tile, reported
+      // live as too small/cramped to actually read).
+      // spark_<key> sizes the DOCK's own display; sparkBig_<key> is the
+      // SAME chart at a much larger size, read only when that tile's own
+      // maximize button is clicked (NxMapDemoComponent.
+      // openSparklineMaximize()) — pre-rendering both up front here avoids
+      // needing to duplicate this chart-drawing logic client-side just to
+      // redraw it bigger on demand.
+      marker[`spark_${key}`] = NXMapBuilderService.buildSparklineSvg(reading?.history, { width: 240, height: 84 });
+      marker[`sparkBig_${key}`] = NXMapBuilderService.buildSparklineSvg(reading?.history, { width: 520, height: 220 });
+      marker[`sparkClass_${key}`] = reading?.history && reading.history.length >= 2 ? "mtt-stat--has-spark" : "";
     }
 
     return marker;
+  }
+
+  // Renders an inline trend chart SVG from an ordered (oldest-first) run
+  // of past readings — a value polyline PLUS, whenever a point carries its
+  // own `limit`, that date's own limit tick and (when this point's value
+  // actually exceeds it) a red marker + native <title> tooltip calling out
+  // the crossing — so a viewer can see not just THAT a metric has an
+  // upward trend, but exactly which date(s) went over threshold. Also
+  // labels the y-axis with the series' own min/max value (reported live:
+  // a bare line with no value scale was "too difficult to understand" on
+  // its own — a viewer had no idea WHAT range the line spanned). Returns
+  // "" for fewer than 2 points (nothing to draw a line between) —
+  // toMarker() above already only calls this when there's a real reading
+  // at all, this handles the "reading exists but history doesn't/is too
+  // short" case on its own.
+  //
+  // `size` picks the chart's own pixel footprint — toMarker() renders TWO
+  // of these per metric at different sizes (spark_<key>, small, for the
+  // shared dock's own default display; sparkBig_<key>, large, read only
+  // when that tile's own maximize button is clicked — see
+  // NxMapDemoComponent.openSparklineMaximize()) from the exact same
+  // history, so the maximized view is a straightforward bigger redraw of
+  // what the dock already showed, not a different chart.
+  //
+  // Reported live: date labels rendered as raw ISO strings badly cramped
+  // (or parsing them with `Date` risked a timezone-shifted date, off by a
+  // day from what the record actually said) — dateLabel() below just
+  // slices the "YYYY-MM-DD" prefix straight out of the ISO string instead,
+  // the exact date the API sent, no reinterpretation.
+  private static buildSparklineSvg(
+    history: { date?: string; value: number; limit?: number }[] | undefined,
+    size: { width: number; height: number }
+  ): string {
+    if (!history || history.length < 2) {
+      return "";
+    }
+    const { width, height } = size;
+    // Scales every other constant below (font size, dot radius, stroke
+    // width, padding) off the chart's own height relative to the small
+    // dock size this was originally tuned at (84px) — so the large
+    // maximized redraw (220px, ~2.6x taller) isn't just a blurry
+    // upscale of the same thicknesses, everything grows with it.
+    const scale = height / 84;
+    const fontSize = 7 * scale;
+    const dotRadius = 1.8 * scale;
+    const crossedRadius = 3 * scale;
+    const strokeWidth = 1.6 * scale;
+
+    const padLeft = 30 * scale;
+    const padRight = 8 * scale;
+    const padTop = 10 * scale;
+    // Leaves room under the chart for date labels — chartBottom is the
+    // plot area's own bottom edge, `height` (past it) is where the date
+    // <text> baseline sits.
+    const chartBottom = height - 16 * scale;
+    const chartHeight = chartBottom - padTop;
+    const chartWidth = width - padLeft - padRight;
+
+    const values = history.map(h => h.value);
+    // Limits fold into the SAME value range (not a separate scale) so the
+    // limit line/markers sit at their real, comparable position relative
+    // to the value line — a limit far above every actual reading would
+    // otherwise sit off-chart, or a limit near the low end would
+    // compress the value line into a sliver, if scaled independently.
+    const limits = history.map(h => h.limit).filter((l): l is number => l !== undefined);
+    const allValues = [...values, ...limits];
+    const min = Math.min(...allValues);
+    const max = Math.max(...allValues);
+    const range = max - min || 1;
+    const step = history.length > 1 ? chartWidth / (history.length - 1) : 0;
+
+    const xAt = (i: number) => padLeft + i * step;
+    const yAt = (v: number) => padTop + chartHeight * (1 - (v - min) / range);
+    const dateLabel = (date: string | undefined) => (date && date.length >= 10 ? date.slice(5, 10) : "");
+    const formatValue = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1));
+
+    const points = values.map((v, i) => `${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`).join(" ");
+
+    // y-axis — just the series' own min/max (not a full tick ladder, this
+    // is still a compact trend chart, not a full analytics one) so a
+    // viewer has SOME sense of the actual value range instead of just a
+    // shape. A light vertical rule under the labels gives the two numbers
+    // something to visually anchor to.
+    const yAxis =
+      `<line x1="${padLeft.toFixed(1)}" y1="${padTop.toFixed(1)}" x2="${padLeft.toFixed(1)}" y2="${chartBottom.toFixed(1)}" stroke="#e0e3e6" stroke-width="1"/>` +
+      `<text x="${(padLeft - 4 * scale).toFixed(1)}" y="${(yAt(max) + fontSize * 0.35).toFixed(1)}" font-size="${fontSize.toFixed(1)}" text-anchor="end" fill="#5f6368">${formatValue(max)}</text>` +
+      `<text x="${(padLeft - 4 * scale).toFixed(1)}" y="${(yAt(min) + fontSize * 0.35).toFixed(1)}" font-size="${fontSize.toFixed(1)}" text-anchor="end" fill="#5f6368">${formatValue(min)}</text>`;
+
+    // A single dashed limit line connecting every date that has its own
+    // `limit` — reported live the earlier per-point tick marks (isolated
+    // dashes, no line between them) read as scattered clutter rather than
+    // "the threshold", making it hard to see at a glance which stretch of
+    // the value line was actually above/below it. Broken into separate
+    // RUNS only where the underlying dates aren't consecutive (a gap —
+    // some date in between has no limit at all, an omitted per-point
+    // Limit — see PointMetric.history's own comment) — this still never
+    // draws a limit across a stretch that was never reported; it just
+    // connects every CONSECUTIVE run of dates that do have one, which for
+    // a fully-populated history (a limit on every date, the common case)
+    // is one unbroken line end to end.
+    //
+    // A STEP line (horizontal-then-vertical, "staircase"), not a smooth
+    // diagonal polyline straight from one date's limit to the next's —
+    // reported live a diagonal reads as the limit itself gradually
+    // sliding between values day to day, when it's actually a flat
+    // threshold that just changes abruptly at that date. "Step-after":
+    // each date's own limit draws flat across ITS OWN column (from that
+    // date's own x to the midpoint before the next), then jumps straight
+    // up/down to the next date's limit exactly at that midpoint — so
+    // every point on the line where it's flat is directly under (or very
+    // near) the actual date it belongs to, not smeared between two dates.
+    const limitPoints = history.map((h, i) => (h.limit !== undefined ? { i, y: yAt(h.limit) } : null));
+    const limitRuns: { i: number; y: number }[][] = [];
+    limitPoints.forEach(p => {
+      if (!p) {
+        return;
+      }
+      const lastRun = limitRuns[limitRuns.length - 1];
+      const prevPoint = lastRun?.[lastRun.length - 1];
+      if (prevPoint && prevPoint.i === p.i - 1) {
+        lastRun.push(p);
+      } else {
+        limitRuns.push([p]);
+      }
+    });
+    const limitLine = limitRuns
+      .map(run => {
+        if (run.length === 1) {
+          // A single isolated date with a limit (both neighbors missing
+          // one) has nothing to connect to — a short dot-dash tick, same
+          // as before, so it's still visible rather than silently dropped.
+          const tickHalfWidth = 4 * scale;
+          return `<line x1="${(xAt(run[0].i) - tickHalfWidth).toFixed(1)}" y1="${run[0].y.toFixed(1)}" x2="${(xAt(run[0].i) + tickHalfWidth).toFixed(1)}" y2="${run[0].y.toFixed(1)}" stroke="#d97706" stroke-width="${(1.3 * scale).toFixed(1)}" stroke-dasharray="${(1.5 * scale).toFixed(1)} ${(1.5 * scale).toFixed(1)}"/>`;
+        }
+        // Extends half a step BEFORE the run's own first point and half a
+        // step AFTER its own last, so the very first/last flat segments
+        // read the same width as every segment in between, rather than
+        // starting/ending abruptly right at the point itself.
+        const halfStep = step / 2;
+        const path: string[] = [`M ${(xAt(run[0].i) - halfStep).toFixed(1)} ${run[0].y.toFixed(1)}`];
+        run.forEach((p, idx) => {
+          const midX = idx === 0 ? xAt(p.i) - halfStep : (xAt(run[idx - 1].i) + xAt(p.i)) / 2;
+          path.push(`L ${midX.toFixed(1)} ${p.y.toFixed(1)}`);
+          const nextMidX = idx === run.length - 1 ? xAt(p.i) + halfStep : (xAt(p.i) + xAt(run[idx + 1].i)) / 2;
+          path.push(`L ${nextMidX.toFixed(1)} ${p.y.toFixed(1)}`);
+        });
+        return `<path d="${path.join(" ")}" fill="none" stroke="#d97706" stroke-width="${(1.3 * scale).toFixed(1)}" stroke-dasharray="${(2.5 * scale).toFixed(1)} ${(2 * scale).toFixed(1)}" stroke-linejoin="round"/>`;
+      })
+      .join("");
+
+    // A filled marker on EVERY point (small, same color as the line) so
+    // each date's own position is visible even without crossing anything
+    // — crossed ones (value > that date's own limit) are drawn LARGER and
+    // red, with a native <title> (a real SVG tooltip on hover, no extra JS
+    // needed) spelling out exactly what crossed and by how much.
+    const markers = history
+      .map((h, i) => {
+        const x = xAt(i);
+        const y = yAt(h.value);
+        const label = dateLabel(h.date) || `#${i + 1}`;
+        const crossed = h.limit !== undefined && h.value > h.limit;
+        if (crossed) {
+          return (
+            `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${crossedRadius.toFixed(1)}" fill="#c94a3f" stroke="#fff" stroke-width="${(0.8 * scale).toFixed(1)}">` +
+            `<title>${label}: ${h.value} (limit ${h.limit}) — exceeded</title>` +
+            `</circle>`
+          );
+        }
+        return (
+          `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${dotRadius.toFixed(1)}" fill="currentColor">` +
+          `<title>${label}: ${h.value}${h.limit !== undefined ? ` (limit ${h.limit})` : ""}</title>` +
+          `</circle>`
+        );
+      })
+      .join("");
+
+    // Date labels under the chart — every point when there's room for
+    // them (this app's own mock history is 5 points), otherwise just the
+    // first/last so labels don't overlap each other. Threshold scales
+    // with chart width since the large maximized redraw has room for more.
+    const maxLabels = Math.max(2, Math.floor(chartWidth / (26 * scale)));
+    const labelIndexes = history.length <= maxLabels ? history.map((_, i) => i) : [0, history.length - 1];
+    const dateLabels = labelIndexes
+      .map(i => {
+        const text = dateLabel(history[i].date);
+        if (!text) {
+          return "";
+        }
+        const anchor = i === 0 ? "start" : i === history.length - 1 ? "end" : "middle";
+        return `<text x="${xAt(i).toFixed(1)}" y="${(height - 3 * scale).toFixed(1)}" font-size="${fontSize.toFixed(1)}" text-anchor="${anchor}" fill="#5f6368">${text}</text>`;
+      })
+      .join("");
+
+    return (
+      `<svg class="mtt-spark-svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">` +
+      `<line x1="${padLeft.toFixed(1)}" y1="${chartBottom.toFixed(1)}" x2="${(width - padRight).toFixed(1)}" y2="${chartBottom.toFixed(1)}" stroke="#e0e3e6" stroke-width="1"/>` +
+      yAxis +
+      limitLine +
+      `<polyline points="${points}" fill="none" stroke="currentColor" stroke-width="${strokeWidth.toFixed(1)}" stroke-linecap="round" stroke-linejoin="round"/>` +
+      markers +
+      dateLabels +
+      `</svg>`
+    );
   }
 
   // Overlay-only marker datum for a group's activeMetricId — same

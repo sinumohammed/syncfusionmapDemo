@@ -94,6 +94,28 @@
    being hovered. */
 .nx-map ::ng-deep [id$="_mapsTooltip"] {
   z-index: 2 !important;
+  /* Confirmed live (getComputedStyle) Syncfusion sets `pointer-events: none`
+     as an INLINE style on this exact element — a normal choice for a
+     purely passive/read-only tooltip, but it means the browser skips this
+     entire element (and everything inside it) during hit-testing: the
+     cursor "sees through" it straight to the map/SVG behind, so it can
+     never become a real mouseover/mouseout target OR match CSS :hover —
+     confirmed live via elementFromPoint() at a point square inside the
+     rendered tooltip card returning the map's own SVG background instead.
+     This is what actually broke BOTH hovering a tile for its own sparkline
+     (TOOLTIP_TILE_LAYOUTS' own .mtt-stat--has-spark:hover rule, which can
+     never match a target that's invisible to the pointer) AND the
+     tooltip closing the instant the pointer starts moving toward it —
+     Syncfusion's own internal "is the pointer still over the tooltip"
+     check (ej2-maps' own MapsTooltip module) reads the real event target,
+     which — with pointer-events:none in the way — is never actually the
+     tooltip, so it always looks like the pointer left it. An author
+     stylesheet's `pointer-events` beats an inline one the same way `fill`
+     already does elsewhere in this file (path[id*="_Point_"] above) — a
+     plain !important is enough, no ::ng-deep trick needed beyond what's
+     already used to reach this Syncfusion-rendered (not Angular-templated)
+     element at all. */
+  pointer-events: auto !important;
 }
 
 /* Syncfusion's own zoom toolbar (ZoomIn/ZoomOut/Reset) is invisible by
@@ -557,6 +579,67 @@
   }
 }
 
+/* Maximized trend chart — opened from a marker tooltip's own sparkline
+   dock (see setupSparklineDock()'s own comment). A real Angular *ngIf
+   overlay, not part of the Syncfusion-templated tooltip, so it stays open
+   independent of hover state — z-index above everything else on the map
+   (loading overlays included, 250) since it's a deliberate, click-to-open
+   modal, not a passive status indicator. pointer-events: auto (this
+   component's own default) so the backdrop click-to-close actually works. */
+.nx-map .nx-map-spark-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 33, 61, 0.45);
+}
+.nx-map .nx-map-spark-modal {
+  width: min(90%, 600px);
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+.nx-map .nx-map-spark-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #eaf4ff;
+  border-bottom: 3px solid #ffcb05;
+}
+.nx-map .nx-map-spark-modal-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #14213d;
+  text-transform: uppercase;
+}
+.nx-map .nx-map-spark-modal-header .icon-btn {
+  background: none;
+  border: none;
+  color: #101828;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 4px;
+  line-height: 1;
+}
+.nx-map .nx-map-spark-modal-body {
+  padding: 16px;
+}
+/* Matches NXMapBuilderService.buildSparklineSvg()'s own large viewBox
+   (520x220) — same "keep its own aspect ratio, don't stretch" reasoning
+   as the dock's small version (nx-map-demo.component.scss's own
+   .mtt-spark-dock-body .mtt-spark-svg). */
+.nx-map .nx-map-spark-modal-body .mtt-spark-svg {
+  display: block;
+  width: 100%;
+  height: 220px;
+  color: #47a1f6;
+}
+
 .nx-map .layer-panel-body {
   padding: 0 8px 8px;
 }
@@ -761,6 +844,100 @@
 
 ::ng-deep .marker-tooltip .mtt-stat {
   min-width: 0;
+}
+
+/* Hidden data sources only (see TOOLTIP_TILE_LAYOUTS' default renderer in
+   nx-map-demo.component.ts) — <template> content is already inert/
+   unrendered by the HTML spec on its own, this just guards against any
+   Syncfusion-internal layout pass that might still measure it. */
+::ng-deep .marker-tooltip .mtt-spark-src,
+::ng-deep .marker-tooltip .mtt-spark-big-src {
+  display: none;
+}
+/* Hover affordance — cursor only changes (no color/scale) so a tile
+   without history (no --has-spark class) doesn't visually suggest it has
+   anything to reveal. */
+::ng-deep .marker-tooltip .mtt-stat--has-spark {
+  cursor: pointer;
+}
+/* Which tile the shared dock below is currently showing (see
+   NxMapDemoComponent.sparklineDockClickHandler's own comment — a click,
+   not hover, decides this now) — a light tint plus the same blue used
+   throughout this brand's own accents, so it reads as "selected", not
+   just "clickable" (that's already .mtt-stat--has-spark's own job). */
+::ng-deep .marker-tooltip .mtt-stat--spark-active {
+  background: #eaf4ff;
+  border-radius: 6px;
+  outline: 1px solid #47a1f6;
+}
+
+/* One shared dock per tooltip, below every tile (see
+   injectMarkerTooltipTemplate()'s own comment) — populated + revealed by
+   NxMapDemoComponent.setupSparklineDock()'s delegated hover handler, NOT
+   a :hover-driven CSS reveal: an earlier per-tile version relied on
+   :hover + a CSS transition, and confirmed live Syncfusion's MapsTooltip
+   module rebuilds this tooltip's entire innerHTML on virtually every
+   mousemove tick while it's showing, which restarted that transition
+   from zero every time and it visually never finished. This dock's own
+   reveal is a plain, immediate class toggle instead (no transition to
+   interrupt), driven by real JS on a real hover event, which — unlike a
+   pure CSS :hover rule — keeps re-asserting itself correctly across
+   those repeated rebuilds because the delegated listener lives on .nx-map
+   itself (see setupSparklineDock()'s own comment), not on the
+   (constantly replaced) tile/dock nodes. Stays visible showing the LAST
+   hovered metric rather than hiding again on mouseout — see
+   injectMarkerTooltipTemplate()'s own comment on why. */
+::ng-deep .marker-tooltip .mtt-spark-dock {
+  display: none;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #e0e3e6;
+}
+::ng-deep .marker-tooltip .mtt-spark-dock--visible {
+  display: block;
+}
+::ng-deep .marker-tooltip .mtt-spark-dock-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+::ng-deep .marker-tooltip .mtt-spark-dock-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #14213d;
+  text-transform: uppercase;
+}
+/* Plain icon button, same visual language as the map's own .layer-btn
+   controls (white circle, soft border) rather than a full text button —
+   this sits inside a small hover card, a text label would crowd it. */
+::ng-deep .marker-tooltip .mtt-spark-maximize {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid #dadce0;
+  border-radius: 50%;
+  background: #fff;
+  color: #47a1f6;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+::ng-deep .marker-tooltip .mtt-spark-maximize:hover {
+  border-color: #47a1f6;
+  background: #eaf4ff;
+}
+/* width/height match NXMapBuilderService.buildSparklineSvg()'s own small
+   viewBox (240x84) — NOT stretched to an arbitrary aspect ratio, this
+   chart carries real axis text/labels that would distort under
+   non-uniform scaling. */
+::ng-deep .marker-tooltip .mtt-spark-dock-body .mtt-spark-svg {
+  display: block;
+  width: 100%;
+  height: 84px;
+  color: #47a1f6;
 }
 
 /* Example second tile style — selected per-point via

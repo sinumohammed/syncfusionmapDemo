@@ -2152,6 +2152,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     this.observeContainerResize();
     this.setupStickyMarkerTooltip();
     this.setupSparklineDock();
+    this.setupWheelZoomGuard();
     // Syncfusion renders the zoom toolbar asynchronously after the
     // component initializes — give it a moment before measuring.
     setTimeout(() => {
@@ -2172,6 +2173,8 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     document.removeEventListener("mousemove", this.stickyPointerMoveHandler, NxMapDemoComponent.POINTER_TRACK_CAPTURE);
     const sparkRoot = this.elRef.nativeElement.querySelector(".nx-map");
     sparkRoot?.removeEventListener("click", this.sparklineDockClickHandler);
+    sparkRoot?.removeEventListener("wheel", this.wheelZoomGuardHandler, { capture: true } as EventListenerOptions);
+    sparkRoot?.removeEventListener("wheel", this.wheelZoomPostCheckHandler);
     clearTimeout(this.loadSettleResizeTimer);
     clearTimeout(this.resetSettleResizeTimer);
     clearTimeout(this.settleZoomCycleTimer);
@@ -2512,6 +2515,144 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
       return;
     }
     root.addEventListener("click", this.sparklineDockClickHandler);
+  }
+
+  // Syncfusion's toolbar ZoomOut button self-disables once the live zoom
+  // reaches zoomSettings.minZoom (see buildZoom()'s own comment — set to 1
+  // here), but mouse-wheel zoom has NO equivalent floor check of its own:
+  // every wheel tick is forwarded straight into Syncfusion's internal zoom
+  // handler with no throttling, so a fast scroll-down burst right at the
+  // floor can queue several zoom-out ticks before Syncfusion's own
+  // clamp-then-redraw settles between them — confirmed live as the map's
+  // own SVG going blank right after a Reset + fast scroll-down, the same
+  // class of internal-state race already deferred for double-click-after-
+  // Reset (see project_syncfusion_zoom_bug memory), just reachable a
+  // different way. This listener is attached in the CAPTURE phase on
+  // .nx-map (see setupWheelZoomGuard()'s own comment on why that stable
+  // wrapper, not .map-container/<ejs-maps> itself) so it runs BEFORE
+  // Syncfusion's own bubble-phase wheel handler.
+  //
+  // A time-based rate limit on EVERY zoom-out tick was tried here first
+  // (swallowing any tick within ~180ms of the last one forwarded, to give
+  // Syncfusion's own zoom/render cycle time to settle) but confirmed live
+  // to make zoom-out noticeably SLOWER/less responsive than zoom-in even
+  // for completely ordinary scrolling far above the floor. Removing it
+  // entirely, in turn, confirmed live to make the runaway-past-floor
+  // symptom easy to reproduce again — so it WAS doing real work, just
+  // applied too broadly. Scoped instead to only the danger zone: the
+  // throttle now only applies once the live zoom is already within
+  // NEAR_FLOOR_MULTIPLIER x the configured floor (default floor 1 ->
+  // throttling only starts at/under scale 3) — ordinary zoom-out from
+  // further away is completely unthrottled, and only the actual
+  // near-floor range (where a fast burst can realistically overshoot past
+  // minZoom before Syncfusion's own zoom/render cycle settles) pays the
+  // small per-tick delay. wheelZoomPostCheckHandler below (plus
+  // onZoomComplete()'s own correction) still self-heals via
+  // resetToConfiguredView() if anything gets through regardless.
+  private static readonly NEAR_FLOOR_MULTIPLIER = 3;
+  private static readonly WHEEL_ZOOM_OUT_MIN_INTERVAL_MS = 120;
+  private lastWheelZoomOutTime = 0;
+
+  private wheelZoomGuardHandler = (event: WheelEvent): void => {
+    if (event.deltaY <= 0) {
+      return;
+    }
+    if (this.mapInstance) {
+      const inst = this.mapInstance as any;
+      const expectingTileMap = this.mapStyle === "osm" || this.mapStyle === "satellite";
+      const liveZoomFactor = expectingTileMap ? inst.tileZoomLevel : inst.scale;
+      const floor = this.mapOptions?.zoomSettings?.minZoom ?? 1;
+      const nearFloor = typeof liveZoomFactor === "number" && liveZoomFactor <= floor * NxMapDemoComponent.NEAR_FLOOR_MULTIPLIER;
+      if (nearFloor) {
+        const now = performance.now();
+        if (now - this.lastWheelZoomOutTime < NxMapDemoComponent.WHEEL_ZOOM_OUT_MIN_INTERVAL_MS) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          return;
+        }
+        this.lastWheelZoomOutTime = now;
+      }
+      // Confirmed live: onZoomComplete()'s own correction (triggered off
+      // Syncfusion's `(zoomComplete)` event) is NOT a reliable place to
+      // catch this — once the internal scale has actually collapsed well
+      // past the floor (confirmed live down to 0.01, two orders of
+      // magnitude past minZoom), Syncfusion doesn't necessarily fire
+      // another zoomComplete afterward for us to react to, so that
+      // correction can sit waiting for a signal that never arrives. This
+      // handler already reads the SAME live inst.scale/tileZoomLevel on
+      // every single wheel tick, synchronously, with no dependency on
+      // Syncfusion's own event firing — so it can catch corruption
+      // (already BELOW the floor, not just at it) and self-heal
+      // immediately via the same resetToConfiguredView() full rebuild
+      // onZoomComplete()'s correction uses, without waiting on anything
+      // Syncfusion controls. Guarded on !settleZoomCycleActive so repeated
+      // wheel ticks during the correction's own rebuild don't retrigger it.
+      if (typeof liveZoomFactor === "number" && liveZoomFactor <= floor) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (liveZoomFactor < floor && !this.settleZoomCycleActive) {
+          this.resetToConfiguredView();
+        }
+        return;
+      }
+    }
+  };
+
+  // Confirmed live the pre-check above still isn't enough on its own: a
+  // single "fast" wheel tick can carry a large enough deltaY that
+  // Syncfusion's own zoom-out math computes the runaway scale (down to
+  // 0.01, confirmed live) DURING that same event's processing — our
+  // pre-check only ever sees the scale as it stood BEFORE this event, so
+  // it can't catch damage that happens WITHIN it, and if the user stops
+  // scrolling right after that one bad tick there's no NEXT tick left to
+  // trigger the pre-check's correction either. This is a SEPARATE
+  // listener on the same target, registered WITHOUT capture (bubble
+  // phase) — Syncfusion's own wheel-zoom handler is already attached by
+  // the time setupWheelZoomGuard() runs (its child <ejs-maps> component's
+  // own ngAfterViewInit fires before this parent's, same as every other
+  // Syncfusion-instance access in this file assumes), and same-phase
+  // listeners on one target fire in registration order — so this runs
+  // AFTER Syncfusion has already fully processed the event, letting it
+  // see (and self-heal, same resetToConfiguredView() full rebuild) the
+  // damage from THIS SAME tick, not just whatever an earlier tick left
+  // behind.
+  private wheelZoomPostCheckHandler = (): void => {
+    if (!this.mapInstance || this.settleZoomCycleActive) {
+      return;
+    }
+    const inst = this.mapInstance as any;
+    const expectingTileMap = this.mapStyle === "osm" || this.mapStyle === "satellite";
+    const liveZoomFactor = expectingTileMap ? inst.tileZoomLevel : inst.scale;
+    const floor = this.mapOptions?.zoomSettings?.minZoom ?? 1;
+    if (typeof liveZoomFactor === "number" && liveZoomFactor < floor) {
+      this.resetToConfiguredView();
+    }
+  };
+
+  // Confirmed live: attaching straight to ".map-container" (the <ejs-maps>
+  // element itself) silently attached NOTHING — getEventListeners()
+  // showed no wheel listener there at all. Same root cause wireResetButton()
+  // /setupSparklineDock() already document for their own delegated
+  // listeners: the config here loads asynchronously (see ngAfterViewInit's
+  // own comment), so <ejs-maps> may not exist yet the moment this runs,
+  // and applyBaseMapStyle()'s destroy/recreate cycle (style switch, Reset)
+  // can replace it with a brand-new element later regardless — either way
+  // a listener bound directly to that specific node is either never
+  // attached or silently orphaned. ".nx-map" (the outermost wrapper,
+  // unconditionally present in the template, never destroyed/recreated by
+  // any rebuild path) is the same stable delegation root those two
+  // already rely on. Wheel events over the map bubble up through it
+  // regardless of which <ejs-maps> instance is currently live, so both
+  // the capture-phase pre-check and the bubble-phase post-check still see
+  // every tick — and since ".nx-map" is an ANCESTOR of wherever Syncfusion
+  // attaches its own handler, capture-phase ordering (outer listeners
+  // fire before inner ones) and bubble-phase ordering (inner listeners
+  // fire before outer ones) both hold automatically, with no dependency
+  // on registration order the way same-target listeners would need.
+  private setupWheelZoomGuard(): void {
+    const nxMapRoot = this.elRef.nativeElement.querySelector(".nx-map");
+    nxMapRoot?.addEventListener("wheel", this.wheelZoomGuardHandler, { capture: true, passive: false });
+    nxMapRoot?.addEventListener("wheel", this.wheelZoomPostCheckHandler, { passive: true });
   }
 
   // Syncfusion's own resize handling (mapInstance's internal listener, and
@@ -3241,6 +3382,39 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
         // project_syncfusion_zoom_bug memory).
         const effectiveZoomFactor = liveZoomFactor;
         const effectiveCenter = liveCenter;
+
+        // A SEPARATE Syncfusion-internal defect from the one above (no
+        // exception this time — confirmed live via console: a fast
+        // scroll-down burst, even starting from a single zoom-in step
+        // above the floor, left inst.scale at 0.01, two full orders of
+        // magnitude past zoomSettings.minZoom — Syncfusion applies each
+        // wheel tick's zoom-out multiplicatively with NO floor clamp of
+        // its own during the gesture; minZoom is only ever consulted by
+        // the toolbar button's own enable/disable check, never by the
+        // wheel handler's actual scale math, so a fast-enough burst can
+        // drive the live scale arbitrarily far past the configured floor
+        // before this handler (debounced via zoomRefreshTimer above) ever
+        // gets a chance to see it. Confirmed live NOT just scale: the
+        // resulting view was the whole map content shrunk into the
+        // container's top-left corner, not centered — so Syncfusion's
+        // internal pan/translate & zoom-anchor state is ALSO corrupted by
+        // the same runaway burst, not just the scale number. Patching
+        // inst.scale back to the floor and running triggerSettleZoomCycle()
+        // (a lightweight real zoom-in/out) was tried first, but that cycle
+        // recomputes its transform relative to the EXISTING (still
+        // corrupted) translate/anchor state, so it didn't fix the
+        // off-center result. resetToConfiguredView() — the same full
+        // destroy/recreate + settle-cycle the Reset button already uses —
+        // rebuilds the map fresh at the configured center/zoom instead of
+        // patching one property, avoiding needing to know which internal
+        // fields got corrupted. Guarded on !settleZoomCycleActive so this
+        // can't recurse into itself via the rebuild's own corrective
+        // settle cycle.
+        const zoomFloor = this.mapOptions?.zoomSettings?.minZoom ?? 1;
+        if (typeof effectiveZoomFactor === "number" && effectiveZoomFactor < zoomFloor && !this.settleZoomCycleActive) {
+          this.resetToConfiguredView();
+          return;
+        }
 
         // Feeds this zoom's real level into MapGroup.minZoomLevel/
         // MapPoint.minZoomLevel's own threshold check

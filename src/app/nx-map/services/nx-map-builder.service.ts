@@ -1,4 +1,5 @@
 import { Injectable } from "@angular/core";
+import * as moment from "moment";
 import { MarkerSettingsModel } from "@syncfusion/ej2-angular-maps";
 import * as nxMapThemesJson from "../config/nx-map-themes.json";
 import {
@@ -348,12 +349,24 @@ export class NXMapBuilderService {
 
   // Set via setDateFormat(), called by NxMapDemoComponent alongside the
   // other tooltip-template defaults with NXMapAppConfig.tooltipFormat's own
-  // DateFormat/nothing (see that field's own comment) — pattern tokens
-  // yyyy/MM/dd/HH/mm/ss, applied by formatDate() below. dateFallback is
-  // shown verbatim (NOT run through the pattern — it's already
-  // pre-formatted text, a deployment's own placeholder) whenever a reading
-  // has no Date at all, instead of hiding that tile's date line the way an
-  // earlier version of this feature did — see toMarker()'s own comment.
+  // DateFormat/nothing (see that field's own comment) — Angular DatePipe-
+  // style tokens (yyyy/MM/dd/HH/hh/mm/ss/MMM/a), translated to moment's own
+  // token syntax by toMomentFormat() below before formatDate() actually
+  // renders anything. Reported live: the hand-rolled regex substitution
+  // this used before could only ever handle its own fixed token set
+  // (yyyy/MM/dd/HH/mm/ss) — a deployment configuring a format with a month
+  // NAME or a 12-hour clock (e.g. "dd-MMM-yyyy hh:mm a") had no way to
+  // render "MMM"/"hh"/"a" at all, since nothing in that hand-rolled version
+  // even recognized those tokens, let alone knew how to turn a raw
+  // 2-digit month into "Jun" or 24h "16:00" into "04:00 pm". moment (this
+  // app's own host integration already depends on it — see this file's own
+  // import) already solves exactly this, so formatDate() now defers to
+  // moment's own formatter instead of re-implementing it token by token.
+  // dateFallback is shown verbatim (NOT run through the pattern — it's
+  // already pre-formatted text, a deployment's own placeholder) whenever a
+  // reading has no Date at all, instead of hiding that tile's date line the
+  // way an earlier version of this feature did — see toMarker()'s own
+  // comment.
   private dateFormat = "yyyy-MM-dd HH:mm";
   private dateFallback = "2026-05-13 09:15";
 
@@ -362,24 +375,81 @@ export class NXMapBuilderService {
     this.dateFallback = fallback ?? this.dateFallback;
   }
 
-  // Reads the calendar/clock fields straight off the ISO string's own text
-  // (yyyy-MM-ddTHH:mm:ss, e.g. "2026-06-23T16:00:00+04:00") via regex,
-  // deliberately NOT `new Date(raw)` — parsing into a real Date object and
-  // reading its fields back out converts to the BROWSER's own local
-  // timezone, silently shifting a reading's displayed time away from
-  // whatever wall-clock time the API's own offset actually meant (e.g.
-  // "16:00+04:00" would show as a different hour for a viewer in another
-  // timezone) — this shows the reading's own local time as sent, not the
-  // viewer's. Falls back to dateFallback for anything absent or not
-  // matching that shape (a malformed/unexpected Date value shouldn't
-  // silently show a wrong or empty tile).
+  // This app's own configured token set (yyyy/MM/dd/HH/hh/mm/ss/MMM/a —
+  // Angular DatePipe's own convention, which is what every existing
+  // TooltipFormat.DateFormat value already uses) translated into moment's
+  // OWN token syntax, which formatDate()/buildSparklineSvg() below actually
+  // format with. Nearly a 1:1 mapping — MM/HH/hh/mm/ss/MMM/a already mean
+  // the exact same thing to moment as-is — except year (this app's `yyyy`
+  // vs moment's `YYYY`) and day-of-month (this app's `dd` vs moment's `DD`
+  // — moment's OWN lowercase `dd` means something completely different, a
+  // 2-letter weekday name like "Su", so leaving it untranslated would
+  // silently render the wrong thing instead of the day-of-month a
+  // deployment's format string actually asked for). `MMM` listed before
+  // `MM` in the token pattern so the tokenizer matches all three M's as one
+  // token, not "MM" followed by a stray leftover "M".
+  private static readonly FORMAT_TOKEN_PATTERN = /yyyy|MMM|MM|dd|HH|hh|mm|ss|a|[^A-Za-z]+/g;
+
+  private static toMomentFormat(customFormat: string): string {
+    const parts = customFormat.match(NXMapBuilderService.FORMAT_TOKEN_PATTERN) ?? [];
+    return parts.map(p => (p === "yyyy" ? "YYYY" : p === "dd" ? "DD" : p)).join("");
+  }
+
+  // Sparkline x-axis labels (buildSparklineSvg() below) want only the
+  // day/month portion of whatever format is configured — no year (reported
+  // live: repeated across every point in a run that's normally all within
+  // days of each other, pure noise) and no time (a trend chart only ever
+  // needs day-level resolution). Filters the ALREADY-moment-translated
+  // format down to just its day/month tokens, dropping every other named
+  // token — and, critically, any literal separator that would otherwise
+  // dangle next to a dropped token (a plain "keep only day/month tokens,
+  // keep every literal as-is" pass would leave "DD-MMM- :" behind for a
+  // "DD-MMM-YYYY hh:mm" format — the trailing "- :" survives from
+  // separators that used to sit between now-removed tokens). A literal run
+  // is kept only when BOTH its neighboring real tokens survive.
+  private static toDateOnlyMomentFormat(momentFormat: string): string {
+    const keepTokens = new Set(["MMM", "MM", "DD"]);
+    const parts = momentFormat.match(/YYYY|MMM|MM|DD|HH|hh|mm|ss|a|[^A-Za-z]+/g) ?? [];
+    const isToken = (p: string) => NXMapBuilderService.KNOWN_MOMENT_TOKENS.has(p);
+    const kept: string[] = [];
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      if (isToken(part)) {
+        if (keepTokens.has(part)) {
+          kept.push(part);
+        }
+        continue;
+      }
+      const prevTokenKept = kept.length > 0 && isToken(kept[kept.length - 1]);
+      let next = i + 1;
+      while (next < parts.length && !isToken(parts[next])) {
+        next++;
+      }
+      const nextTokenSurvives = next < parts.length && keepTokens.has(parts[next]);
+      if (prevTokenKept && nextTokenSurvives) {
+        kept.push(part);
+      }
+    }
+    return kept.join("") || "MM-DD";
+  }
+
+  private static readonly KNOWN_MOMENT_TOKENS = new Set(["YYYY", "MMM", "MM", "DD", "HH", "hh", "mm", "ss", "a"]);
+
+  // moment.parseZone(), NOT `new Date(raw)`/plain moment(raw) — parsing
+  // into a real Date (or letting moment convert to the browser's own local
+  // zone) shifts a reading's displayed time away from whatever wall-clock
+  // time the API's own offset actually meant (e.g. "16:00+04:00" would show
+  // as a different hour for a viewer in another timezone). parseZone keeps
+  // the string's OWN UTC offset instead, so this shows the reading's own
+  // local time as sent, not the viewer's — same guarantee the old
+  // hand-rolled regex version made, just via moment's own (far more
+  // capable, e.g. actual month names) formatter instead of reinventing one.
   private formatDate(raw: string | undefined): string {
-    const match = raw ? /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/.exec(raw) : null;
-    if (!match) {
+    const parsed = raw ? moment.parseZone(raw) : null;
+    if (!parsed?.isValid()) {
       return this.dateFallback;
     }
-    const [, yyyy, MM, dd, HH, mm, ss] = match;
-    return this.dateFormat.replace(/yyyy/g, yyyy).replace(/MM/g, MM).replace(/dd/g, dd).replace(/HH/g, HH).replace(/mm/g, mm).replace(/ss/g, ss);
+    return parsed.format(NXMapBuilderService.toMomentFormat(this.dateFormat));
   }
 
   // One lookup array per layer, each aligned with that layer's flat
@@ -912,28 +982,20 @@ export class NXMapBuilderService {
     const xAt = (i: number) => (history.length === 1 ? padLeft + chartWidth / 2 : padLeft + i * step);
     const yAt = (v: number) => padTop + chartHeight * (1 - (v - min) / range);
     // Derived from the SAME configured pattern formatDate() renders the
-    // tooltip's own date line with (dateFormat — e.g. "yyyy-MM-dd HH:mm",
-    // see setDateFormat()'s own comment), but with both the time AND the
-    // year dropped: reported live that a per-point x-axis label doesn't
-    // need the time (day-level resolution is enough for a trend chart), and
-    // — reverted after trying it — the year turned into pure repeated noise
-    // across a run of points that are all normally within days of each
-    // other, when what's actually useful per point is which DAY it is.
-    // Keeps whatever token ORDER the configured format uses (e.g. "dd-MM"
-    // for a "dd/MM/yyyy ..." deployment) rather than hardcoding "MM-dd".
-    const dateOnlyFormat = (() => {
-      const timeIdx = dateFormat.indexOf("HH");
-      let dateOnly = (timeIdx >= 0 ? dateFormat.slice(0, timeIdx) : dateFormat).replace(/yyyy/g, "");
-      dateOnly = dateOnly.replace(/^[-/.\s]+|[-/.\s]+$/g, "");
-      return dateOnly || "MM-dd";
-    })();
+    // tooltip's own date line with (dateFormat — e.g. "dd-MMM-yyyy hh:mm
+    // a", see setDateFormat()'s own comment), but with both the time AND
+    // the year dropped — see toDateOnlyMomentFormat()'s own comment for
+    // why (reported live: a per-point x-axis label doesn't need the time,
+    // and the year turned into pure repeated noise across a run of points
+    // that are all normally within days of each other). Runs through the
+    // exact same yyyy/dd -> YYYY/DD translation formatDate() uses (see
+    // toMomentFormat()'s own comment), so "MMM" (an actual month name, not
+    // just a 2-digit number) renders correctly here too, not just in the
+    // tooltip's own date line.
+    const dateOnlyFormat = NXMapBuilderService.toDateOnlyMomentFormat(NXMapBuilderService.toMomentFormat(dateFormat));
     const dateLabel = (date: string | undefined) => {
-      const match = date ? /^(\d{4})-(\d{2})-(\d{2})/.exec(date) : null;
-      if (!match) {
-        return "";
-      }
-      const [, yyyy, MM, dd] = match;
-      return dateOnlyFormat.replace(/yyyy/g, yyyy).replace(/MM/g, MM).replace(/dd/g, dd);
+      const parsed = date ? moment.parseZone(date) : null;
+      return parsed?.isValid() ? parsed.format(dateOnlyFormat) : "";
     };
     const formatValue = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1));
 

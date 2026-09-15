@@ -120,10 +120,11 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   // The host's own global user preference (e.g. userSettings.dateFormat in
   // the real integration — this demo has no such settings service, so it's
-  // just an @Input a host can bind if it has one). Takes PRIORITY over
+  // just an @Input a host can bind if it has one). FALLBACK only —
   // parentConfig's own TooltipFormat.DateFormat (applyDateFormat() below)
-  // whenever set — a per-user display preference should win over a
-  // per-widget/layer config default, not the other way round. Reacted to
+  // wins whenever the config sets one; this is used only when it doesn't,
+  // per feedback: an explicit per-widget/layer config value should override
+  // a generic user preference, not the other way round. Reacted to
   // independently in ngOnChanges below (not just alongside parentConfig)
   // since a host may flip this after the map's already loaded, e.g. the
   // user changing their date-format preference mid-session.
@@ -488,16 +489,19 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     this.loadMap(this.nxAppConfig);
   }
 
-  // Single source of truth for dateFormat priority — userDateFormat (the
-  // host's own global user-preference @Input, if bound) over this widget's
-  // own parentConfig-driven TooltipFormat.DateFormat, over
-  // NXMapBuilderService's own hardcoded default (undefined here leaves
-  // whatever that default already is untouched — see setDateFormat()'s own
-  // comment). Called both from loadMap() (a fresh config load) and
-  // ngOnChanges() above (a later userDateFormat-only change) so both paths
-  // resolve the exact same priority instead of duplicating it.
+  // Single source of truth for dateFormat priority — this widget's own
+  // parentConfig-driven TooltipFormat.DateFormat FIRST (an explicit
+  // per-widget/layer config override should win over a generic preference),
+  // falling back to userDateFormat (the host's own global user-preference
+  // @Input, e.g. userSettings.dateFormat, if bound) only when the config
+  // doesn't set one, then finally NXMapBuilderService's own hardcoded
+  // default (undefined here leaves whatever that default already is
+  // untouched — see setDateFormat()'s own comment). Called both from
+  // loadMap() (a fresh config load) and ngOnChanges() below (a later
+  // userDateFormat-only change) so both paths resolve the exact same
+  // priority instead of duplicating it.
   private applyDateFormat(): void {
-    this.builder.setDateFormat(this.userDateFormat ?? this.nxAppConfig?.tooltipFormat?.dateFormat, undefined);
+    this.builder.setDateFormat(this.nxAppConfig?.tooltipFormat?.dateFormat ?? this.userDateFormat, undefined);
   }
 
   private loadMap(appConfig: NXMapAppConfig): void {

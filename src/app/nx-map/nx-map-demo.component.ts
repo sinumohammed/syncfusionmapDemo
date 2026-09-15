@@ -118,6 +118,17 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // for what a change here actually does.
   @Input() circularChartSelection?: MapCircularChartSelection | null;
 
+  // The host's own global user preference (e.g. userSettings.dateFormat in
+  // the real integration — this demo has no such settings service, so it's
+  // just an @Input a host can bind if it has one). Takes PRIORITY over
+  // parentConfig's own TooltipFormat.DateFormat (applyDateFormat() below)
+  // whenever set — a per-user display preference should win over a
+  // per-widget/layer config default, not the other way round. Reacted to
+  // independently in ngOnChanges below (not just alongside parentConfig)
+  // since a host may flip this after the map's already loaded, e.g. the
+  // user changing their date-format preference mid-session.
+  @Input() userDateFormat?: string;
+
   // Both assigned outside the constructor (mapInstance by Angular's
   // @ViewChild after view init, mapOptions asynchronously by rebuildMap()
   // once ngOnChanges' forkJoin resolves) — every read of either is already
@@ -460,11 +471,33 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     if (changes["circularChartSelection"]) {
       this.applyCircularChartSelectionChange();
     }
+    // Only re-applies the format itself (NOT a full loadMap()/rebuildMap())
+    // when just userDateFormat changed post-load — nxAppConfig (and
+    // everything else about the map) is untouched, this is purely a
+    // display-preference update. A userDateFormat change that arrives
+    // BEFORE the first parentConfig load is instead picked up for free by
+    // applyDateFormat()'s own call inside loadMap() below, once nxAppConfig
+    // actually exists.
+    if (changes["userDateFormat"] && !changes["parentConfig"] && this.nxAppConfig) {
+      this.applyDateFormat();
+    }
     if (!changes["parentConfig"] || !this.parentConfig) {
       return;
     }
     this.nxAppConfig = buildAppConfig(this.parentConfig);
     this.loadMap(this.nxAppConfig);
+  }
+
+  // Single source of truth for dateFormat priority — userDateFormat (the
+  // host's own global user-preference @Input, if bound) over this widget's
+  // own parentConfig-driven TooltipFormat.DateFormat, over
+  // NXMapBuilderService's own hardcoded default (undefined here leaves
+  // whatever that default already is untouched — see setDateFormat()'s own
+  // comment). Called both from loadMap() (a fresh config load) and
+  // ngOnChanges() above (a later userDateFormat-only change) so both paths
+  // resolve the exact same priority instead of duplicating it.
+  private applyDateFormat(): void {
+    this.builder.setDateFormat(this.userDateFormat ?? this.nxAppConfig?.tooltipFormat?.dateFormat, undefined);
   }
 
   private loadMap(appConfig: NXMapAppConfig): void {
@@ -690,7 +723,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
             items: this.staticTooltipTemplate?.items ?? []
           };
         }
-        this.builder.setDateFormat(this.nxAppConfig.tooltipFormat?.dateFormat, undefined);
+        this.applyDateFormat();
         // No records yet at initial load — this renders whatever the
         // static config alone provides (or nothing, if it doesn't set one
         // either), same "empty until a circular chart fetch actually happens" state
@@ -2377,17 +2410,97 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // (bypassSecurityTrustHtml) since it's trusted, self-generated markup
   // (NXMapBuilderService.buildSparklineSvg() — no user-authored HTML ever
   // reaches this), not because it's otherwise unsafe.
-  maximizedSparkline: { title: string; svg: SafeHtml } | null = null;
+  // rawSvg kept alongside the sanitized `svg` (needed only for template
+  // rendering) specifically for downloadSparkline() below — bypassSecurityTrustHtml()
+  // returns an opaque SafeHtml wrapper Angular will render but this code can
+  // never read back out as a string, and building the downloadable image
+  // needs the actual markup (to swap `currentColor` for its real resolved
+  // color — see downloadSparkline()'s own comment for why).
+  maximizedSparkline: { title: string; svg: SafeHtml; rawSvg: string } | null = null;
 
   openSparklineMaximize(title: string, svgMarkup: string): void {
     if (!svgMarkup) {
       return;
     }
-    this.maximizedSparkline = { title, svg: this.sanitizer.bypassSecurityTrustHtml(svgMarkup) };
+    this.maximizedSparkline = { title, svg: this.sanitizer.bypassSecurityTrustHtml(svgMarkup), rawSvg: svgMarkup };
   }
 
   closeSparklineMaximize(): void {
     this.maximizedSparkline = null;
+  }
+
+  // Download-as-image button on the maximize modal ONLY (not the dock's own
+  // small maximize/hover view — reported live that's the one place a user
+  // actually wants to keep a copy of the chart). Renders the exact same SVG
+  // markup already on screen into a PNG — plus a redrawn copy of the
+  // modal's own header bar/title above it (see the headerHeight block
+  // below) so a saved image is self-identifying on its own, not downloaded
+  // as the raw .svg file, a plain image file a user can drop straight into
+  // a report or chat without needing an SVG-capable viewer.
+  //
+  // `currentColor` (buildSparklineSvg()'s own line/dot stroke — see its
+  // comment) only resolves correctly while the SVG is still inline in THIS
+  // page, inheriting `color` from nx-map-demo.component.scss's own
+  // ".nx-map-spark-modal-body .mtt-spark-svg" rule (#47a1f6). Loaded
+  // standalone (as this method does, via an off-DOM Image + data URI) it
+  // has no such ancestor to inherit from, and would render every line/dot
+  // black instead — swapped for that same literal hex here before encoding
+  // so the exported PNG actually matches what the modal shows.
+  downloadSparkline(): void {
+    const sparkline = this.maximizedSparkline;
+    if (!sparkline?.rawSvg) {
+      return;
+    }
+    const svgMarkup = sparkline.rawSvg.replace(/currentColor/g, "#47a1f6");
+    const widthMatch = /width="(\d+(?:\.\d+)?)"/.exec(svgMarkup);
+    const heightMatch = /height="(\d+(?:\.\d+)?)"/.exec(svgMarkup);
+    const width = widthMatch ? Number(widthMatch[1]) : 520;
+    const height = heightMatch ? Number(heightMatch[1]) : 220;
+
+    // Reported live: a downloaded chart with no title on it is ambiguous
+    // once it's out of context (saved next to a dozen other metrics' PNGs,
+    // or pasted into a report) — this reproduces the modal's own header bar
+    // (nx-map-demo.component.scss's own ".nx-map-spark-modal-header",
+    // #eaf4ff background + the same #ffcb05 accent border) as real canvas
+    // drawing ABOVE the chart image, not by drawing the modal's actual DOM
+    // (getting THAT into a canvas would mean html2canvas or similar just
+    // for one text line — the header has no other content worth capturing).
+    const headerHeight = 40;
+    const title = `${sparkline.title || "Trend"} — trend`;
+
+    const svgBlob = new Blob([svgMarkup], { type: "image/svg+xml;charset=utf-8" });
+    const svgUrl = URL.createObjectURL(svgBlob);
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height + headerHeight;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.fillStyle = "#eaf4ff";
+        ctx.fillRect(0, 0, width, headerHeight);
+        ctx.fillStyle = "#ffcb05";
+        ctx.fillRect(0, headerHeight - 3, width, 3);
+        ctx.fillStyle = "#14213d";
+        ctx.font = "bold 14px Arial, sans-serif";
+        ctx.textBaseline = "middle";
+        ctx.fillText(title, 16, headerHeight / 2 - 1, width - 32);
+        // A plain white backdrop under the chart itself — the SVG has no
+        // background of its own (see buildSparklineSvg()), so without this
+        // the exported PNG would have a transparent one there, reading as
+        // broken/cut-out wherever it's later pasted onto anything but a
+        // white background.
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, headerHeight, width, height);
+        ctx.drawImage(img, 0, headerHeight, width, height);
+      }
+      URL.revokeObjectURL(svgUrl);
+      const link = document.createElement("a");
+      link.href = canvas.toDataURL("image/png");
+      link.download = `${(sparkline.title || "trend").replace(/[^a-z0-9]+/gi, "-")}.png`;
+      link.click();
+    };
+    img.src = svgUrl;
   }
 
   // CLICK, not hover — a tile with data-spark-title is a decent-sized

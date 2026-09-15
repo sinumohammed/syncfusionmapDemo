@@ -524,7 +524,15 @@
     <div class="nx-map-spark-modal" (click)="$event.stopPropagation()">
       <div class="nx-map-spark-modal-header">
         <span class="nx-map-spark-modal-title">{{ maximizedSparkline?.title }} — trend</span>
-        <button type="button" class="icon-btn" title="Close" (click)="closeSparklineMaximize()">✕</button>
+        <div class="nx-map-spark-modal-header-actions">
+          <button type="button" class="icon-btn icon-btn--download" title="Download as image" (click)="downloadSparkline()">
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 1.5v8.5M4.5 6.5 8 10l3.5-3.5" />
+              <path d="M2 12.5v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-1" />
+            </svg>
+          </button>
+          <button type="button" class="icon-btn" title="Close" (click)="closeSparklineMaximize()">✕</button>
+        </div>
       </div>
       <div class="nx-map-spark-modal-body" [innerHTML]="maximizedSparkline?.svg"></div>
     </div>

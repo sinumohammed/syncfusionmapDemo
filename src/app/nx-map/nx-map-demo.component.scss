@@ -611,6 +611,11 @@
   background: #eaf4ff;
   border-bottom: 3px solid #ffcb05;
 }
+.nx-map .nx-map-spark-modal-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 .nx-map .nx-map-spark-modal-title {
   font-size: 14px;
   font-weight: 700;
@@ -625,6 +630,17 @@
   cursor: pointer;
   padding: 2px 4px;
   line-height: 1;
+}
+/* The close button is a text glyph ("✕") sized off the rule above's own
+   font-size; the download button is an inline <svg> instead — reported
+   live the equivalent text glyph (⬇) rendered too thin/faint at that same
+   size to read as an obviously clickable icon next to it. display:flex
+   here keeps it visually centered/same footprint as the text button
+   despite the different markup. */
+.nx-map .nx-map-spark-modal-header .icon-btn--download {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .nx-map .nx-map-spark-modal-body {
   padding: 16px;

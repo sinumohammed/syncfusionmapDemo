@@ -2204,7 +2204,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   };
   // CAPTURE phase (the trailing `true` on add/removeEventListener below),
   // not the default bubble phase — confirmed live via console logging
-  // that onMapTooltipRenderComplete() (used by escapeTooltipStacking())
+  // that onMapTooltipRenderComplete() (used by pullTooltipTowardPointer())
   // otherwise still saw lastPointerX/Y stuck at their initial -1/-1 even
   // while genuinely hovering a marker: Syncfusion's own mousemove listener
   // is attached directly to the map's own element (a DESCENDANT of
@@ -2337,72 +2337,19 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     return (el.closest(".EJ2-maps-Tooltip") as HTMLElement | null) ?? el;
   }
 
-  // Reported live (twice): zoomed in, the zoom toolbar and this
-  // component's own warning/maximize buttons painted ON TOP of the hover
-  // tooltip, even though the tooltip's own z-index (2, see
-  // [id$="_mapsTooltip"]'s own comment above) is already higher than
-  // either — AND a first fix attempt here (raising <ejs-maps>'s own
-  // z-index while a tooltip was up, since reverted) made things WORSE:
-  // reported live it hid those SAME buttons behind the map's own opaque
-  // tiles/shapes on literally every hover, since it lifted the WHOLE map
-  // subtree, not just the tooltip. Root cause either way: z-index only
-  // ever competes within the SAME stacking context, and <ejs-maps> is
-  // deliberately pinned to z-index: 0 (protects the coordinate-picker
-  // toggle from anything ELSE inside the map) — a descendant can never
-  // climb past its own ancestor's stacking level, so nothing INSIDE
-  // ejs-maps, tooltip included, could ever out-rank a z-index: 100
-  // sibling of ejs-maps itself.
-  //
-  // Fixed properly this time by moving the tooltip element ITSELF out of
-  // that subtree — re-parented to be a direct child of .nx-map (a sibling
-  // of .warning-control/.maximize-control, not of ejs-maps), where its
-  // own z-index (nx-map-demo.component.scss's own
-  // ".nx-map > .EJ2-maps-Tooltip" rule) finally competes against them
-  // directly, with nothing else in the map dragged up along with it.
-  //
-  // Also folds in the earlier "pull toward the hovered point" fix (see
-  // git history) — switched from position: absolute (relative to
-  // whatever ancestor Syncfusion happened to render it under, needing a
-  // `transform` on top since this method now moves it to a DIFFERENT
-  // ancestor entirely) to position: fixed (relative to the VIEWPORT)
-  // instead: the rect measured below is already viewport-relative
-  // regardless of the positioning scheme it was measured under, so
-  // re-applying those exact numbers (plus the same pull-toward-pointer
-  // offset as before) under position: fixed lands in the identical spot
-  // without needing to know anything about the new parent's own
-  // coordinate system.
-  //
-  // Called on EVERY tooltipRenderComplete, not just the first one for a
-  // given hover (Syncfusion fires it on every qualifying mousemove tick
-  // while a tooltip is showing, confirmed live in ej2-maps' own
-  // MapsTooltip module — see setupStickyMarkerTooltip()'s own comment) —
-  // that repetition is what makes this self-correcting: even if
-  // Syncfusion's own internal repositioning (e.g. flipping side near a
-  // map edge) briefly lands the element somewhere unexpected between two
-  // calls, the very next call re-measures fresh and re-pins it there,
-  // rather than needing to predict every case up front.
-  private escapeTooltipStacking(el: HTMLElement): void {
-    const root = this.elRef.nativeElement.querySelector(".nx-map");
-    if (!root) {
+  private pullTooltipTowardPointer(el: HTMLElement): void {
+    if (this.lastPointerX < 0 || this.lastPointerY < 0) {
       return;
     }
     const rect = el.getBoundingClientRect();
-    let left = rect.left;
-    let top = rect.top;
-    if (this.lastPointerX >= 0 && this.lastPointerY >= 0) {
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
-      left += (this.lastPointerX - centerX) * NxMapDemoComponent.TOOLTIP_PULL_RATIO;
-      top += (this.lastPointerY - centerY) * NxMapDemoComponent.TOOLTIP_PULL_RATIO;
-    }
-    if (el.parentElement !== root) {
-      root.appendChild(el);
-    }
-    el.style.position = "fixed";
-    el.style.left = `${left.toFixed(1)}px`;
-    el.style.top = `${top.toFixed(1)}px`;
-    el.style.right = "auto";
-    el.style.transform = "none";
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const dx = (this.lastPointerX - centerX) * NxMapDemoComponent.TOOLTIP_PULL_RATIO;
+    const dy = (this.lastPointerY - centerY) * NxMapDemoComponent.TOOLTIP_PULL_RATIO;
+    // Added on top of whatever left/top Syncfusion already set inline
+    // (position: absolute) — a transform, not a left/top rewrite, so this
+    // never has to know/recompute Syncfusion's own coordinate system.
+    el.style.transform = `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px)`;
   }
 
   onMapTooltipRenderComplete(args: { element?: Element }): void {
@@ -2411,11 +2358,11 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
       return;
     }
     const outer = this.resolveOuterTooltipEl(inner);
-    this.escapeTooltipStacking(outer);
+    this.pullTooltipTowardPointer(outer);
     this.lastTooltipRect = outer.getBoundingClientRect();
     requestAnimationFrame(() => {
       if (document.body.contains(outer)) {
-        this.escapeTooltipStacking(outer);
+        this.pullTooltipTowardPointer(outer);
         this.lastTooltipRect = outer.getBoundingClientRect();
       }
     });

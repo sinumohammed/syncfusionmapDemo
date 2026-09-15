@@ -46,39 +46,6 @@
   position: relative;
   z-index: 0;
 }
-/* NxMapDemoComponent.escapeTooltipStacking() re-parents the rendered
-   tooltip element itself out here, as a direct child of .nx-map (a
-   sibling of .warning-control/.maximize-control etc., NOT of ejs-maps
-   any more) — see that method's own comment for why raising ejs-maps'
-   OWN z-index (an earlier version of this fix) was wrong: it lifted the
-   WHOLE map subtree, opaque base tiles/shapes included, above those
-   controls for as long as any tooltip was up, hiding them behind the map
-   itself on every hover, not just wherever the tooltip visually
-   overlapped one. Escaping just the tooltip element leaves the rest of
-   the map's own stacking (and the z-index: 0 pin above, still fully
-   protecting the coordinate-picker toggle etc.) untouched. */
-.nx-map > ::ng-deep [id$="_mapsTooltip"].EJ2-maps-Tooltip {
-  /* ::ng-deep — confirmed live this rule NEVER MATCHED at all without it:
-     Angular's view encapsulation stamps a `[_ngcontent-*]` scoping
-     attribute onto EVERY simple selector in a plain (non-::ng-deep) rule,
-     including the right-hand side here — but the tooltip is raw
-     Syncfusion-rendered DOM, never templated by Angular, so it never
-     carries that attribute (same reasoning the OLD rule below already
-     documents for why IT needs ::ng-deep) — a scoped selector expecting
-     an attribute that can never be present can never match.
-     !important, AND both the id-suffix attribute selector and the class
-     (not just one) — the OLD rule this escape supersedes
-     ([id$="_mapsTooltip"] below) is ALSO !important, and among two
-     !important declarations specificity (not just importance) still
-     breaks the tie: that old rule is `.nx-map` + `[id$=...]` (two
-     selectors), matching this SAME element by id even after the
-     re-parent. A plain `.nx-map > .EJ2-maps-Tooltip` (two selectors,
-     equal specificity) confirmed live still lost to it. Combining both
-     the attribute AND class selectors here (three total) gives this rule
-     strictly higher specificity, so it wins regardless of which rule
-     happens to sit later in the file. */
-  z-index: 260 !important;
-}
 
 /* Rounds just the map's own rendered SVG content to match .nx-map's own
    border-radius above — deliberately NOT overflow:hidden on .nx-map

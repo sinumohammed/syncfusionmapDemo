@@ -952,7 +952,15 @@ export class NXMapBuilderService {
     const strokeWidth = 1.6 * scale;
 
     const padLeft = 30 * scale;
-    const padRight = 8 * scale;
+    // Reported live (printed output): the rightmost point/date-label sat
+    // right at the chart's own edge with no breathing room — the last
+    // marker's own dot (radius up to crossedRadius, 3*scale, when its
+    // value crossed the limit) rendered at x = width - padRight, so with
+    // the old 8*scale padding its visible edge landed only ~5*scale short
+    // of the viewBox's true right edge. Bumped to give it real clearance;
+    // padLeft stays as-is (already generous — it exists for the y-axis
+    // labels, not just symmetry, so there's no matching reason to grow it).
+    const padRight = 18 * scale;
     const padTop = 10 * scale;
     // Leaves room under the chart for date labels — chartBottom is the
     // plot area's own bottom edge, `height` (past it) is where the date
@@ -1107,22 +1115,60 @@ export class NXMapBuilderService {
 
     // Date labels under the chart — every point when there's room for
     // them (this app's own mock history is 5 points), otherwise just the
-    // first/last so labels don't overlap each other. Threshold scales
-    // with chart width since the large maximized redraw has room for more.
-    const maxLabels = Math.max(2, Math.floor(chartWidth / (26 * scale)));
+    // first/last so labels don't overlap each other.
+    //
+    // Reported live: the maximized ("big", 520x220) redraw showed FEWER
+    // labels than the small dock (240x84) once history had 7+ points —
+    // backwards from this comment's own original intent (a bigger chart
+    // should have room for MORE labels, not fewer). Root cause: `scale`
+    // (height/84) grows FASTER than chartWidth actually does between the
+    // two sizes (height grows 220/84 ≈ 2.62x, width only 520/240 ≈ 2.17x —
+    // buildSparklineSvg()'s two call sites don't use the same aspect
+    // ratio), so multiplying the per-label threshold by `scale` shrank
+    // the available-labels count for the WIDER chart. widthScale — tied to
+    // WIDTH, the dimension that actually determines how many labels fit
+    // side by side, not height/font-size — fixes that: both call sites
+    // (240 is the size the original "26" constant was tuned against)
+    // now agree on how many labels a given pixel width can hold.
+    //
+    // Uses a FIXED reference padding (38 — padLeft(30) + the ORIGINAL
+    // padRight(8) this was tuned against), not the real, live padLeft/
+    // padRight above — reported live, later bumping padRight for the
+    // chart's own right-edge breathing room (see padRight's own comment)
+    // silently re-broke this a second time: `scale` grows faster than
+    // widthScale between dock/big (same reasoning as above), so ANY
+    // scale-driven padding increase erodes the wider chart's own
+    // chartWidth more than the dock's, however unrelated that padding
+    // change was to label counting. Decoupling from the live padding
+    // means a future visual padding tweak can't accidentally shrink
+    // maxLabels again — this is purely about how many labels FIT, not
+    // about where the chart itself is actually drawn.
+    const widthScale = width / 240;
+    const labelReferenceWidth = width - 38 * widthScale;
+    const maxLabels = Math.max(2, Math.floor(labelReferenceWidth / (26 * widthScale)));
     const labelIndexes = history.length <= maxLabels ? history.map((_, i) => i) : [0, history.length - 1];
+    // Sloped labels were tried and reverted (reported live: didn't actually
+    // help) — flat, horizontal labels again, same start/middle/end
+    // per-index anchoring as before. Only the MAXIMIZE ("big", 520x220 —
+    // the only caller whose width exceeds the dock's own 240) redraw gets
+    // a slightly smaller date-label font than the rest of that chart's own
+    // text; the dock's own labels are untouched.
+    const dateLabelFontSize = width > 240 ? fontSize * 0.85 : fontSize;
     const dateLabels = labelIndexes
       .map(i => {
         const text = dateLabel(history[i].date);
         if (!text) {
           return "";
         }
-        // Single-point history: centered on its own (also centered, see
-        // xAt() above) dot rather than "start" — the plain i===0 check
-        // below would otherwise match here too, left-anchoring text under
-        // a dot that isn't at the left edge any more.
-        const anchor = history.length === 1 ? "middle" : i === 0 ? "start" : i === history.length - 1 ? "end" : "middle";
-        return `<text x="${xAt(i).toFixed(1)}" y="${(height - 3 * scale).toFixed(1)}" font-size="${fontSize.toFixed(1)}" text-anchor="${anchor}" fill="#5f6368">${text}</text>`;
+        // "middle" for every label, first/last included — reported live
+        // the old start/end anchoring at the two edges pushed those
+        // labels INWARD (start-anchored text runs right from its own x,
+        // end-anchored runs left), which on the maximize redraw's own
+        // tighter per-label spacing (7 points, see maxLabels above) made
+        // the edge labels overlap their immediate neighbor instead of
+        // fixing the overflow-past-the-chart-edge problem start/end was
+        // originally meant to solve.
+        return `<text x="${xAt(i).toFixed(1)}" y="${(height - 3 * scale).toFixed(1)}" font-size="${dateLabelFontSize.toFixed(1)}" text-anchor="middle" fill="#5f6368">${text}</text>`;
       })
       .join("");
 

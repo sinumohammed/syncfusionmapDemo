@@ -798,8 +798,13 @@ export class NXMapBuilderService {
       // — see buildSparklineSvg()'s own comment for why (Syncfusion's
       // ${field} substitution has no loop construct, so this has to be
       // built here, once per marker, not derived from a template). Both
-      // "" whenever this reading has fewer than 2 history points, same
-      // "nothing to draw" case as every other optional field above.
+      // "" whenever this reading has NO history at all, same "nothing to
+      // draw" case as every other optional field above — a single history
+      // point still gets a (line-less, single-dot) chart; reported live
+      // that requiring 2+ points hid the sparkline, and made the tile
+      // reject clicks, for every metric whose history happened to be
+      // exactly one reading (e.g. a metric only just started being
+      // tracked).
       // Neither is shown inline in the tile itself any more — see
       // NxMapDemoComponent's own template comment on the shared
       // .mtt-spark-dock this feeds instead (one dock per tooltip, hover a
@@ -811,9 +816,9 @@ export class NXMapBuilderService {
       // openSparklineMaximize()) — pre-rendering both up front here avoids
       // needing to duplicate this chart-drawing logic client-side just to
       // redraw it bigger on demand.
-      marker[`spark_${key}`] = NXMapBuilderService.buildSparklineSvg(reading?.history, { width: 240, height: 84 });
-      marker[`sparkBig_${key}`] = NXMapBuilderService.buildSparklineSvg(reading?.history, { width: 520, height: 220 });
-      marker[`sparkClass_${key}`] = reading?.history && reading.history.length >= 2 ? "mtt-stat--has-spark" : "";
+      marker[`spark_${key}`] = NXMapBuilderService.buildSparklineSvg(reading?.history, { width: 240, height: 84 }, this.dateFormat);
+      marker[`sparkBig_${key}`] = NXMapBuilderService.buildSparklineSvg(reading?.history, { width: 520, height: 220 }, this.dateFormat);
+      marker[`sparkClass_${key}`] = reading?.history && reading.history.length >= 1 ? "mtt-stat--has-spark" : "";
     }
 
     return marker;
@@ -843,16 +848,27 @@ export class NXMapBuilderService {
   //
   // Reported live: date labels rendered as raw ISO strings badly cramped
   // (or parsing them with `Date` risked a timezone-shifted date, off by a
-  // day from what the record actually said) — dateLabel() below just
-  // slices the "YYYY-MM-DD" prefix straight out of the ISO string instead,
-  // the exact date the API sent, no reinterpretation.
+  // day from what the record actually said) — dateLabel() below just reads
+  // the "YYYY-MM-DD" prefix straight out of the ISO string instead, the
+  // exact date the API sent, no reinterpretation.
   private static buildSparklineSvg(
     history: { date?: string; value: number; limit?: number }[] | undefined,
-    size: { width: number; height: number }
+    size: { width: number; height: number },
+    dateFormat: string
   ): string {
-    if (!history || history.length < 2) {
+    if (!history || history.length < 1) {
       return "";
     }
+    // Reported live: a metric's History array isn't always sent already in
+    // date order (out-of-order or reversed entries) — sorting a COPY here
+    // (not the caller's own array) keeps every index-based calculation
+    // below (xAt, step, limit-run adjacency, markers) consistent with the
+    // actual timeline rather than whatever order the API happened to send.
+    // String comparison, not `Date` parsing, for the same reason
+    // formatDate() avoids it (see this method's own comment) — these are
+    // all same-shape ISO strings, so lexical order already IS chronological
+    // order without risking a timezone-shifted reinterpretation.
+    history = [...history].sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""));
     const { width, height } = size;
     // Scales every other constant below (font size, dot radius, stroke
     // width, padding) off the chart's own height relative to the small
@@ -888,9 +904,37 @@ export class NXMapBuilderService {
     const range = max - min || 1;
     const step = history.length > 1 ? chartWidth / (history.length - 1) : 0;
 
-    const xAt = (i: number) => padLeft + i * step;
+    // A single-point history has no step to space points along — xAt(0)
+    // would otherwise land at padLeft (the chart's own left edge), reading
+    // as a dot stuck in the corner rather than a plotted reading. Centered
+    // instead, the same "one point" case buildSparklineSvg() now supports
+    // (see this method's own top-of-function comment).
+    const xAt = (i: number) => (history.length === 1 ? padLeft + chartWidth / 2 : padLeft + i * step);
     const yAt = (v: number) => padTop + chartHeight * (1 - (v - min) / range);
-    const dateLabel = (date: string | undefined) => (date && date.length >= 10 ? date.slice(5, 10) : "");
+    // Derived from the SAME configured pattern formatDate() renders the
+    // tooltip's own date line with (dateFormat — e.g. "yyyy-MM-dd HH:mm",
+    // see setDateFormat()'s own comment), but with both the time AND the
+    // year dropped: reported live that a per-point x-axis label doesn't
+    // need the time (day-level resolution is enough for a trend chart), and
+    // — reverted after trying it — the year turned into pure repeated noise
+    // across a run of points that are all normally within days of each
+    // other, when what's actually useful per point is which DAY it is.
+    // Keeps whatever token ORDER the configured format uses (e.g. "dd-MM"
+    // for a "dd/MM/yyyy ..." deployment) rather than hardcoding "MM-dd".
+    const dateOnlyFormat = (() => {
+      const timeIdx = dateFormat.indexOf("HH");
+      let dateOnly = (timeIdx >= 0 ? dateFormat.slice(0, timeIdx) : dateFormat).replace(/yyyy/g, "");
+      dateOnly = dateOnly.replace(/^[-/.\s]+|[-/.\s]+$/g, "");
+      return dateOnly || "MM-dd";
+    })();
+    const dateLabel = (date: string | undefined) => {
+      const match = date ? /^(\d{4})-(\d{2})-(\d{2})/.exec(date) : null;
+      if (!match) {
+        return "";
+      }
+      const [, yyyy, MM, dd] = match;
+      return dateOnlyFormat.replace(/yyyy/g, yyyy).replace(/MM/g, MM).replace(/dd/g, dd);
+    };
     const formatValue = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1));
 
     const points = values.map((v, i) => `${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`).join(" ");
@@ -900,10 +944,16 @@ export class NXMapBuilderService {
     // viewer has SOME sense of the actual value range instead of just a
     // shape. A light vertical rule under the labels gives the two numbers
     // something to visually anchor to.
+    // min === max whenever there's only a single value on the chart (one
+    // history point with no `limit` to widen the range) — the max/min
+    // labels below would otherwise land on the exact same y and overlap
+    // as doubled-up text; drawing just the one value instead.
     const yAxis =
       `<line x1="${padLeft.toFixed(1)}" y1="${padTop.toFixed(1)}" x2="${padLeft.toFixed(1)}" y2="${chartBottom.toFixed(1)}" stroke="#e0e3e6" stroke-width="1"/>` +
       `<text x="${(padLeft - 4 * scale).toFixed(1)}" y="${(yAt(max) + fontSize * 0.35).toFixed(1)}" font-size="${fontSize.toFixed(1)}" text-anchor="end" fill="#5f6368">${formatValue(max)}</text>` +
-      `<text x="${(padLeft - 4 * scale).toFixed(1)}" y="${(yAt(min) + fontSize * 0.35).toFixed(1)}" font-size="${fontSize.toFixed(1)}" text-anchor="end" fill="#5f6368">${formatValue(min)}</text>`;
+      (max === min
+        ? ""
+        : `<text x="${(padLeft - 4 * scale).toFixed(1)}" y="${(yAt(min) + fontSize * 0.35).toFixed(1)}" font-size="${fontSize.toFixed(1)}" text-anchor="end" fill="#5f6368">${formatValue(min)}</text>`);
 
     // A single dashed limit line connecting every date that has its own
     // `limit` — reported live the earlier per-point tick marks (isolated
@@ -1005,13 +1055,25 @@ export class NXMapBuilderService {
         if (!text) {
           return "";
         }
-        const anchor = i === 0 ? "start" : i === history.length - 1 ? "end" : "middle";
+        // Single-point history: centered on its own (also centered, see
+        // xAt() above) dot rather than "start" — the plain i===0 check
+        // below would otherwise match here too, left-anchoring text under
+        // a dot that isn't at the left edge any more.
+        const anchor = history.length === 1 ? "middle" : i === 0 ? "start" : i === history.length - 1 ? "end" : "middle";
         return `<text x="${xAt(i).toFixed(1)}" y="${(height - 3 * scale).toFixed(1)}" font-size="${fontSize.toFixed(1)}" text-anchor="${anchor}" fill="#5f6368">${text}</text>`;
       })
       .join("");
 
     return (
-      `<svg class="mtt-spark-svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">` +
+      // xmlns — never needed while this markup stays inline in an HTML
+      // document (the browser's HTML parser already infers the SVG
+      // namespace from the `<svg>` tag itself), but NxMapDemoComponent.
+      // downloadSparkline() loads this same markup as a STANDALONE document
+      // (an off-DOM Image whose src is a `image/svg+xml` blob URL, parsed
+      // as real XML, not HTML) to rasterize it into a PNG — a root element
+      // with no explicit namespace there fails to render as a valid SVG at
+      // all, so this can't be left implicit.
+      `<svg xmlns="http://www.w3.org/2000/svg" class="mtt-spark-svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">` +
       `<line x1="${padLeft.toFixed(1)}" y1="${chartBottom.toFixed(1)}" x2="${(width - padRight).toFixed(1)}" y2="${chartBottom.toFixed(1)}" stroke="#e0e3e6" stroke-width="1"/>` +
       yAxis +
       limitLine +

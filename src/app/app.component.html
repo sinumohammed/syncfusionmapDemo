@@ -1,8 +1,9 @@
-<div class="app-shell">
-  <app-nx-circular-chart-collection
-    class="circular-chart-pane"
-    [rawConfig]="circularChartRawConfig"
-    (sublayersSelected)="onSublayersSelected($event)"
-  ></app-nx-circular-chart-collection>
-  <app-nx-map-collection class="map-pane" [config]="mapCollectionConfig" [circularChartSelection]="circularChartSelection"></app-nx-map-collection>
+<div class="app-container">
+  <nav class="app-nav">
+    <a class="app-nav-link" routerLink="/" routerLinkActive="app-nav-link--active" [routerLinkActiveOptions]="{ exact: true }">Map Dashboard</a>
+    <a class="app-nav-link" routerLink="/trend" routerLinkActive="app-nav-link--active">Trend Dashboard</a>
+  </nav>
+  <div class="app-content">
+    <router-outlet></router-outlet>
+  </div>
 </div>

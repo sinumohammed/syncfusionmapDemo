@@ -1,0 +1,12 @@
+<div class="trend-dashboard">
+  <div class="trend-dashboard-row trend-dashboard-row--circular">
+    <app-nx-circular-chart-collection [rawConfig]="circularChartRawConfig" [columns]="6" [rows]="1"></app-nx-circular-chart-collection>
+  </div>
+  <div class="trend-dashboard-row trend-dashboard-row--bar">
+    <!-- Placeholder until the bar chart collection/component pair exists —
+         see TrendDashboardComponent's own comment. Swap this for
+         <app-nx-bar-chart-collection [rawConfig]="barChartRawConfig"></app-nx-bar-chart-collection>
+         once that module is built. -->
+    <div class="trend-dashboard-placeholder">Bar chart collection — coming soon</div>
+  </div>
+</div>

@@ -1,0 +1,49 @@
+:host {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+.app-shell {
+  display: flex;
+  height: 100%;
+  width: 100%;
+}
+.circular-chart-pane {
+  flex: 0 0 320px;
+  // A flex item's default min-width is `auto`, not 0 — meaning its
+  // CONTENT's min-content size can override an explicit, smaller
+  // flex-basis (flex-grow: 0 only stops it growing PAST its basis on its
+  // own; it doesn't stop content from forcing it wider). Confirmed live:
+  // once the rows > 0 carousel (nx-circular-chart-collection.component.scss's
+  // own .nx-circular-chart-track) started rendering a track wider than
+  // this 320px basis (grid-auto-flow: column across every totalColumns,
+  // not just the `columns` actually meant to be visible), its min-content
+  // contribution silently stretched this pane to ~560px — .nx-circular-chart-viewport's
+  // own overflow: hidden (a DESCENDANT, not this flex item itself) doesn't
+  // suppress that; only min-width: 0 HERE, on the item the flex algorithm
+  // actually sizes, does. Same fix .map-pane already had below, for
+  // whatever unrelated reason it needed it first.
+  min-width: 0;
+  height: 100%;
+  border-right: 1px solid #ddd;
+  // Deliberately NOT overflow: hidden — same reasoning as
+  // nx-circular-chart-panel's own comment (nx-circular-chart-collection.component.scss):
+  // any non-visible overflow here clips a hovered slice's tooltip the
+  // moment it needs to extend past this pane's own 320px width, which is
+  // exactly what a tooltip near the panel's right edge does. Confirmed
+  // live this was the actual cause of the tooltip appearing to vanish
+  // rather than a z-index issue inside the circular chart card itself.
+  //
+  // position + z-index establishes its OWN stacking context, so anything
+  // escaping this pane's box (the tooltip) paints above .map-pane's
+  // entire subtree as one unit — without this, a tooltip overflowing past
+  // 320px has no guaranteed order against whatever the map itself renders
+  // at that same screen position, regardless of overflow being visible.
+  position: relative;
+  z-index: 1;
+}
+.map-pane {
+  flex: 1 1 auto;
+  height: 100%;
+  min-width: 0;
+}

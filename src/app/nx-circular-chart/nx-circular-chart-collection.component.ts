@@ -50,9 +50,90 @@ export class NxCircularChartCollectionComponent implements OnChanges {
   // ngOnChanges()) — that mode fetches its own trend response instead.
   @Input() trendResponse?: TrendNode[];
 
+  // Grid column count — the template binds this straight onto
+  // .nx-circular-chart-grid's own grid-template-columns (see the template
+  // and nx-circular-chart-collection.component.scss's own comment on why
+  // the SCSS rule itself no longer hardcodes a column count). Defaults to
+  // 2, the existing fixed layout every host before this had — a host that
+  // wants more per row (e.g. a full-width page fitting every card on one
+  // line) sets this instead of the component picking a count from its own
+  // circularCharts.length, which stayed stable across a loading/empty
+  // transition and matches how skeletonItems (the loading placeholder
+  // grid) also has no reliable final count to key off yet.
+  @Input() columns = 2;
+
+  // Rows per COLUMN of the sliding carousel below (not a total row count
+  // across every circular chart) — paired with `columns` (how many of
+  // those columns are visible at once). Defaults to 0, meaning
+  // UNLIMITED/no carousel — the existing behavior every host before this
+  // had (MapDashboardComponent's own sidebar, columns=2 and no `rows` at
+  // all, still just CSS-grid-wraps every circularChart across as many rows
+  // as it needs, no cap, no track/dots markup at all — see the template's
+  // own *ngIf splitting the two). A host opts INTO the carousel by setting
+  // this to something > 0 (e.g. TrendDashboardComponent's own rows=1,
+  // columns=6 — a single-row strip that slides one card at a time once a
+  // 7th arrives).
+  @Input() rows = 0;
+
   @Output() sublayersSelected = new EventEmitter<CircularChartSelectionEvent>();
 
   circularCharts: CircularChartConfig[] = [];
+  // How many COLUMNS the track has scrolled past — 0 = showing the first
+  // `columns` columns. Reset to 0 whenever circularCharts is rebuilt
+  // (applyConfigs()) so a host pushing fresh data/config never leaves the
+  // viewer scrolled past the end of a new (possibly shorter) list.
+  currentColumnOffset = 0;
+
+  // Items are laid out COLUMN-major (grid-auto-flow: column in the
+  // template — column 0 holds items [0..rows), column 1 holds
+  // [rows..2*rows), etc.), so a "column" here really means "one more
+  // group of up to `rows` cards" — reported live this reads far more like
+  // continuous horizontal scrolling than the earlier row-major
+  // full-page-at-a-time pagination did, since sliding by one column moves
+  // the SAME already-visible cards over by one slot instead of swapping
+  // the entire grid's contents out for a whole new set. Floored at 1 so a
+  // circularCharts.length of 0 (nothing to show — the template's own outer
+  // *ngIf already guards this whole branch on circularCharts.length
+  // anyway) still returns a working, non-Infinity column count.
+  get totalColumns(): number {
+    return Math.max(1, Math.ceil(this.circularCharts.length / Math.max(1, this.rows)));
+  }
+
+  // How far the track can scroll — 0 when everything already fits within
+  // `columns` visible columns (totalColumns <= columns), same "no
+  // scrolling needed" case the dots below also key off to stay hidden.
+  get maxColumnOffset(): number {
+    return Math.max(0, this.totalColumns - this.columns);
+  }
+
+  // One dot per possible scroll position (0..maxColumnOffset inclusive) —
+  // the template never reads an entry's actual value, only its index (see
+  // goToColumn()'s own comment on why dots are index-addressed, not
+  // object-addressed).
+  get columnOffsets(): number[] {
+    return Array.from({ length: this.maxColumnOffset + 1 }, (_, i) => i);
+  }
+
+  // The track's own CSS transform (bound inline by the template) — percent
+  // is relative to the TRACK's own box, not the viewport (that's just how
+  // CSS translateX(%) works), so this only needs totalColumns, not the
+  // viewport's own width in px: sliding past `currentColumnOffset` of
+  // `totalColumns` equal-width columns is -currentColumnOffset/totalColumns
+  // of the track's own full width, regardless of how many of those columns
+  // are actually visible at once (that's what the viewport's own
+  // overflow:hidden + the track's own width — set from totalColumns/columns
+  // in the template — take care of instead).
+  get trackTranslatePercent(): number {
+    return -(this.currentColumnOffset / this.totalColumns) * 100;
+  }
+
+  // Bound directly from the template's own dot buttons (click) — no bounds
+  // check needed beyond what columnOffsets already guarantees (every dot's
+  // own index is already <= maxColumnOffset, since that's exactly what
+  // columnOffsets was built from).
+  goToColumn(offset: number): void {
+    this.currentColumnOffset = offset;
+  }
   // `shape` drives which .nx-circular-chart-swatch--* CSS rule the legend
   // renders (see SeriesPaletteEntry's own comment on why this echoes a
   // map marker's shape without any real dependency on nx-map) — always a
@@ -169,6 +250,7 @@ export class NxCircularChartCollectionComponent implements OnChanges {
     const parsedPalette = parseSeriesPalette(this.rawConfig?.SeriesPalette);
     this.seriesPalette = parsedPalette?.length ? parsedPalette : DEFAULT_SERIES_PALETTE;
     this.selectedId = null;
+    this.currentColumnOffset = 0;
     // Legend is derived from the UNION of every circular chart's own slice
     // labels/colors, not just the first chart's — different charts in the
     // same collection can each carry their own subset of categories (e.g.

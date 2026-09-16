@@ -8,7 +8,7 @@
        visibleCircularChartCount()'s own comment) in the SAME grid the real
        cards use, so the loading state reads as "these specific charts are
        about to appear" rather than a single generic spinner. -->
-  <div class="nx-circular-chart-grid" *ngIf="loading">
+  <div class="nx-circular-chart-grid" [style.grid-template-columns]="'repeat(' + columns + ', 1fr)'" *ngIf="loading">
     <div class="nx-circular-chart-skeleton" *ngFor="let _ of skeletonItems">
       <span class="nx-circular-chart-skeleton-ring"></span>
       <span class="nx-circular-chart-skeleton-title"></span>
@@ -21,7 +21,35 @@
   <div class="nx-circular-chart-message nx-circular-chart-message--error" *ngIf="!loading && fetchFailed">Failed to fetch data. Please try again later.</div>
   <div class="nx-circular-chart-message" *ngIf="!loading && !fetchFailed && !circularCharts.length">No data available.</div>
 
-  <div class="nx-circular-chart-grid" *ngIf="!loading && circularCharts.length">
+  <!-- rows > 0 — the sliding carousel: a fixed-width, overflow:hidden
+       VIEWPORT clipping a wider TRACK laid out column-major (grid-auto-flow:
+       column — see totalColumns' own comment) and animated via CSS
+       transform, so scrolling one column over moves the same already-
+       visible cards by one slot rather than swapping the whole grid's
+       contents out at once (reported live: that swap read as the earlier
+       items just vanishing, not "sliding out of view"). rows <= 0 (the
+       default/unlimited case, see that Input's own comment) skips all of
+       this for the plain, ordinary wrapping grid below instead — no
+       viewport/track/dots markup at all. -->
+  <div class="nx-circular-chart-viewport" *ngIf="!loading && circularCharts.length && rows > 0">
+    <div
+      class="nx-circular-chart-track"
+      [style.width.%]="(totalColumns / columns) * 100"
+      [style.grid-template-columns]="'repeat(' + totalColumns + ', 1fr)'"
+      [style.grid-template-rows]="'repeat(' + rows + ', auto)'"
+      [style.transform]="'translateX(' + trackTranslatePercent + '%)'"
+    >
+      <app-nx-circular-chart
+        *ngFor="let circularChart of circularCharts"
+        [config]="circularChart"
+        [selected]="selectedId === circularChart.id"
+        [palette]="seriesPalette"
+        (select)="onCircularChartSelected(circularChart)"
+      ></app-nx-circular-chart>
+    </div>
+  </div>
+
+  <div class="nx-circular-chart-grid" [style.grid-template-columns]="'repeat(' + columns + ', 1fr)'" *ngIf="!loading && circularCharts.length && rows <= 0">
     <app-nx-circular-chart
       *ngFor="let circularChart of circularCharts"
       [config]="circularChart"
@@ -29,6 +57,22 @@
       [palette]="seriesPalette"
       (select)="onCircularChartSelected(circularChart)"
     ></app-nx-circular-chart>
+  </div>
+
+  <!-- One dot per scroll position (columnOffsets) — only rendered once
+       there's more than one, i.e. circularCharts.length actually exceeds
+       rows*columns (see maxColumnOffset's own comment). Click a dot to jump
+       straight to that column, same "carousel" behavior requested rather
+       than prev/next arrows. -->
+  <div class="nx-circular-chart-pagination" *ngIf="!loading && maxColumnOffset > 0">
+    <button
+      type="button"
+      class="nx-circular-chart-pagination-dot"
+      *ngFor="let offset of columnOffsets"
+      [class.nx-circular-chart-pagination-dot--active]="offset === currentColumnOffset"
+      [attr.aria-label]="'Go to column ' + (offset + 1)"
+      (click)="goToColumn(offset)"
+    ></button>
   </div>
 
   <div class="nx-circular-chart-legend" *ngIf="legendItems.length && showLegend">

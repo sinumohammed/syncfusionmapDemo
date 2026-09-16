@@ -1,30 +1,44 @@
-.app-shell {
-  display: flex;
+:host {
+  display: block;
   height: 100%;
   width: 100%;
 }
-.circular-chart-pane {
-  flex: 0 0 320px;
+.app-container {
+  display: flex;
+  flex-direction: column;
   height: 100%;
-  border-right: 1px solid #ddd;
-  // Deliberately NOT overflow: hidden — same reasoning as
-  // nx-circular-chart-panel's own comment (nx-circular-chart-collection.component.scss):
-  // any non-visible overflow here clips a hovered slice's tooltip the
-  // moment it needs to extend past this pane's own 320px width, which is
-  // exactly what a tooltip near the panel's right edge does. Confirmed
-  // live this was the actual cause of the tooltip appearing to vanish
-  // rather than a z-index issue inside the circular chart card itself.
-  //
-  // position + z-index establishes its OWN stacking context, so anything
-  // escaping this pane's box (the tooltip) paints above .map-pane's
-  // entire subtree as one unit — without this, a tooltip overflowing past
-  // 320px has no guaranteed order against whatever the map itself renders
-  // at that same screen position, regardless of overflow being visible.
-  position: relative;
-  z-index: 1;
+  width: 100%;
 }
-.map-pane {
+.app-nav {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px;
+  background: #14213d;
+}
+.app-nav-link {
+  color: #cbd5e1;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 6px;
+}
+.app-nav-link:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.app-nav-link--active {
+  background: #47a1f6;
+  color: #fff;
+}
+// The routed page's own :host (MapDashboardComponent/TrendDashboardComponent,
+// both height:100%/width:100%) resolves against THIS element's height —
+// min-height: 0 lets it actually shrink to "remaining space below .app-nav"
+// inside a flex column, rather than the flex item's default min-height:auto
+// growing the whole .app-container (and so <html>/<body>) past the
+// viewport.
+.app-content {
   flex: 1 1 auto;
-  height: 100%;
-  min-width: 0;
+  min-height: 0;
 }

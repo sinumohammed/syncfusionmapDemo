@@ -1,0 +1,34 @@
+:host {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+.trend-dashboard {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+.trend-dashboard-row {
+  min-height: 0;
+}
+// Circular chart collection sizes itself off its own height:100% chain
+// (see nx-circular-chart-collection.component.scss's own :host) — same as
+// MapDashboardComponent's .circular-chart-pane, this row just needs a
+// concrete height for that chain to resolve against, not any auto-sizing
+// of its own.
+.trend-dashboard-row--circular {
+  flex: 1 1 50%;
+}
+.trend-dashboard-row--bar {
+  flex: 1 1 50%;
+  border-top: 1px solid #ddd;
+}
+.trend-dashboard-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #9aa0a6;
+  font-size: 14px;
+}

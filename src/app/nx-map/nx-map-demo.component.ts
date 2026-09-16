@@ -130,6 +130,19 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // user changing their date-format preference mid-session.
   @Input() userDateFormat?: string;
 
+  // A CSS class name appended onto .nx-map's own root element (see the
+  // template) — same mechanism/purpose as
+  // NxCircularChartCollectionComponent.theme (nx-circular-chart-collection.component.ts),
+  // but deliberately a SEPARATE @Input, not read off parentConfig, since
+  // RawLayerNode already has its own unrelated `Theme` field (an app-wide
+  // marker/layer color theme name, see its own comment) — reusing that
+  // name here would collide with a completely different existing concept.
+  // "elevated" is the one value that currently maps to any actual CSS (the
+  // border/border-radius/box-shadow/box-sizing "card" chrome — see
+  // nx-map-demo.component.scss's own .nx-map.elevated). Absent/empty/any
+  // other string leaves .nx-map with none of that chrome.
+  @Input() panelTheme?: string | null;
+
   // Both assigned outside the constructor (mapInstance by Angular's
   // @ViewChild after view init, mapOptions asynchronously by rebuildMap()
   // once ngOnChanges' forkJoin resolves) — every read of either is already

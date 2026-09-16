@@ -9,20 +9,27 @@
   width: 100%;
 }
 
-/* "Projected" outer container — same brand treatment as
-   nx-circular-chart-collection.component.scss's own panel (blue border,
-   rounded corners, soft blue-tinted shadow, same nibras-logo.svg palette)
-   so the map and the circular chart panel read as one consistent brand,
-   with a visible gap on every side instead of sitting full-bleed against
-   its parent. width/height are calc(100% - 10px) (not the plain 100% this
-   used to be) specifically so the 5px margin below doesn't push this
-   element outside its own parent's bounds — a plain percentage size plus
-   a margin would overflow by exactly 2x the margin otherwise. */
+/* Default (non-panelTheme) outer container — layout/sizing only, no
+   border/shadow chrome: see .nx-map.elevated below for that, gated behind
+   NxMapDemoComponent's own panelTheme @Input (mirrors
+   nx-circular-chart-collection.component.scss's own
+   .nx-circular-chart-panel.elevated split). width/height are
+   calc(100% - 10px) (not the plain 100% this used to be) specifically so
+   the 5px margin below doesn't push this element outside its own parent's
+   bounds — a plain percentage size plus a margin would overflow by exactly
+   2x the margin otherwise. */
 .nx-map {
   position: relative;
   height: calc(100% - 10px);
   width: calc(100% - 10px);
   margin: 5px;
+}
+/* panelTheme="elevated" only — same brand treatment as
+   nx-circular-chart-collection.component.scss's own
+   .nx-circular-chart-panel.elevated (blue border, rounded corners, soft
+   blue-tinted shadow, same nibras-logo.svg palette) so the map and the
+   circular chart panel read as one consistent brand when both opt in. */
+.nx-map.elevated {
   border: 1.5px solid #47a1f6;
   border-radius: 16px;
   box-shadow: 0 8px 28px rgba(71, 161, 246, 0.16);

@@ -68,6 +68,24 @@ export class NxCircularChartCollectionComponent implements OnChanges {
   // chart's own [palette] binding always agree on the exact same array.
   seriesPalette: SeriesPaletteEntry[] = DEFAULT_SERIES_PALETTE;
   selectedId: string | null = null;
+
+  // rawConfig.ShowLegend read straight through (no separate stored field —
+  // there's nothing to resolve/merge, unlike seriesPalette) — only an
+  // explicit `false` hides the legend section entirely (see the template's
+  // own *ngIf), absent/null keeps the existing always-shown behavior.
+  get showLegend(): boolean {
+    return this.rawConfig?.ShowLegend !== false;
+  }
+
+  // rawConfig.Theme, trimmed — empty/whitespace-only treated the same as
+  // absent (no class appended, no themed panel chrome). The template
+  // appends this verbatim onto the panel's own class list via [ngClass] —
+  // see .nx-circular-chart-panel.elevated (nx-circular-chart-collection.component.scss)
+  // for the one value ("elevated") that currently maps to any actual CSS;
+  // any other string is a no-op class today, same as none at all.
+  get theme(): string | null {
+    return this.rawConfig?.Theme?.trim() || null;
+  }
   // Set only when rawConfig.ApiUrl's own fetch errors — distinct from
   // circularCharts just coming back empty (a real "no data yet" response),
   // see the template's own comment for the two different messages this

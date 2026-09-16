@@ -335,6 +335,19 @@ export interface RawCircularChartCollectionNode {
   // plain SeriesPaletteEntry[] is also accepted, purely so tests/inline
   // callers can hand one in directly without stringifying it first.
   SeriesPalette?: SeriesPaletteEntry[] | string | null;
+  // Collection-wide legend visibility — see
+  // NxCircularChartCollectionComponent.showLegend's own comment. Absent/null
+  // defaults to true (the existing always-shown behavior); only an explicit
+  // `false` hides it.
+  ShowLegend?: boolean | null;
+  // A CSS class name appended onto the panel's own root element
+  // (NxCircularChartCollectionComponent's own template, via [ngClass]) —
+  // "elevated" is the one value that currently maps to any actual CSS (the
+  // background/border/shadow "card" chrome — see
+  // nx-circular-chart-collection.component.scss's own
+  // .nx-circular-chart-panel.elevated). Absent/empty/any other string
+  // leaves the panel with none of that chrome.
+  Theme?: string | null;
 }
 
 // ---- Trend API response shape ------------------------------------------

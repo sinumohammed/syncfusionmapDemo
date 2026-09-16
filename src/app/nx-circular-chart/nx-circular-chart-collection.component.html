@@ -1,4 +1,4 @@
-<div class="nx-circular-chart-panel">
+<div class="nx-circular-chart-panel" [ngClass]="theme">
   <div class="nx-circular-chart-title" *ngIf="rawConfig?.Title">{{ rawConfig?.Title }}</div>
 
   <!-- Loading (ApiUrl fetch in flight) takes priority over both the error
@@ -31,7 +31,7 @@
     ></app-nx-circular-chart>
   </div>
 
-  <div class="nx-circular-chart-legend" *ngIf="legendItems.length">
+  <div class="nx-circular-chart-legend" *ngIf="legendItems.length && showLegend">
     <div class="nx-circular-chart-legend-item" *ngFor="let item of legendItems">
       <!-- Shape: "Image" (only reachable with a real ImageUrl — see
            applyConfigs()'s own fallback-to-Circle when it's missing) draws

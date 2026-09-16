@@ -408,7 +408,29 @@ export class NXMapBuilderService {
   // separators that used to sit between now-removed tokens). A literal run
   // is kept only when BOTH its neighboring real tokens survive.
   private static toDateOnlyMomentFormat(momentFormat: string): string {
-    const keepTokens = new Set(["MMM", "MM", "DD"]);
+    return NXMapBuilderService.filterMomentFormatTokens(momentFormat, new Set(["MMM", "MM", "DD"]), "MM-DD");
+  }
+
+  // Same day-level filtering as toDateOnlyMomentFormat() above, but keeping
+  // YYYY too — used only by buildSparklineSvg()'s own marker <title> hover
+  // tooltip (tooltipDateLabel), which wants the year that the x-axis labels
+  // deliberately drop (see toDateOnlyMomentFormat()'s own comment for why
+  // that's still correct for the axis) — a hovered point benefits from the
+  // disambiguating year that a glance at the whole axis doesn't need.
+  private static toFullDateMomentFormat(momentFormat: string): string {
+    return NXMapBuilderService.filterMomentFormatTokens(momentFormat, new Set(["YYYY", "MMM", "MM", "DD"]), "YYYY-MM-DD");
+  }
+
+  // Shared by toDateOnlyMomentFormat()/toFullDateMomentFormat() above —
+  // filters an ALREADY-moment-translated format down to just `keepTokens`,
+  // dropping every other named token — and, critically, any literal
+  // separator that would otherwise dangle next to a dropped token (a plain
+  // "keep only wanted tokens, keep every literal as-is" pass would leave
+  // "DD-MMM- :" behind for a "DD-MMM-YYYY hh:mm" format filtered down to
+  // day/month — the trailing "- :" survives from separators that used to
+  // sit between now-removed tokens). A literal run is kept only when BOTH
+  // its neighboring real tokens survive.
+  private static filterMomentFormatTokens(momentFormat: string, keepTokens: Set<string>, fallback: string): string {
     const parts = momentFormat.match(/YYYY|MMM|MM|DD|HH|hh|mm|ss|a|[^A-Za-z]+/g) ?? [];
     const isToken = (p: string) => NXMapBuilderService.KNOWN_MOMENT_TOKENS.has(p);
     const kept: string[] = [];
@@ -430,7 +452,7 @@ export class NXMapBuilderService {
         kept.push(part);
       }
     }
-    return kept.join("") || "MM-DD";
+    return kept.join("") || fallback;
   }
 
   private static readonly KNOWN_MOMENT_TOKENS = new Set(["YYYY", "MMM", "MM", "DD", "HH", "hh", "mm", "ss", "a"]);
@@ -961,6 +983,20 @@ export class NXMapBuilderService {
     // padLeft stays as-is (already generous — it exists for the y-axis
     // labels, not just symmetry, so there's no matching reason to grow it).
     const padRight = 18 * scale;
+    // Reported live: the x-axis line and the limit line/tick both stopped
+    // exactly at the last point's own x (width - padRight), which sat
+    // noticeably short of that SAME point's own date label below (centered
+    // on that x with text-anchor="middle", so the label's own text extends
+    // further right than its anchor point) — read as the line stopping
+    // before the label it belongs to instead of running under it. Only
+    // applied on this TRAILING end, past the last point — the leading end
+    // stays clamped exactly to padLeft/xAt(0) (see leadingX below), since
+    // extending THAT side back out would reintroduce the "line starts
+    // before the y-axis" bug already fixed here. Sized off padRight itself
+    // (not an unrelated constant) so it stays proportional to the margin
+    // already reserved out there, comfortably inside the viewBox's own
+    // right edge.
+    const endBuffer = padRight * 0.5;
     const padTop = 10 * scale;
     // Leaves room under the chart for date labels — chartBottom is the
     // plot area's own bottom edge, `height` (past it) is where the date
@@ -1004,6 +1040,18 @@ export class NXMapBuilderService {
     const dateLabel = (date: string | undefined) => {
       const parsed = date ? moment.parseZone(date) : null;
       return parsed?.isValid() ? parsed.format(dateOnlyFormat) : "";
+    };
+    // Full date (day/month/YEAR, no time) — used ONLY for the marker's own
+    // native <title> hover tooltip below, never the x-axis labels above
+    // (those stay dateLabel/dateOnlyFormat, year genuinely is noise there —
+    // see its own comment). On hover a viewer is looking at ONE specific
+    // point, where the year is exactly the disambiguating context missing
+    // from the axis's own deliberately-terse label (reported live: two
+    // points a year apart can render identical "DD-MMM" axis labels).
+    const tooltipDateOnlyFormat = NXMapBuilderService.toFullDateMomentFormat(NXMapBuilderService.toMomentFormat(dateFormat));
+    const tooltipDateLabel = (date: string | undefined) => {
+      const parsed = date ? moment.parseZone(date) : null;
+      return parsed?.isValid() ? parsed.format(tooltipDateOnlyFormat) : "";
     };
     const formatValue = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1));
 
@@ -1069,18 +1117,40 @@ export class NXMapBuilderService {
           // one) has nothing to connect to — a short dot-dash tick, same
           // as before, so it's still visible rather than silently dropped.
           const tickHalfWidth = 4 * scale;
-          return `<line x1="${(xAt(run[0].i) - tickHalfWidth).toFixed(1)}" y1="${run[0].y.toFixed(1)}" x2="${(xAt(run[0].i) + tickHalfWidth).toFixed(1)}" y2="${run[0].y.toFixed(1)}" stroke="#d97706" stroke-width="${(1.3 * scale).toFixed(1)}" stroke-dasharray="${(1.5 * scale).toFixed(1)} ${(1.5 * scale).toFixed(1)}"/>`;
+          // Same y-axis clamp as the multi-point run's own leadingX below —
+          // a tick on the chart's very first point (i === 0) would
+          // otherwise extend to xAt(0) - tickHalfWidth = padLeft -
+          // tickHalfWidth, left of the y-axis line itself.
+          const tickX1 = run[0].i === 0 ? xAt(run[0].i) : xAt(run[0].i) - tickHalfWidth;
+          // Same reasoning as the x-axis/limit-line's own trailingX below —
+          // a tick on the chart's very last point gets endBuffer instead of
+          // the usual tickHalfWidth, so it runs under that point's own date
+          // label the same way the other two trailing edges do.
+          const tickX2 = run[0].i === history.length - 1 ? xAt(run[0].i) + endBuffer : xAt(run[0].i) + tickHalfWidth;
+          return `<line x1="${tickX1.toFixed(1)}" y1="${run[0].y.toFixed(1)}" x2="${tickX2.toFixed(1)}" y2="${run[0].y.toFixed(1)}" stroke="#d97706" stroke-width="${(1.3 * scale).toFixed(1)}" stroke-dasharray="${(1.5 * scale).toFixed(1)} ${(1.5 * scale).toFixed(1)}"/>`;
         }
         // Extends half a step BEFORE the run's own first point and half a
         // step AFTER its own last, so the very first/last flat segments
         // read the same width as every segment in between, rather than
-        // starting/ending abruptly right at the point itself.
+        // starting/ending abruptly right at the point itself. EXCEPT at
+        // either end of the CHART's own history (not just the run):
+        // - Leading end (i === 0): the half-step extension pushed it to
+        //   xAt(0) - halfStep = padLeft - halfStep, left of the y-axis line
+        //   itself (reported live) — clamped to exactly xAt(0) instead.
+        // - Trailing end (i === lastIndex): xAt(last) + halfStep already
+        //   cleared the plot area's own edge (width - padRight), but that
+        //   edge itself sat short of that point's own date label below
+        //   (reported live) — extended by endBuffer instead, past
+        //   halfStep, so the line runs under that label too.
         const halfStep = step / 2;
-        const path: string[] = [`M ${(xAt(run[0].i) - halfStep).toFixed(1)} ${run[0].y.toFixed(1)}`];
+        const lastIndex = history.length - 1;
+        const leadingX = (i: number) => (i === 0 ? xAt(i) : xAt(i) - halfStep);
+        const trailingX = (i: number) => (i === lastIndex ? xAt(i) + endBuffer : xAt(i) + halfStep);
+        const path: string[] = [`M ${leadingX(run[0].i).toFixed(1)} ${run[0].y.toFixed(1)}`];
         run.forEach((p, idx) => {
-          const midX = idx === 0 ? xAt(p.i) - halfStep : (xAt(run[idx - 1].i) + xAt(p.i)) / 2;
+          const midX = idx === 0 ? leadingX(p.i) : (xAt(run[idx - 1].i) + xAt(p.i)) / 2;
           path.push(`L ${midX.toFixed(1)} ${p.y.toFixed(1)}`);
-          const nextMidX = idx === run.length - 1 ? xAt(p.i) + halfStep : (xAt(p.i) + xAt(run[idx + 1].i)) / 2;
+          const nextMidX = idx === run.length - 1 ? trailingX(p.i) : (xAt(p.i) + xAt(run[idx + 1].i)) / 2;
           path.push(`L ${nextMidX.toFixed(1)} ${p.y.toFixed(1)}`);
         });
         return `<path d="${path.join(" ")}" fill="none" stroke="#d97706" stroke-width="${(1.3 * scale).toFixed(1)}" stroke-dasharray="${(2.5 * scale).toFixed(1)} ${(2 * scale).toFixed(1)}" stroke-linejoin="round"/>`;
@@ -1096,7 +1166,7 @@ export class NXMapBuilderService {
       .map((h, i) => {
         const x = xAt(i);
         const y = yAt(h.value);
-        const label = dateLabel(h.date) || `#${i + 1}`;
+        const label = tooltipDateLabel(h.date) || `#${i + 1}`;
         const crossed = h.limit !== undefined && h.value > h.limit;
         if (crossed) {
           return (
@@ -1182,7 +1252,7 @@ export class NXMapBuilderService {
       // with no explicit namespace there fails to render as a valid SVG at
       // all, so this can't be left implicit.
       `<svg xmlns="http://www.w3.org/2000/svg" class="mtt-spark-svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">` +
-      `<line x1="${padLeft.toFixed(1)}" y1="${chartBottom.toFixed(1)}" x2="${(width - padRight).toFixed(1)}" y2="${chartBottom.toFixed(1)}" stroke="#e0e3e6" stroke-width="1"/>` +
+      `<line x1="${padLeft.toFixed(1)}" y1="${chartBottom.toFixed(1)}" x2="${(width - padRight + endBuffer).toFixed(1)}" y2="${chartBottom.toFixed(1)}" stroke="#e0e3e6" stroke-width="1"/>` +
       yAxis +
       limitLine +
       `<polyline points="${points}" fill="none" stroke="currentColor" stroke-width="${strokeWidth.toFixed(1)}" stroke-linecap="round" stroke-linejoin="round"/>` +

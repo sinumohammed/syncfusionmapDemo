@@ -121,12 +121,36 @@ export class NxCircularChartCollectionComponent implements OnChanges {
     return this.rows > 0 ? Math.max(0, this.totalColumns - this.columns) : 0;
   }
 
-  // One dot per possible scroll position (0..maxColumnOffset inclusive) —
-  // the template never reads an entry's actual value, only its index (see
-  // goToColumn()'s own comment on why dots are index-addressed, not
-  // object-addressed).
+  // One dot per PAGE, not per possible scroll position — product decision
+  // (confirmed live): with columns=4 and 6 charts, 3 dots stepping one
+  // card at a time read as too many/too fine-grained; what's wanted is
+  // "how many more clicks to see everything", i.e. ceil(remaining /
+  // columns) dots, each jumping a full `columns` at once EXCEPT the last,
+  // which only jumps whatever's actually left — so the final page never
+  // overshoots past the end into empty/repeated space. Values, not
+  // sequential indices (0, columns, 2*columns, ..., maxColumnOffset) — the
+  // template's own *ngFor already passes each entry's VALUE straight to
+  // goToColumn() (see its own comment), so this only ever needed to
+  // produce the right STOPS, never a specific index shape.
+  //
+  // The track itself still slides via the same CSS transform/transition
+  // as before (trackTranslatePercent below, unchanged) — only WHICH
+  // offsets get a dot changed here, not how moving between two offsets
+  // looks. That distinction matters: this class's own currentColumnOffset
+  // comment documents an earlier product decision AWAY from page-at-a-time
+  // pagination, specifically because swapping the grid's entire visible
+  // contents at once read as items "vanishing" rather than sliding out of
+  // view — this still doesn't do that; a page-sized JUMP still animates as
+  // one continuous slide across however many columns it crosses, it just
+  // no longer stops at every single intermediate column along the way.
   get columnOffsets(): number[] {
-    return Array.from({ length: this.maxColumnOffset + 1 }, (_, i) => i);
+    const offsets = [0];
+    let offset = 0;
+    while (offset < this.maxColumnOffset) {
+      offset = Math.min(offset + this.columns, this.maxColumnOffset);
+      offsets.push(offset);
+    }
+    return offsets;
   }
 
   // The track's own CSS transform (bound inline by the template) — percent
@@ -144,7 +168,7 @@ export class NxCircularChartCollectionComponent implements OnChanges {
 
   // Bound directly from the template's own dot buttons (click) — no bounds
   // check needed beyond what columnOffsets already guarantees (every dot's
-  // own index is already <= maxColumnOffset, since that's exactly what
+  // own VALUE is already <= maxColumnOffset, since that's exactly what
   // columnOffsets was built from).
   goToColumn(offset: number): void {
     this.currentColumnOffset = offset;

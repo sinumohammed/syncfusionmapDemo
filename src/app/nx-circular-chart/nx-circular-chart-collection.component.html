@@ -8,10 +8,12 @@
        visibleCircularChartCount()'s own comment) in the SAME grid the real
        cards use, so the loading state reads as "these specific charts are
        about to appear" rather than a single generic spinner. -->
-  <div class="nx-circular-chart-grid" [style.grid-template-columns]="'repeat(' + columns + ', 1fr)'" *ngIf="loading">
-    <div class="nx-circular-chart-skeleton" *ngFor="let _ of skeletonItems">
-      <span class="nx-circular-chart-skeleton-ring"></span>
-      <span class="nx-circular-chart-skeleton-title"></span>
+  <div class="nx-circular-chart-grid-scroll" *ngIf="loading">
+    <div class="nx-circular-chart-grid" [style.grid-template-columns]="'repeat(' + columns + ', 1fr)'">
+      <div class="nx-circular-chart-skeleton" *ngFor="let _ of skeletonItems">
+        <span class="nx-circular-chart-skeleton-ring"></span>
+        <span class="nx-circular-chart-skeleton-title"></span>
+      </div>
     </div>
   </div>
 
@@ -49,14 +51,16 @@
     </div>
   </div>
 
-  <div class="nx-circular-chart-grid" [style.grid-template-columns]="'repeat(' + columns + ', 1fr)'" *ngIf="!loading && circularCharts.length && rows <= 0">
-    <app-nx-circular-chart
-      *ngFor="let circularChart of circularCharts"
-      [config]="circularChart"
-      [selected]="selectedId === circularChart.id"
-      [palette]="seriesPalette"
-      (select)="onCircularChartSelected(circularChart)"
-    ></app-nx-circular-chart>
+  <div class="nx-circular-chart-grid-scroll" *ngIf="!loading && circularCharts.length && rows <= 0">
+    <div class="nx-circular-chart-grid" [style.grid-template-columns]="'repeat(' + columns + ', 1fr)'">
+      <app-nx-circular-chart
+        *ngFor="let circularChart of circularCharts"
+        [config]="circularChart"
+        [selected]="selectedId === circularChart.id"
+        [palette]="seriesPalette"
+        (select)="onCircularChartSelected(circularChart)"
+      ></app-nx-circular-chart>
+    </div>
   </div>
 
   <!-- One dot per scroll position (columnOffsets) — only rendered once

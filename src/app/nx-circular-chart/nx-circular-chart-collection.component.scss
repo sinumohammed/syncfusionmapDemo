@@ -73,20 +73,85 @@
   border-radius: 14px 14px 0 0;
   border-bottom: 3px solid #ffcb05;
 }
+/* Wraps .nx-circular-chart-grid below (rows<=0, the unlimited/no-carousel
+   case — see that Input's own comment) so the SCROLLBAR and the grid's own
+   shadow-clearance padding aren't fighting over the same box. Confirmed
+   live: with both flex/overflow-y AND the shadow padding on .nx-circular-
+   chart-grid itself, the browser's own scrollbar widget paints inside
+   that element's padding-box, physically overlapping the exact strip of
+   right-side padding reserved for a card's hover/selected box-shadow — so
+   the shadow was still visibly clipped (by the scrollbar itself, not by
+   overflow-x this time) regardless of how much padding that single
+   element had. This wrapper owns ONLY the scrolling concern (no padding
+   of its own, so its scrollbar sits flush at ITS box edge with nothing
+   else competing for that space); .nx-circular-chart-grid inside it stays
+   a plain, unclipped-by-scrollbar box free to reserve its own shadow
+   padding same as before. */
+.nx-circular-chart-grid-scroll {
+  /* See .nx-circular-chart-grid's own comment (min-height: 0) for why this
+     needs to be a flex item here — same "grid/flex item's default
+     min-height is auto, not 0" story, just one level up now that the
+     scrolling element itself moved outside the padded grid. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  /* Reserves the scrollbar's own width UP FRONT rather than letting it
+     appear only once content is measured tall enough to need it —
+     confirmed live this was the actual cause of a lingering ~17px
+     (exactly the scrollbar's own width) of horizontal overflow that
+     persisted no matter how much padding .nx-circular-chart-grid's own
+     right side got: without this, the grid's 1fr column track gets sized
+     against this wrapper's PRE-scrollbar width (no scrollbar exists yet
+     on that first layout pass), the scrollbar then appears because that
+     now-measured content is tall enough, and the browser never re-runs
+     grid track sizing against the narrower POST-scrollbar width to
+     compensate — a one-directional layout dependency, not something
+     padding on a descendant can fix from the wrong side of the scrollbar. */
+  scrollbar-gutter: stable;
+  /* overflow-x: hidden, NOT left at its default — CSS computes an unset
+     overflow-x to `auto` too the moment overflow-y isn't `visible` (the
+     spec's own overflow-x/y coupling rule), so leaving it unset here still
+     produced a horizontal scrollbar the instant this wrapper's content was
+     even a pixel wider than it — confirmed live. Safe to hide outright:
+     .nx-circular-chart-grid inside never needs to overflow horizontally
+     (every card is a `1fr` track, exactly as wide as its own column),
+     unlike map-dashboard.component.scss's own .circular-chart-pane (which
+     stays off overflow: hidden entirely for a hovered slice's tooltip). */
+  overflow-x: hidden;
+}
 .nx-circular-chart-grid {
   display: grid;
   /* grid-template-columns itself is set inline per-instance now (the
      template binds it off NxCircularChartCollectionComponent's own
-     `columns` @Input, default 2 — see that Input's own comment) — not
-     hardcoded here anymore, so a host embedding this in a wide, full-row
-     layout (e.g. TrendDashboardComponent) can fit every card on one line
-     instead of always wrapping at 2 columns like the narrow sidebar
-     (MapDashboardComponent) still does by default. */
+     `columns` @Input, no default — every host supplies its own, see that
+     Input's own comment) — not hardcoded here anymore, so a host embedding
+     this in a wide, full-row layout (e.g. TrendDashboardComponent's own
+     hardcoded [columns]="6") can fit more cards on one line than a narrow
+     sidebar (MapDashboardComponent's own config-driven column count). */
   /* Wider than the original 8px — each card now has its own shadow/lift
      (see nx-circular-chart.component.scss's own "projected" card
      comment), which needs breathing room between cards to actually read
      as separate raised tiles instead of touching/overlapping shadows. */
   gap: 14px;
+  /* Same "give the clip boundary room" reasoning .nx-circular-chart-
+     viewport's own padding below already documents for the carousel — a
+     card's own border/box-shadow (nx-circular-chart.component.scss's
+     "projected" card) and its selected outline both render OUTSIDE the
+     card's own box. 16px, not the viewport's own 3px: that 3px only ever
+     had to cover a 1.5px outline (the carousel track's own overflow:
+     hidden already accepted clipping the REST-state shadow as part of how
+     the carousel hides off-screen columns), but this grid has no such
+     tradeoff to make — it needs room for the LARGEST thing a card actually
+     paints outside its own box: the hover/selected box-shadow
+     (nx-circular-chart.component.scss, 0 6px 16px). box-sizing: border-box
+     so this padding eats into the existing 1fr track width instead of
+     adding to it (no change to how wide a card actually renders). Safe to
+     rely on padding alone for clearance now (no overflow: hidden on THIS
+     element at all) — .nx-circular-chart-grid-scroll above is what clips
+     scrolling, this element is free to let its own content paint past its
+     box if it ever needs to. */
+  box-sizing: border-box;
+  padding: 16px;
 }
 /* rows > 0 carousel — see the template's own comment for why this exists
    alongside .nx-circular-chart-grid above rather than replacing it. Plain

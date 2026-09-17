@@ -53,14 +53,19 @@ export class NxCircularChartCollectionComponent implements OnChanges {
   // Grid column count — the template binds this straight onto
   // .nx-circular-chart-grid's own grid-template-columns (see the template
   // and nx-circular-chart-collection.component.scss's own comment on why
-  // the SCSS rule itself no longer hardcodes a column count). Defaults to
-  // 2, the existing fixed layout every host before this had — a host that
-  // wants more per row (e.g. a full-width page fitting every card on one
-  // line) sets this instead of the component picking a count from its own
-  // circularCharts.length, which stayed stable across a loading/empty
-  // transition and matches how skeletonItems (the loading placeholder
-  // grid) also has no reliable final count to key off yet.
-  @Input() columns = 2;
+  // the SCSS rule itself no longer hardcodes a column count). No default —
+  // unlike rows (0 has its own meaning: unlimited/no carousel), any
+  // fallback here would be an arbitrary fixed number baked into this
+  // component instead of left to the host, which is exactly what
+  // MapDashboardComponent's own circularChartColumns (config-driven, with
+  // its own auto/square-layout fallback when config leaves it unset) and
+  // TrendDashboardComponent's own hardcoded [columns]="6" both already do
+  // at the call site. The component picking a count from its own
+  // circularCharts.length instead isn't viable either — that count stays
+  // stable across a loading/empty transition, matching skeletonItems (the
+  // loading placeholder grid), which has no reliable final count to key
+  // off yet.
+  @Input() columns!: number;
 
   // Rows per COLUMN of the sliding carousel below (not a total row count
   // across every circular chart) — paired with `columns` (how many of
@@ -102,8 +107,18 @@ export class NxCircularChartCollectionComponent implements OnChanges {
   // How far the track can scroll — 0 when everything already fits within
   // `columns` visible columns (totalColumns <= columns), same "no
   // scrolling needed" case the dots below also key off to stay hidden.
+  // Also 0 whenever rows <= 0 (the plain-grid, no-carousel case — see that
+  // Input's own comment) REGARDLESS of totalColumns/columns: totalColumns
+  // itself keeps returning a real (often > 1) count even outside carousel
+  // mode (Math.max(1, this.rows) above floors rows=0 to 1, it doesn't
+  // special-case "no carousel" at all), so without this guard the
+  // pagination dots' own `*ngIf="maxColumnOffset > 0"` rendered a full set
+  // of dots underneath the plain wrapping grid too — confirmed live with
+  // MapDashboardComponent's own single-column fallback (columns=1, rows=0)
+  // and 7 charts: totalColumns came out to 7, maxColumnOffset to 6, i.e.
+  // six dots controlling a carousel that was never actually on screen.
   get maxColumnOffset(): number {
-    return Math.max(0, this.totalColumns - this.columns);
+    return this.rows > 0 ? Math.max(0, this.totalColumns - this.columns) : 0;
   }
 
   // One dot per possible scroll position (0..maxColumnOffset inclusive) —

@@ -348,6 +348,22 @@ export interface RawCircularChartCollectionNode {
   // .nx-circular-chart-panel.elevated). Absent/empty/any other string
   // leaves the panel with none of that chrome.
   Theme?: string | null;
+  // How many of the collection's own carousel columns are visible at once
+  // and how many rows each holds — the real upstream payload's own grid
+  // placement fields, repurposed here as the source for
+  // NxCircularChartCollectionComponent's `columns`/`rows` @Inputs (see
+  // MapDashboardComponent, which reads these instead of hardcoding the
+  // 2/4 those @Inputs used to be wired to directly in the page's own HTML).
+  // Absent/unparseable falls back to whatever default the consuming page
+  // chooses, same as before these were read from config at all.
+  GridColumn?: string | number | null;
+  GridRow?: string | number | null;
+  // Total column count of the HOST PAGE's own outer layout grid (e.g.
+  // MapDashboardComponent's .app-shell) — NOT this collection's internal
+  // carousel grid. Lets a page size its circular-chart pane as "1 of N"
+  // shell columns from config instead of a hardcoded CSS fraction; a page
+  // that doesn't care about this can simply ignore it.
+  DefaultGridColumns?: number | null;
 }
 
 // ---- Trend API response shape ------------------------------------------

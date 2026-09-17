@@ -4,26 +4,36 @@
   width: 100%;
 }
 .app-shell {
-  display: flex;
+  display: grid;
+  // grid-template-columns is set inline (MapDashboardComponent.
+  // appShellGridTemplateColumns, [style.grid-template-columns] in the
+  // template) — driven by the circular chart config's own
+  // DefaultGridColumns instead of a fraction hardcoded here, so a config
+  // change alone moves the split.
   height: 100%;
   width: 100%;
 }
 .circular-chart-pane {
-  flex: 0 0 320px;
-  // A flex item's default min-width is `auto`, not 0 — meaning its
-  // CONTENT's min-content size can override an explicit, smaller
-  // flex-basis (flex-grow: 0 only stops it growing PAST its basis on its
-  // own; it doesn't stop content from forcing it wider). Confirmed live:
-  // once the rows > 0 carousel (nx-circular-chart-collection.component.scss's
-  // own .nx-circular-chart-track) started rendering a track wider than
-  // this 320px basis (grid-auto-flow: column across every totalColumns,
+  // Same story as flex: a grid item's default min-width is `auto`, not 0,
+  // so its CONTENT's min-content size can override the track's own
+  // minmax(0, 1fr) sizing. Once the rows > 0 carousel (nx-circular-chart-collection
+  // .component.scss's own .nx-circular-chart-track) rendered a track wider
+  // than this column (grid-auto-flow: column across every totalColumns,
   // not just the `columns` actually meant to be visible), its min-content
-  // contribution silently stretched this pane to ~560px — .nx-circular-chart-viewport's
-  // own overflow: hidden (a DESCENDANT, not this flex item itself) doesn't
-  // suppress that; only min-width: 0 HERE, on the item the flex algorithm
-  // actually sizes, does. Same fix .map-pane already had below, for
-  // whatever unrelated reason it needed it first.
+  // contribution silently stretched this column past its 1fr share —
+  // .nx-circular-chart-viewport's own overflow: hidden (a DESCENDANT, not
+  // this grid item itself) doesn't suppress that; only min-width: 0 HERE,
+  // on the item the grid algorithm actually sizes, does.
   min-width: 0;
+  // Same bug, vertical axis — a grid item's default min-height is also
+  // `auto`, not 0. Confirmed live: with the single-column stacking
+  // fallback (MapDashboardComponent.circularChartColumns/circularChartRows)
+  // rendering several full-height cards, this pane grew past .app-shell's
+  // own 100% row height (1267px content vs. 868px shell) INSTEAD of
+  // clipping/scrolling — nx-circular-chart-collection.component.scss's own
+  // .nx-circular-chart-grid overflow-y: auto never got a bounded box to
+  // scroll within, since ITS ancestor here kept growing to fit it first.
+  min-height: 0;
   height: 100%;
   border-right: 1px solid #ddd;
   // Deliberately NOT overflow: hidden — same reasoning as
@@ -43,7 +53,6 @@
   z-index: 1;
 }
 .map-pane {
-  flex: 1 1 auto;
   height: 100%;
   min-width: 0;
 }

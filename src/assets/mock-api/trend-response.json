@@ -5,7 +5,7 @@
       {
         "TrendID": "1",
         "TrendName": "TVP",
-        "ChartType": 2,
+        "ChartType": 1,
         "ApplyGradient": true,
         "Status": "OK",
         "StatusMessage": "",
@@ -25,7 +25,7 @@
               {
                 "SeriesID": "1-1",
                 "XValue": "Customer impact",
-                "YValue": "4",
+                "YValue": "0",
                 "ToolTip": "",
                 "ItemStyle": {
                   "color": "#1f4e79"
@@ -50,7 +50,7 @@
               {
                 "SeriesID": "1-2",
                 "XValue": "Non-customer impact",
-                "YValue": "2",
+                "YValue": "0",
                 "ToolTip": "",
                 "ItemStyle": {
                   "color": "#e07b39"
@@ -392,7 +392,7 @@
       {
         "TrendID": "7",
         "TrendName": "FLOW",
-        "ChartType": 1,
+        "ChartType": 2,
         "Status": "OK",
         "StatusMessage": "",
         "Series": [

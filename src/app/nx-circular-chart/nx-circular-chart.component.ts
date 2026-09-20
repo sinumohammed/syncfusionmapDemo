@@ -1,4 +1,17 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from "@angular/core";
+import {
+  AfterViewInit,
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  ElementRef,
+  EventEmitter,
+  Input,
+  OnChanges,
+  OnDestroy,
+  Output,
+  SimpleChanges,
+  ViewChild
+} from "@angular/core";
 import { AccumulationChart, AccumulationSeriesModel, AccumulationTooltip, PieSeries } from "@syncfusion/ej2-angular-charts";
 import { CircularChartConfig, CircularChartTypes, DEFAULT_SERIES_PALETTE, SeriesPaletteEntry } from "./model/nx-circular-chart-model";
 
@@ -15,18 +28,36 @@ AccumulationChart.Inject(PieSeries, AccumulationTooltip);
 // emptyRingSize() below (the CSS placeholder's diameter) — see
 // emptyRingSize()'s own comment for why both need to agree on this.
 const DEFAULT_RADIUS_PERCENT = 80;
-// .nx-circular-chart-empty-ring/the real <ejs-accumulationchart> both sit in the
-// same 130px-square box (see that chart's own height="130px" width="100%"
-// in the template, and .nx-circular-chart-empty-ring's own comment).
+// .nx-circular-chart-empty-ring/the real <ejs-accumulationchart> both sit in
+// the same box (that chart's own height="130px" width="100%" in the
+// template, and .nx-circular-chart-empty-ring's own comment) — 130 is only
+// this box's HEIGHT cap, never assumed to be its width too: the real
+// Syncfusion chart's width="100%" auto-fits whatever the card's own
+// rendered width actually is (now genuinely variable — MapDashboardComponent
+// /NxCircularChartCollectionComponent's own `columns` can make that
+// anywhere from under 100px to several hundred), so its rendered radius
+// naturally shrinks/grows with min(that measured width, this 130px height
+// cap). The CSS-only placeholder ring below has no such built-in
+// auto-fit — measuredBoxPx (this class's own field, kept current by a
+// ResizeObserver in ngAfterViewInit) is what makes it track the same
+// min(width, 130) real charts get for free. Confirmed live: with a bare
+// 130 assumption instead, a narrow card (columns=4, ~97px wide) rendered
+// an ~104px ring that visibly overflowed past the card's own edges, while
+// every real (populated) chart alongside it had already shrunk to fit.
 const CHART_BOX_PX = 130;
 // Must match .nx-circular-chart-empty-ring's own CSS border-width exactly —
 // read by healthyInnerSizePx() below to size the healthy fill to this
 // ring's own actual hole, not an approximate percentage of it (see that
 // getter's own comment).
 const EMPTY_RING_BORDER_PX = 14;
-// -45° = up-and-right, standard "notification dot" position on a round
-// avatar/ring — read by healthyCheckPosition() below.
-const HEALTHY_CHECK_ANGLE_RAD = -Math.PI / 4;
+// -135° = up-and-left — was -45°/up-and-right (the standard "notification
+// dot" position on a round avatar/ring) until confirmed live that a card
+// sitting near a clipping edge (nx-circular-chart-collection.component.scss's
+// own .nx-circular-chart-grid-scroll overflow-x: hidden, or simply a
+// narrow card) cut the badge off on the right — up-and-left mirrors the
+// same offset onto the ring's other side instead, away from that edge.
+// Read by healthyCheckPosition() below.
+const HEALTHY_CHECK_ANGLE_RAD = (-3 * Math.PI) / 4;
 
 // Fallback when a circular chart's own config.tooltipFormat (RawCircularChartNode.TooltipFormat
 // in real-circular-chart-parent-config.json) is unset — same Syncfusion placeholder
@@ -98,7 +129,7 @@ function blend(hex: string, target: [number, number, number], amount: number): s
   // here that would go stale under OnPush.
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class NxCircularChartComponent implements OnChanges {
+export class NxCircularChartComponent implements OnChanges, AfterViewInit, OnDestroy {
   // Exposed so the template can compare against it directly (Angular
   // templates can't reference an imported enum on their own) — see
   // .nx-circular-chart-empty-ring's own template binding for why the empty
@@ -245,6 +276,48 @@ export class NxCircularChartComponent implements OnChanges {
     return this.config?.chartType ?? CircularChartTypes.Doughnut;
   }
 
+  // .nx-circular-chart-card's own actual rendered CONTENT width (i.e.
+  // already excluding its own padding/border — ResizeObserver's
+  // contentRect is defined that way) — kept live by the ResizeObserver set
+  // up in ngAfterViewInit(). Starts at CHART_BOX_PX, the same fixed value
+  // this class used unconditionally before measuring existed at all, so
+  // emptyRingSizePx below renders something reasonable for the one frame
+  // before the observer's first callback fires, instead of a 0px ring.
+  private measuredBoxPx = CHART_BOX_PX;
+
+  // The real chart (`<ejs-accumulationchart>`) — see CHART_BOX_PX's own
+  // comment for why the ResizeObserver watches THIS element specifically.
+  @ViewChild("cardEl", { static: true }) private cardEl!: ElementRef<HTMLElement>;
+  private resizeObserver?: ResizeObserver;
+
+  constructor(private cdr: ChangeDetectorRef) {}
+
+  ngAfterViewInit(): void {
+    // ResizeObserver callbacks run inside Angular's zone by default, but
+    // this component is OnPush and a resize is neither an @Input change
+    // nor a template-bound event (the two cases OnPush's own class comment
+    // says it still checks automatically) — markForCheck() below is
+    // required, same reasoning as any other outside-Angular mutation under
+    // OnPush.
+    this.resizeObserver = new ResizeObserver(entries => {
+      const width = entries[0]?.contentRect.width;
+      // > 0.5px, not `!==` — ResizeObserver already coalesces most
+      // sub-pixel layout noise, but this still avoids an infinite
+      // measure/re-render loop from float jitter that survives that
+      // coalescing (confirmed this class of bug elsewhere in this
+      // session with grid-track sizing racing a scrollbar's own width).
+      if (width && Math.abs(width - this.measuredBoxPx) > 0.5) {
+        this.measuredBoxPx = width;
+        this.cdr.markForCheck();
+      }
+    });
+    this.resizeObserver.observe(this.cardEl.nativeElement);
+  }
+
+  ngOnDestroy(): void {
+    this.resizeObserver?.disconnect();
+  }
+
   // .nx-circular-chart-empty-ring is a plain CSS border-circle, not a Syncfusion
   // series — it never went through buildSeries()'s own `radius` at all, so
   // it always rendered at a flat 130px regardless of what a real pie on
@@ -256,9 +329,16 @@ export class NxCircularChartComponent implements OnChanges {
   // diameter from the exact same config.radius (and the exact same
   // default) as buildSeries() keeps them identical regardless of which one
   // a given card ends up rendering.
+  //
+  // min(measuredBoxPx, CHART_BOX_PX), not measuredBoxPx alone — see
+  // CHART_BOX_PX's own comment: the real chart's radius is capped by
+  // whichever of width/height is smaller, and height stays fixed at 130px
+  // regardless of how wide the card gets, so this ring shouldn't grow past
+  // that either even on a card wide enough to allow it.
   get emptyRingSizePx(): number {
     const percent = parseFloat(this.config?.radius ?? "") || DEFAULT_RADIUS_PERCENT;
-    return (CHART_BOX_PX * percent) / 100;
+    const boxPx = Math.min(this.measuredBoxPx, CHART_BOX_PX);
+    return (boxPx * percent) / 100;
   }
 
   // The healthy badge's own green background needs to be a CIRCLE sized to
@@ -278,24 +358,44 @@ export class NxCircularChartComponent implements OnChanges {
     return this.emptyRingSizePx - 2 * EMPTY_RING_BORDER_PX;
   }
 
-  // Center point (relative to the ring box's own top-left corner) for the
-  // healthy checkmark badge, sitting right ON this ROUND ring's own actual
-  // boundary — not its bounding box's corner. A round ring curves away from
-  // its own bounding square's corner (the ring's actual edge at 45° sits
-  // emptyRingSizePx/2 * (1 - cos45°) px inside that corner, ~30% of the
-  // radius for a typical size here), so CSS top/right offsets anchored to
-  // that corner (the previous approach) always left the badge floating
-  // visibly outside the ring instead of touching it (confirmed live).
-  // HEALTHY_CHECK_ANGLE_RAD (-45°, up-and-right) picks WHERE on the ring;
-  // the template centers the badge exactly on this point (transform:
-  // translate(-50%, -50%)), so half of it sits inside the ring's own grey
-  // band and half outside — the same overlapping-the-boundary look every
-  // "notification dot on a round avatar" uses.
+  // Center point for the healthy checkmark badge, sitting right ON this
+  // ROUND ring's own actual OUTER boundary — not its bounding box's
+  // corner. A round ring curves away from its own bounding square's
+  // corner (the ring's actual edge at 45° sits emptyRingSizePx/2 * (1 -
+  // cos45°) px inside that corner, ~30% of the radius for a typical size
+  // here), so CSS top/right offsets anchored to that corner (the previous
+  // approach) always left the badge floating visibly outside the ring
+  // instead of touching it (confirmed live).
+  //
+  // NOT relative to the ring box's own top-left corner, despite `left`/
+  // `top` being CSS pixels the template hands straight to a child of
+  // .nx-circular-chart-empty-ring (position: relative) — that ring has a
+  // 14px border (EMPTY_RING_BORDER_PX), and CSS positions an absolutely
+  // positioned child relative to its containing block's PADDING box,
+  // which starts EMPTY_RING_BORDER_PX pixels INSIDE the ring's own outer
+  // (border) edge, not at it. Confirmed live: without subtracting that
+  // border width from the origin below, the badge rendered a full 14px
+  // closer to the ring's center than intended on both axes — reading as
+  // sitting inside the ring instead of touching its boundary, regardless
+  // of HEALTHY_CHECK_ANGLE_RAD (this was already wrong before that angle
+  // changed; the angle change only made someone look closely enough to
+  // notice). `radius * cos/sin` below still needs the FULL outer radius
+  // (that's the actual target distance from the ring's true center) —
+  // only the ORIGIN this gets added to shifts, by -EMPTY_RING_BORDER_PX,
+  // to land in the padding box's own local coordinate space.
+  //
+  // HEALTHY_CHECK_ANGLE_RAD (-135°, up-and-left — see its own comment)
+  // picks WHERE on the ring; the template centers the badge exactly on
+  // this point (transform: translate(-50%, -50%)), so half of it sits
+  // inside the ring's own grey band and half outside — the same
+  // overlapping-the-boundary look every "notification dot on a round
+  // avatar" uses.
   get healthyCheckPosition(): { left: number; top: number } {
     const radius = this.emptyRingSizePx / 2;
+    const origin = radius - EMPTY_RING_BORDER_PX;
     return {
-      left: radius + radius * Math.cos(HEALTHY_CHECK_ANGLE_RAD),
-      top: radius + radius * Math.sin(HEALTHY_CHECK_ANGLE_RAD)
+      left: origin + radius * Math.cos(HEALTHY_CHECK_ANGLE_RAD),
+      top: origin + radius * Math.sin(HEALTHY_CHECK_ANGLE_RAD)
     };
   }
 

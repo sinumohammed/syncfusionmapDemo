@@ -124,14 +124,20 @@
    "this card happens to be a pie" (confirmed live: a Pie-type card with
    real 0/null trend data, e.g. TVP with ZeroAsHealthy, otherwise rendered
    a borderless grey disc with the healthy checkmark floating over it,
-   unlike every Doughnut/SemiCircle card's own visible ring). Right half
-   only below, matching buildSeries()'s own startAngle:270/endAngle:90
-   for a real SemiCircle render (270° start sweeps clockwise through 0°/3
-   o'clock to 90°/6 o'clock — the right half of the circle). Layered on top
-   of the default ring styling above, not a replacement for it — a
+   unlike every Doughnut/SemiCircle card's own visible ring). TOP half
+   only below, matching buildSeries()'s own startAngle:270/endAngle:90 for
+   a real SemiCircle render — confirmed live (BSW, an actual SemiCircle
+   chart) that Syncfusion's own angle convention is 0°/360° at 12 o'clock,
+   clockwise, NOT the 0°=3-o'clock/CCW math convention this rule originally
+   assumed: 270°→90° clockwise from there sweeps 9 o'clock → 12 o'clock →
+   3 o'clock, i.e. the TOP half, not the right half this used to clip to
+   (a real SemiCircle card rendered on top while every no-data/healthy
+   SemiCircle card's own placeholder ring clipped to the right instead —
+   confirmed live as the actual mismatch, not a hypothetical one). Layered
+   on top of the default ring styling above, not a replacement for it — a
    SemiCircle is still a Doughnut underneath, just half-swept. */
 .nx-circular-chart-empty-ring--semicircle {
-  clip-path: inset(0 0 0 50%);
+  clip-path: inset(0 0 50% 0);
 }
 .nx-circular-chart-center--empty {
   color: #9aa0a6;

@@ -9,7 +9,7 @@
        cards use, so the loading state reads as "these specific charts are
        about to appear" rather than a single generic spinner. -->
   <div class="nx-circular-chart-grid-scroll" *ngIf="loading">
-    <div class="nx-circular-chart-grid" [style.grid-template-columns]="'repeat(' + columns + ', 1fr)'">
+    <div class="nx-circular-chart-grid" [style.grid-template-columns]="'repeat(' + columns + ', minmax(0, 1fr))'">
       <div class="nx-circular-chart-skeleton" *ngFor="let _ of skeletonItems">
         <span class="nx-circular-chart-skeleton-ring"></span>
         <span class="nx-circular-chart-skeleton-title"></span>
@@ -37,7 +37,7 @@
     <div
       class="nx-circular-chart-track"
       [style.width.%]="(totalColumns / columns) * 100"
-      [style.grid-template-columns]="'repeat(' + totalColumns + ', 1fr)'"
+      [style.grid-template-columns]="'repeat(' + totalColumns + ', minmax(0, 1fr))'"
       [style.grid-template-rows]="'repeat(' + rows + ', auto)'"
       [style.transform]="'translateX(' + trackTranslatePercent + '%)'"
     >
@@ -52,7 +52,7 @@
   </div>
 
   <div class="nx-circular-chart-grid-scroll" *ngIf="!loading && circularCharts.length && rows <= 0">
-    <div class="nx-circular-chart-grid" [style.grid-template-columns]="'repeat(' + columns + ', 1fr)'">
+    <div class="nx-circular-chart-grid" [style.grid-template-columns]="'repeat(' + columns + ', minmax(0, 1fr))'">
       <app-nx-circular-chart
         *ngFor="let circularChart of circularCharts"
         [config]="circularChart"

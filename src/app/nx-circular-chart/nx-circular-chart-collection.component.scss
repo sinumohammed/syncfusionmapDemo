@@ -127,7 +127,18 @@
      Input's own comment) — not hardcoded here anymore, so a host embedding
      this in a wide, full-row layout (e.g. TrendDashboardComponent's own
      hardcoded [columns]="6") can fit more cards on one line than a narrow
-     sidebar (MapDashboardComponent's own config-driven column count). */
+     sidebar (MapDashboardComponent's own config-driven column count).
+     ALWAYS `minmax(0, 1fr)` there, never a bare `1fr` — a bare `1fr`
+     track's own automatic minimum size is `auto` (its content's
+     min-content size), not 0, so a card with wider unconstrained content
+     can still blow that track out past its "equal 1fr share" the same way
+     a flex item's own default min-width: auto does. Confirmed live: a
+     card in the empty/no-data state (nx-circular-chart.component.scss's
+     own .nx-circular-chart-empty-box, no explicit width of its own) came
+     out ~30px wider than every populated chart card alongside it —
+     columns=4, one of those four had no width constraint to shrink to, so
+     it kept its own min-content width instead of sharing the track's
+     "equal" 1fr, and the constrained chart cards lost that space instead. */
   /* Wider than the original 8px — each card now has its own shadow/lift
      (see nx-circular-chart.component.scss's own "projected" card
      comment), which needs breathing room between cards to actually read

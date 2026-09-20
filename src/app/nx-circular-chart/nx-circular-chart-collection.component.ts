@@ -233,6 +233,25 @@ export class NxCircularChartCollectionComponent implements OnChanges {
   // newer one that resolved first.
   private requestToken = 0;
 
+  // Caps skeletonItems to `rows` worth of `columns`-wide rows — the
+  // loading skeleton's own template (see its *ngIf="loading" block) is
+  // ALWAYS the plain row-major .nx-circular-chart-grid (grid-template-
+  // columns only, ordinary wrapping, grid-auto-flow left at its row-major
+  // default), never the column-major carousel/viewport the real, loaded
+  // content switches to for rows > 0 (see that Input's own comment). With
+  // the full totalCount rendered uncapped, that plain wrap produced
+  // ceil(totalCount / columns) rows regardless of `rows` — confirmed live:
+  // rows=2, columns=3, 7 configured charts wrapped to 3 skeleton rows, one
+  // more than configured. Capping at columns*rows here (rows > 0 only —
+  // rows <= 0 means unlimited/no cap, same as the real plain-grid content
+  // ends up showing every item anyway) makes that same row-major wrap
+  // naturally land on exactly `rows` full rows instead, with no need to
+  // duplicate the real carousel's column-major/viewport machinery just for
+  // a temporary, non-interactive loading placeholder.
+  private skeletonCount(totalCount: number): number {
+    return this.rows > 0 ? Math.min(totalCount, this.columns * this.rows) : totalCount;
+  }
+
   constructor(private configService: NxCircularChartConfigService, private cdr: ChangeDetectorRef) {}
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -246,7 +265,7 @@ export class NxCircularChartCollectionComponent implements OnChanges {
     // (per product decision: an ApiUrl on the config always wins).
     if (this.rawConfig?.ApiUrl) {
       this.loading = true;
-      this.skeletonItems = Array.from({ length: visibleCircularChartCount(this.rawConfig) }, (_, i) => i);
+      this.skeletonItems = Array.from({ length: this.skeletonCount(visibleCircularChartCount(this.rawConfig)) }, (_, i) => i);
       this.configService.fetchTrendResponse(this.rawConfig.ApiUrl).subscribe({
         next: response => {
           if (token === this.requestToken) {

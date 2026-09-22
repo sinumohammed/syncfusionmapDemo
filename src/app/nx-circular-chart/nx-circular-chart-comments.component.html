@@ -1,0 +1,96 @@
+<button type="button" class="nx-circular-chart-comments-add" (click)="openAddDialog()" aria-label="Add comment">+</button>
+
+<!-- TemplateRef-based dialog — see this component's own header comment for
+     why the form is reset explicitly (openAddDialog()/save()) rather than
+     relying on a fresh component instance each open. Holds BOTH the
+     Add-Comment form AND the history grid below it (with its own year
+     filter/History link) — everything except the trigger button above
+     lives in here, per the sketch's own layout (one popup covering both). -->
+<ng-template #addCommentsDialog>
+  <h2 mat-dialog-title>Add Comment</h2>
+  <div mat-dialog-content>
+    <div [formGroup]="form" class="nx-circular-chart-comments-form">
+      <mat-form-field appearance="fill">
+        <mat-label>Date</mat-label>
+        <input matInput [matDatepicker]="datePicker" formControlName="date" [max]="maxDate" />
+        <mat-datepicker-toggle matSuffix [for]="datePicker"></mat-datepicker-toggle>
+        <mat-datepicker #datePicker></mat-datepicker>
+        <mat-error *ngIf="form.get('date')?.hasError('futureDate')">No future date allowed</mat-error>
+        <mat-error *ngIf="form.get('date')?.hasError('required')">Date is required</mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="fill">
+        <mat-label>Spec</mat-label>
+        <mat-select formControlName="spec">
+          <mat-option *ngFor="let option of specOptions" [value]="option">{{ option }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="fill">
+        <mat-label>Reported By</mat-label>
+        <input matInput formControlName="reportedBy" />
+      </mat-form-field>
+
+      <mat-form-field appearance="fill">
+        <mat-label>Customer</mat-label>
+        <input matInput formControlName="customer" />
+      </mat-form-field>
+
+      <div class="nx-circular-chart-comments-impact">
+        <span class="nx-circular-chart-comments-impact-label">Impact</span>
+        <mat-radio-group formControlName="impact">
+          <mat-radio-button value="Custom">Custom</mat-radio-button>
+          <mat-radio-button value="Non-Custom">Non-Custom</mat-radio-button>
+        </mat-radio-group>
+      </div>
+
+      <mat-form-field appearance="fill">
+        <mat-label>Desc</mat-label>
+        <textarea matInput formControlName="desc" rows="3"></textarea>
+      </mat-form-field>
+
+      <mat-checkbox formControlName="valid">Valid</mat-checkbox>
+
+      <div class="nx-circular-chart-comments-form-actions">
+        <button type="button" mat-button *ngIf="editingId != null" (click)="cancelEdit()">Cancel edit</button>
+        <button type="button" mat-raised-button color="primary" [disabled]="form.invalid" (click)="save()">{{ editingId != null ? "Update" : "Save" }}</button>
+      </div>
+    </div>
+
+    <div class="nx-circular-chart-comments-grid-header">
+      <button type="button" class="nx-circular-chart-comments-history" (click)="openHistory()">History</button>
+      <!-- [selected] per-option, not [value] on the <select> — confirmed
+           live this dialog's DOM (created fresh by MatDialog.open() each
+           time) stuck on whatever value [value] held on the very FIRST
+           open, never updating on later opens even though dialogYear
+           itself read correctly (confirmed via a debug log) — the [value]
+           form only reliably applies when the matching <option> already
+           exists in the DOM at the exact moment it's set, which a
+           freshly-recreated <select> + *ngFor pairing doesn't guarantee
+           within a single change-detection pass. -->
+      <select class="nx-circular-chart-comments-year-select" (change)="onDialogYearChange($event.target.value)">
+        <option *ngFor="let option of years" [value]="option" [selected]="option === dialogYear">{{ option }}</option>
+      </select>
+    </div>
+    <!-- suppressAnimationFrame: ag-grid normally defers a cellRenderer's
+         creation onto its own internal requestAnimationFrame task queue
+         (any column with a custom renderer — string/HTMLElement/Angular
+         component all confirmed live, one after another) — that queue
+         never actually flushed while this grid lives inside a MatDialog's
+         own CDK overlay (cells stayed permanently empty, 0 child nodes,
+         no thrown error; plain field-value cells, which bypass that task
+         queue entirely, rendered fine the whole time). Forces the
+         synchronous creation path instead, sidestepping whatever isn't
+         ticking that queue in this context. -->
+    <ag-grid-angular
+      class="ag-theme-alpine nx-circular-chart-comments-grid"
+      [columnDefs]="columnDefs"
+      [defaultColDef]="defaultColDef"
+      [rowData]="rowData"
+      [suppressAnimationFrame]="true"
+    ></ag-grid-angular>
+  </div>
+  <div mat-dialog-actions align="end">
+    <button type="button" mat-button (click)="closeDialog()">Close</button>
+  </div>
+</ng-template>

@@ -1,0 +1,100 @@
+:host {
+  // Rendered inline inside NxCircularChartCollectionComponent's own header
+  // row (.nx-circular-chart-header), next to the year <select> — this host
+  // is just the "+" button's own wrapper, not a block-level section like
+  // before the grid/history moved into the dialog.
+  display: inline-flex;
+}
+// Kept as its own filled/circular accent (unlike the year <select>'s now-
+// borderless treatment — see NxCircularChartCollectionComponent's own
+// .nx-circular-chart-year-select comment) since this is the one CLICKABLE
+// action in the toolbar, not a passive filter control — staying visually
+// distinct is what makes it read as a button at a glance rather than
+// just more toolbar chrome. Transparent at rest (not white) so it sits
+// flush with .nx-circular-chart-header-actions' own light pill background
+// instead of showing as a separate white patch inside it.
+.nx-circular-chart-comments-add {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid #47a1f6;
+  background: transparent;
+  color: #47a1f6;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.nx-circular-chart-comments-add:hover {
+  background: #eaf4ff;
+}
+.nx-circular-chart-comments-form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 280px;
+}
+.nx-circular-chart-comments-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin: 6px 0 4px;
+}
+.nx-circular-chart-comments-impact {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0;
+}
+.nx-circular-chart-comments-impact-label {
+  font-size: 12px;
+  color: #666;
+}
+// Sits above the grid, INSIDE the dialog — the History link and the
+// grid's own year filter (deliberately separate from the collection
+// header's own year <select>, see NxCircularChartCommentsComponent's own
+// dialogYear comment).
+.nx-circular-chart-comments-grid-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 14px 0 6px;
+  padding-top: 10px;
+  border-top: 1px solid #e0e3e6;
+}
+.nx-circular-chart-comments-history {
+  border: none;
+  background: none;
+  color: #47a1f6;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+}
+.nx-circular-chart-comments-year-select {
+  font-size: 12px;
+  padding: 3px 6px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  color: #14213d;
+  background: #ffffff;
+}
+// Ag-grid REQUIRES a bounded container height — with no explicit height
+// here it renders at 0px (confirmed the documented ag-grid behavior, not
+// specific to this component).
+.nx-circular-chart-comments-grid {
+  width: 100%;
+  height: 220px;
+}
+// The Edit/Delete cellRenderer buttons (nx-circular-chart-comments.component.ts's
+// own columnDefs) — plain HTML strings, not Angular-templated, so styled
+// globally rather than through this component's own view-encapsulated
+// selectors (ag-grid renders these into its own internal DOM, outside
+// Angular's view).
+::ng-deep .nx-circular-chart-comments-action {
+  border: 1px solid #47a1f6;
+  background: #ffffff;
+  color: #47a1f6;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}

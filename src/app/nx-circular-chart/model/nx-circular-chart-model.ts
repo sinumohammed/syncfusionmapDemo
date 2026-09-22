@@ -364,6 +364,14 @@ export interface RawCircularChartCollectionNode {
   // shell columns from config instead of a hardcoded CSS fraction; a page
   // that doesn't care about this can simply ignore it.
   DefaultGridColumns?: number | null;
+  // Single switch for the header's own year <mat-select> + "+" (Add
+  // Comment) button together — see NxCircularChartCollectionComponent
+  // .showComments' own comment for why this is opt-IN (default hidden),
+  // unlike ShowLegend above (default shown): the comments/history feature
+  // is new and per-host optional, whereas the legend has always rendered
+  // by default since before this flag existed. Only an explicit `true`
+  // shows either one; absent/null/false hides both.
+  ShowComments?: boolean | null;
 }
 
 // ---- Trend API response shape ------------------------------------------

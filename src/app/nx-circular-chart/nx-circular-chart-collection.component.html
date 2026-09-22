@@ -1,5 +1,27 @@
 <div class="nx-circular-chart-panel" [ngClass]="theme">
-  <div class="nx-circular-chart-title" *ngIf="rawConfig?.Title">{{ rawConfig?.Title }}</div>
+  <!-- Renders at all only when there's a title OR the comments feature is
+       on (showComments — see its own comment) — with neither, this would
+       just be an empty flex row taking up space for nothing. -->
+  <div class="nx-circular-chart-header" *ngIf="rawConfig?.Title || showComments" [class.nx-circular-chart-header--titled]="rawConfig?.Title">
+    <div class="nx-circular-chart-title" *ngIf="rawConfig?.Title">{{ rawConfig?.Title }}</div>
+    <div class="nx-circular-chart-header-actions" *ngIf="showComments">
+      <!-- mat-select, standalone (no mat-form-field wrapper) — a bare
+           mat-select is fully supported outside mat-form-field, and
+           skipping it avoids the label/underline/subscript spacing that
+           wrapper adds, which would make this header control look
+           oversized next to the title/+"button. [value]/[(selectionChange)]
+           work fine here (unlike the plain-DOM [selected]-per-option
+           workaround NxCircularChartCommentsComponent's own dialog year
+           <select> needs) since mat-select is a real Angular component —
+           its displayed value re-syncs on every change through its own
+           [value] Input normally, no native-<select>-specific DOM timing
+           quirk to work around. -->
+      <mat-select class="nx-circular-chart-year-select" [value]="selectedYear" (selectionChange)="onYearChange($event.value)" panelClass="nx-circular-chart-year-select-panel">
+        <mat-option *ngFor="let year of years" [value]="year">{{ year }}</mat-option>
+      </mat-select>
+      <app-nx-circular-chart-comments [year]="selectedYear" [years]="years" [specOptions]="specOptions"></app-nx-circular-chart-comments>
+    </div>
+  </div>
 
   <!-- Loading (ApiUrl fetch in flight) takes priority over both the error
        and empty messages below — neither is known yet until the request
@@ -23,6 +45,22 @@
   <div class="nx-circular-chart-message nx-circular-chart-message--error" *ngIf="!loading && fetchFailed">Failed to fetch data. Please try again later.</div>
   <div class="nx-circular-chart-message" *ngIf="!loading && !fetchFailed && !circularCharts.length">No data available.</div>
 
+  <!-- Shared by both branches below (carousel track AND plain grid) — one
+       <app-nx-circular-chart> per circularCharts entry, identical bindings
+       either way; only the CONTAINER around it differs (track vs grid).
+       *ngTemplateOutlet instead of duplicating this *ngFor block in both
+       places, so config/selected/palette/select stay defined in exactly
+       one spot. -->
+  <ng-template #circularChartCards>
+    <app-nx-circular-chart
+      *ngFor="let circularChart of circularCharts"
+      [config]="circularChart"
+      [selected]="selectedId === circularChart.id"
+      [palette]="seriesPalette"
+      (select)="onCircularChartSelected(circularChart)"
+    ></app-nx-circular-chart>
+  </ng-template>
+
   <!-- rows > 0 — the sliding carousel: a fixed-width, overflow:hidden
        VIEWPORT clipping a wider TRACK laid out column-major (grid-auto-flow:
        column — see totalColumns' own comment) and animated via CSS
@@ -41,25 +79,13 @@
       [style.grid-template-rows]="'repeat(' + rows + ', auto)'"
       [style.transform]="'translateX(' + trackTranslatePercent + '%)'"
     >
-      <app-nx-circular-chart
-        *ngFor="let circularChart of circularCharts"
-        [config]="circularChart"
-        [selected]="selectedId === circularChart.id"
-        [palette]="seriesPalette"
-        (select)="onCircularChartSelected(circularChart)"
-      ></app-nx-circular-chart>
+      <ng-container *ngTemplateOutlet="circularChartCards"></ng-container>
     </div>
   </div>
 
   <div class="nx-circular-chart-grid-scroll" *ngIf="!loading && circularCharts.length && rows <= 0">
     <div class="nx-circular-chart-grid" [style.grid-template-columns]="'repeat(' + columns + ', minmax(0, 1fr))'">
-      <app-nx-circular-chart
-        *ngFor="let circularChart of circularCharts"
-        [config]="circularChart"
-        [selected]="selectedId === circularChart.id"
-        [palette]="seriesPalette"
-        (select)="onCircularChartSelected(circularChart)"
-      ></app-nx-circular-chart>
+      <ng-container *ngTemplateOutlet="circularChartCards"></ng-container>
     </div>
   </div>
 

@@ -1,0 +1,42 @@
+[
+  {
+    "id": 1,
+    "date": "2026-03-12",
+    "desc": "TVP spiked above threshold after a scheduled maintenance window.",
+    "spec": "TVP",
+    "reportedBy": "A. Hassan",
+    "customer": "Nibras Ops",
+    "impact": "Non-Custom",
+    "valid": true
+  },
+  {
+    "id": 2,
+    "date": "2026-06-02",
+    "desc": "BSW reading corrected after sensor recalibration.",
+    "spec": "BSW",
+    "reportedBy": "M. Al-Rawahi",
+    "customer": "Nibras Ops",
+    "impact": "Custom",
+    "valid": true
+  },
+  {
+    "id": 3,
+    "date": "2025-11-20",
+    "desc": "SALT threshold review requested by customer.",
+    "spec": "SALT",
+    "reportedBy": "S. Khan",
+    "customer": "Petro West",
+    "impact": "Custom",
+    "valid": false
+  },
+  {
+    "id": 4,
+    "date": "2024-08-05",
+    "desc": "FLOW no-incidents period logged for quarterly report.",
+    "spec": "FLOW",
+    "reportedBy": "A. Hassan",
+    "customer": "Nibras Ops",
+    "impact": "Non-Custom",
+    "valid": true
+  }
+]

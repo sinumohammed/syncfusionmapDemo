@@ -812,7 +812,57 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     const selectedId = this.circularChartSelection?.selectedId ?? null;
     if (!selectedId) {
       this.metricOverlayLoading = false;
-      this.applyMetricSelection(null, []);
+      // loadMetricOnStart configured -> a deselect/clear falls back to the
+      // SAME default overlay the map started with, not to nothing —
+      // reported live: with it left at applyMetricSelection(null, [])
+      // unconditionally (the only behavior before this branch existed),
+      // clicking a chart then unchecking it again wiped the map back to
+      // blank instead of back to loadMetricOnStartIfConfigured()'s own
+      // default, even though that config flag is what says "empty
+      // selection" should mean "the default overlay", not "nothing".
+      // loadMetricOnStartIfConfigured() itself stays a one-time,
+      // first-`loaded`-only call (a Reset/style-switch rebuild firing
+      // `loaded` again must not re-trigger IT) — this is a SEPARATE call
+      // site, deliberately with no such guard of its own, since a genuine
+      // deselect needs to re-run the fetch every time it happens, not
+      // just once ever.
+      //
+      // hasLoadedMetricOnStart ALSO gates this call specifically (not
+      // just loadMetricOnStartIfConfigured() itself) — Angular's own
+      // ngOnChanges fires with circularChartSelection present in
+      // `changes` on this component's very FIRST change-detection cycle
+      // too, even though its value is null (every bound @Input counts as
+      // "changed" the first time, regardless of value) — confirmed live
+      // this landed here BEFORE onMapLoaded() ever ran for real, racing
+      // an early/premature loadDefaultMetricOverlay() call against the
+      // real one and corrupting the on-load marker count (1 instead of
+      // the correct 6) rather than a genuine deselect ever happening.
+      // Requiring hasLoadedMetricOnStart already true restricts this
+      // fallback to AFTER the map has actually finished its one real
+      // initial load — exactly what "a deselect after a real load"
+      // requires anyway, since a click can't happen before the map
+      // exists.
+      //
+      // this.nxAppConfig?. — NOT a plain this.nxAppConfig. (confirmed
+      // live this threw "Cannot read properties of undefined (reading
+      // 'loadMetricOnStart')"): nxAppConfig is declared `!: NXMapAppConfig`
+      // (a definite-assignment assertion, not a real default) and isn't
+      // actually assigned until THIS SAME ngOnChanges run reaches
+      // loadMap() further down — but changes["circularChartSelection"] is
+      // checked FIRST, so on the very first ngOnChanges call (see
+      // hasLoadedMetricOnStart's own comment on why that call reaches
+      // here at all) nxAppConfig is still genuinely undefined at this
+      // exact line. An uncaught exception here aborted the rest of that
+      // change-detection cycle, which is what actually produced the
+      // wrong on-load marker count (1 instead of 6), not a race with
+      // onMapLoaded()'s own fetch as first suspected. this.nxAppConfig
+      // (a few lines up, line ~495) already established this exact
+      // guarded-access pattern elsewhere in this same method.
+      if (this.nxAppConfig?.loadMetricOnStart && this.hasLoadedMetricOnStart) {
+        this.loadDefaultMetricOverlay();
+      } else {
+        this.applyMetricSelection(null, []);
+      }
       return;
     }
     const url = this.nxAppConfig.dataApiUrl;
@@ -861,6 +911,68 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
         this.metricOverlayLoading = false;
         this.reportDataOverlayProblem(
           `circular chart "${selectedId}" failed to fetch its metric overlay data`,
+          "Check that DataAPIURL is reachable and returns a valid response for this request."
+        );
+      }
+    });
+  }
+
+  // Guards ONLY the very first automatic call (from onMapLoaded()) — same
+  // "first `loaded` only, not every rebuild" restriction
+  // scheduleLoadSettleResize() already uses (its own comment explains why
+  // that matters): a Reset/style-switch/circular-chart-click rebuild
+  // firing `loaded` again must not re-trigger the ON-LOAD call a second
+  // time. loadDefaultMetricOverlay() itself (below) has NO such guard —
+  // applyCircularChartSelectionChange()'s own deselect/clear branch calls
+  // it directly, every time a deselect happens, not just once ever.
+  private hasLoadedMetricOnStart = false;
+
+  private loadMetricOnStartIfConfigured(): void {
+    if (this.hasLoadedMetricOnStart || !this.nxAppConfig.loadMetricOnStart) {
+      return;
+    }
+    this.hasLoadedMetricOnStart = true;
+    this.loadDefaultMetricOverlay();
+  }
+
+  // See NXMapAppConfig.loadMetricOnStart's own comment — fetches
+  // dataApiUrl with metricId sent EMPTY (not omitted), same request
+  // shape/endpoint a real circular chart click already uses
+  // (NXMapConfigService.loadDataOverlay()), just with nothing selected.
+  // Two call sites: loadMetricOnStartIfConfigured() (the initial,
+  // one-time load) and applyCircularChartSelectionChange()'s own
+  // deselect/clear branch (every time, no one-time guard here) — both
+  // ultimately mean "show the default overlay", just reached differently.
+  private loadDefaultMetricOverlay(): void {
+    const url = this.nxAppConfig.dataApiUrl;
+    if (!url) {
+      this.reportDataOverlayProblem(
+        "loadMetricOnStart is enabled but no DataAPIURL is configured for this map",
+        "Set DataAPIURL on this map's own COMPONENT_NX_MAP configuration, or turn off LoadMetricOnStart."
+      );
+      return;
+    }
+    this.metricOverlayLoading = true;
+    this.metricOverlaySubscription = this.configService.loadDataOverlay(url, "").subscribe({
+      next: records => {
+        this.metricOverlayLoading = false;
+        if (!Array.isArray(records)) {
+          this.reportDataOverlayProblem(
+            "loadMetricOnStart's own fetch returned a response that isn't a JSON array",
+            "Check that DataAPIURL returns a plain JSON array of records, not a wrapped object or an error body."
+          );
+          return;
+        }
+        // selectedId: null — nothing was actually clicked, this is the
+        // default overlay, not any one circular chart's own selection. A
+        // real click afterward runs applyCircularChartSelectionChange()
+        // as normal and simply overwrites this with its own selection.
+        this.applyMetricSelection(null, records);
+      },
+      error: () => {
+        this.metricOverlayLoading = false;
+        this.reportDataOverlayProblem(
+          "loadMetricOnStart's own fetch failed",
           "Check that DataAPIURL is reachable and returns a valid response for this request."
         );
       }
@@ -1197,7 +1309,23 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     // `Tooltip` of its own) keeps whatever tooltipMetrics it already had —
     // starts undefined, same as before this existed.
     const applyToGroup = (g: MapGroup, anchored: Record<string, MetricOverlayRecord>): MapGroup => {
-      const hasMetric = !!selectedId && (g.markerConfig?.points ?? []).some(p => p.id && anchored[p.id] !== undefined);
+      // Whether real matched data exists, NOT `!!selectedId` (tried
+      // first/originally) — those two used to always agree (a real clear
+      // always paired selectedId: null with records: [], so `anchored`
+      // was empty either way; a real click always paired a real
+      // selectedId with whatever records it found), so gating on
+      // selectedId read as equivalent and cost nothing extra. That
+      // invariant broke the moment loadMetricOnStartIfConfigured() started
+      // calling this with a real, non-empty `anchored` but selectedId:
+      // null (nothing was actually clicked, this is a load-time default) —
+      // confirmed live: markers fetched correctly on load but never got
+      // their metric COLOR/values applied, only a real click afterward
+      // did, despite both requests returning identical mock data. Basing
+      // this purely on whether there's an actual match fixes the load
+      // case without changing the click/clear cases at all (their own
+      // `anchored` was always empty/non-empty in lockstep with selectedId
+      // regardless).
+      const hasMetric = (g.markerConfig?.points ?? []).some(p => p.id && anchored[p.id] !== undefined);
       const points = g.markerConfig?.points;
       const markerConfig =
         points && points.some(p => p.id && anchored[p.id]?.Tooltip)
@@ -3348,6 +3476,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     this.scheduleZOrderRetry();
     this.animateNavigationLines();
     this.scheduleLoadSettleResize();
+    this.loadMetricOnStartIfConfigured();
     // See suppressZoomCenterOverride's own comment. NOT cleared immediately
     // here — confirmed live that a late zoomComplete can still fire (and
     // onZoomComplete()'s own 250ms settle delay adds more room for one)

@@ -1470,7 +1470,26 @@ export class NXMapBuilderService {
         dataSource
       };
 
-      if (!g.activeMetricId) {
+      // g.activeMetricValues, NOT g.activeMetricId (tried first/originally)
+      // — activeMetricId answers "was a specific chart explicitly
+      // selected", which used to be the same question as "is there metric
+      // data to overlay" since every caller that ever set activeMetricValues
+      // also always set a real activeMetricId alongside it. That stopped
+      // being true the moment NxMapDemoComponent's own
+      // loadMetricOnStartIfConfigured() started calling applyMetricSelection()
+      // with real matched data but selectedId: null (a load-time default,
+      // nothing was actually clicked, so there's no id to be "active") —
+      // confirmed live: with the gate on activeMetricId, that load-time
+      // fetch still never produced any colored overlay markers even after
+      // fixing applyMetricSelection()'s own hasMetric (nx-map-demo.component.ts's
+      // own applyToGroup()) to populate activeMetricValues correctly,
+      // because THIS gate was still asking the wrong question. Gating on
+      // activeMetricValues itself asks the question this actually needs
+      // answered — "is there data to show" — and produces the identical
+      // overlay for the click/clear cases either way (their own
+      // activeMetricValues was always set/unset in lockstep with
+      // activeMetricId regardless).
+      if (!g.activeMetricValues) {
         return [baseLayer];
       }
 

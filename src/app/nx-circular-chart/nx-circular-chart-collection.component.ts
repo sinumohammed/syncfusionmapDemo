@@ -242,6 +242,67 @@ export class NxCircularChartCollectionComponent implements OnChanges {
   get theme(): string | null {
     return this.rawConfig?.Theme?.trim() || null;
   }
+
+  // Drives both the header's own year <select> (see the template) and, via
+  // [year] on <app-nx-circular-chart-comments>, that child's own history
+  // grid fetch — see NxCircularChartCommentsComponent's own ngOnChanges.
+  // Defaults to the current year, same "today, unless the user picks
+  // otherwise" default that component's own defaultDateFor() uses.
+  selectedYear: number = new Date().getFullYear();
+
+  // Current year down to 5 years back (6 entries) — computed off
+  // new Date() at getter-call time rather than cached once, since this
+  // only ever needs to be accurate across an actual year rollover (a
+  // vanishingly rare edge case for a component instance to stay mounted
+  // through), not on every change-detection pass.
+  get years(): number[] {
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 6 }, (_, i) => currentYear - i);
+  }
+
+  // Single switch for the header's own year <mat-select> + "+" button
+  // (NxCircularChartCommentsComponent) together — see
+  // RawCircularChartCollectionNode.ShowComments' own comment. Deliberately
+  // `=== true`, not `!== false` (compare showLegend's own comment, the
+  // opposite default): this feature is new and per-host opt-in, so an
+  // existing config that predates ShowComments entirely (absent/null,
+  // same as a config that just never turns it on) keeps rendering exactly
+  // as it did before this existed — no dropdown, no + button — rather
+  // than a config upgrade silently turning on UI nobody asked for.
+  get showComments(): boolean {
+    return this.rawConfig?.ShowComments === true;
+  }
+
+  // Re-runs the SAME ApiUrl trend fetch ngOnChanges() already uses on
+  // load/rawConfig change — a year switch is meant to reload the charts
+  // for that year, the same "existing circular chart load API" a real
+  // host already has, just re-triggered here with a year param appended
+  // (?year=..., a convention only — this demo's own static mock JSON
+  // behind ApiUrl doesn't actually filter by it server-side, same
+  // limitation NxCircularChartCommentsService's own mock has; a real
+  // host's ApiUrl endpoint is what would honor it). No-op when there's no
+  // ApiUrl to begin with (a trendResponse-only host has nothing live to
+  // re-fetch here — see ngOnChanges()'s own comment on that fallback).
+  // number | string — mat-select's (selectionChange) emits the real bound
+  // value (already a number, since `years` is number[]); Number() below
+  // is a no-op for that case but keeps this safe if some other caller
+  // ever passes a raw DOM string instead.
+  onYearChange(year: number | string): void {
+    this.selectedYear = Number(year);
+    if (this.rawConfig?.ApiUrl) {
+      this.fetchTrendData(`${this.rawConfig.ApiUrl}?year=${this.selectedYear}`);
+    }
+  }
+
+  // The Spec dropdown inside NxCircularChartCommentsComponent's own Add
+  // dialog — deliberately reads circularCharts (already Hide-filtered and
+  // Order-sorted, see buildCircularChartConfigs()) rather than
+  // rawConfig?.Configuration directly, so a chart hidden from the
+  // collection itself can never show up as a selectable Spec either.
+  get specOptions(): string[] {
+    return this.circularCharts.map(c => c.label);
+  }
+
   // Set only when rawConfig.ApiUrl's own fetch errors — distinct from
   // circularCharts just coming back empty (a real "no data yet" response),
   // see the template's own comment for the two different messages this
@@ -294,32 +355,14 @@ export class NxCircularChartCollectionComponent implements OnChanges {
     if (!changes.rawConfig && !changes.trendResponse) {
       return;
     }
-    const token = ++this.requestToken;
-    this.fetchFailed = false;
     // rawConfig.ApiUrl set — this component fetches the trend response
     // itself and uses THAT, neglecting the `trendResponse` @Input entirely
     // (per product decision: an ApiUrl on the config always wins).
     if (this.rawConfig?.ApiUrl) {
-      this.loading = true;
-      this.skeletonItems = Array.from({ length: this.skeletonCount(visibleCircularChartCount(this.rawConfig)) }, (_, i) => i);
-      this.configService.fetchTrendResponse(this.rawConfig.ApiUrl).subscribe({
-        next: response => {
-          if (token === this.requestToken) {
-            this.loading = false;
-            this.applyConfigs(response ?? [], false);
-          }
-        },
-        error: () => {
-          if (token === this.requestToken) {
-            console.error(`[NxCircularChartCollection] ApiUrl "${this.rawConfig?.ApiUrl}" failed to load — rendering with no trend data.`);
-            this.loading = false;
-            this.fetchFailed = true;
-            this.applyConfigs([], false);
-          }
-        }
-      });
+      this.fetchTrendData(this.rawConfig.ApiUrl);
       return;
     }
+    this.fetchFailed = false;
     this.loading = false;
     // No ApiUrl — when the host also hasn't supplied a (non-empty)
     // trendResponse @Input, there's no live trend source at all, so fall
@@ -330,6 +373,34 @@ export class NxCircularChartCollectionComponent implements OnChanges {
     // behavior — matched-only, dropping unmatched configured items.
     const hasTrendResponse = !!this.trendResponse && this.trendResponse.length > 0;
     this.applyConfigs(this.trendResponse ?? [], !hasTrendResponse);
+  }
+
+  // Factored out of ngOnChanges so onYearChange() below can reuse the
+  // exact same fetch-and-apply flow (loading/skeleton/error handling all
+  // included) instead of duplicating it — the only thing that changes
+  // between an initial ApiUrl load and a year-driven reload is the URL
+  // itself.
+  private fetchTrendData(url: string): void {
+    const token = ++this.requestToken;
+    this.fetchFailed = false;
+    this.loading = true;
+    this.skeletonItems = Array.from({ length: this.skeletonCount(visibleCircularChartCount(this.rawConfig)) }, (_, i) => i);
+    this.configService.fetchTrendResponse(url).subscribe({
+      next: response => {
+        if (token === this.requestToken) {
+          this.loading = false;
+          this.applyConfigs(response ?? [], false);
+        }
+      },
+      error: () => {
+        if (token === this.requestToken) {
+          console.error(`[NxCircularChartCollection] ApiUrl "${url}" failed to load — rendering with no trend data.`);
+          this.loading = false;
+          this.fetchFailed = true;
+          this.applyConfigs([], false);
+        }
+      }
+    });
   }
 
   private applyConfigs(trendResponse: TrendNode[], useConfigFallback: boolean): void {

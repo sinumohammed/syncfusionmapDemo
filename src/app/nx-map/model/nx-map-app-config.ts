@@ -38,6 +38,19 @@ export interface NXMapAppConfig {
   // default) means a circular chart click has nothing to fetch — logged loudly
   // (console.error + toast) rather than silently doing nothing.
   dataApiUrl?: string;
+  // Opt-in: NxMapDemoComponent.onMapLoaded() fetches dataApiUrl ONE extra
+  // time on the very first map load (only — not every rebuild/Reset/
+  // style-switch, same "first mount only" restriction
+  // scheduleLoadSettleResize()'s own comment already uses this file for a
+  // different reason), with metricId sent EMPTY rather than a real
+  // selected id, and applies whatever comes back the SAME way a real
+  // circular chart click's own response is applied (applyMetricSelection())
+  // — just with selectedId: null, since nothing was actually clicked.
+  // After that one load-time fetch, a circular chart click behaves
+  // completely normally, unaffected by this flag either way. False/unset
+  // (the default) leaves the map exactly as it always was: nothing
+  // fetched from dataApiUrl until a real click happens.
+  loadMetricOnStart?: boolean;
   // App-wide default theme (a name into nx-map-themes.json) — every layer
   // inherits this unless it sets its own MapConfig.theme, which wins. Set
   // this ONCE here instead of repeating the same theme on every layer's own

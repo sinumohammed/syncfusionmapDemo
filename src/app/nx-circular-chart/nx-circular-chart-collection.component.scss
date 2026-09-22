@@ -59,14 +59,94 @@
   color: #14213d;
   margin: 0 0 10px 0;
 }
+/* Wraps .nx-circular-chart-title above (its own rule left untouched) plus
+   .nx-circular-chart-header-actions below — added once the header needed
+   more than just a title. margin-bottom matches .nx-circular-chart-title's
+   own 10px (see that rule) so the gap before the charts stays the SAME
+   whether or not Title is set — before this, with no title, the header's
+   only spacing came from the title's own now-absent margin, leaving the
+   actions toolbar sitting flush against the charts below (confirmed
+   live). */
+.nx-circular-chart-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+/* Groups the year <select> and NxCircularChartCommentsComponent's own "+"
+   button together as a small pill-shaped toolbar. margin-left: auto, not
+   .nx-circular-chart-header's own justify-content: space-between (tried
+   first) — space-between only pushes this to the right when there's
+   ALSO a title sibling to push away FROM; with Title absent this is the
+   header's only child, and space-between just left it sitting flush
+   left instead (confirmed live) — margin-left: auto pushes it to the
+   row's own right edge unconditionally, whether or not a title is
+   there to share the row with. */
+.nx-circular-chart-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  padding: 3px 8px;
+  background: #f5f8fc;
+  border: 1px solid #e3ecf7;
+  border-radius: 20px;
+}
+/* mat-select, used standalone (no mat-form-field — see the template's own
+   comment) — its default sizing still assumes a full form-field context
+   (a taller trigger, wider arrow spacing), so the internals need their
+   own ::ng-deep overrides on top of the same border/padding/font-size
+   the plain <select> version already had, to actually read as "small"
+   next to the title/+ button rather than just visually similar.
+   Borderless/transparent, not its own bordered box (tried first, along
+   with .nx-circular-chart-comments-add's own border below) — now that
+   both sit inside .nx-circular-chart-header-actions' own pill (border +
+   background), each ALSO having its own border/white fill read as boxes
+   nested inside a box rather than one clean minimal toolbar. */
+.nx-circular-chart-year-select {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  padding: 2px 4px;
+  color: #14213d;
+  min-width: 44px;
+  cursor: pointer;
+}
+.nx-circular-chart-year-select ::ng-deep .mat-select-trigger {
+  height: auto;
+  font-size: 12px;
+}
+.nx-circular-chart-year-select ::ng-deep .mat-select-arrow-wrapper {
+  transform: none;
+  padding-left: 4px;
+}
+/* The dropdown PANEL itself renders into the CDK overlay container, a
+   separate DOM subtree outside this component's own host — panelClass
+   (set in the template) is what makes this selector actually reach it;
+   a plain scoped rule on .mat-select's own descendants wouldn't. */
+::ng-deep .nx-circular-chart-year-select-panel .mat-option {
+  font-size: 12px;
+  min-height: 32px;
+}
 /* Elevated-only — the full-width band across the top of the panel (same
    visual language as nx-map's own "nibras" tooltip title — see its own
-   comment) rather than plain text sitting in the white padding. Negative
-   margins pull it back out to the panel's own padding edges (14px,
-   matching .nx-circular-chart-panel.elevated's own padding) so the band
-   actually reaches the panel's left/right/top edges; its own border-radius
-   rounds just the top two corners to match the panel's. */
-.nx-circular-chart-panel.elevated .nx-circular-chart-title {
+   comment) rather than plain text sitting in the white padding. On
+   .nx-circular-chart-header itself, NOT .nx-circular-chart-title — the
+   title is now only one of three children in that header row (alongside
+   .nx-circular-chart-header-actions' own year <select> and "+" button),
+   so a band on the title div alone only ever covered that div's own
+   content width, leaving the dropdown/+ sitting outside it on the plain
+   panel background instead of inside the same colored bar (confirmed
+   live). --titled (bound in the template off rawConfig?.Title, the exact
+   same condition that already gates the title text's own *ngIf) keeps
+   this OFF entirely when there's no title to show — the header still
+   renders (the dropdown/+ still need to render regardless), just without
+   this band, same as before Title existed for a host to configure at all.
+   Negative margins pull it back out to the panel's own padding edges
+   (14px, matching .nx-circular-chart-panel.elevated's own padding) so the
+   band actually reaches the panel's left/right/top edges; its own
+   border-radius rounds just the top two corners to match the panel's. */
+.nx-circular-chart-panel.elevated .nx-circular-chart-header--titled {
   background: #eaf4ff;
   margin: -14px -14px 10px -14px;
   padding: 10px 14px;

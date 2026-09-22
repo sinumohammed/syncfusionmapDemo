@@ -66,6 +66,14 @@ export interface RawLayerNode {
   // sent as a query param — see NXMapAppConfig.dataApiUrl's own
   // comment. Null/absent means a circular chart click has nothing to fetch.
   DataAPIURL?: string | null;
+  // Opt-in: fetch DataAPIURL once more on initial map load, same request
+  // shape (metricId as a query param) a real circular chart click already
+  // uses, but with metricId sent EMPTY rather than a real selected id —
+  // see NXMapAppConfig.loadMetricOnStart's own comment for why. Only a
+  // real `true` turns this on; null/absent/false leaves the map exactly
+  // as it always was before this existed (nothing fetched until an actual
+  // click).
+  LoadMetricOnStart?: boolean | null;
   // App-wide default theme (NXMapAppConfig.theme) — null/absent keeps every
   // layer falling through to its own MapConfig.theme, then "default".
   Theme?: string | null;
@@ -173,6 +181,7 @@ export function buildAppConfig(root: RawLayerNode): NXMapAppConfig {
     // reads more honestly as "no restriction" than an empty list of names.
     defaultSelectedLayerNames: defaultSelectedLayerNames.length ? defaultSelectedLayerNames : undefined,
     dataApiUrl: root.DataAPIURL ?? undefined,
+    loadMetricOnStart: root.LoadMetricOnStart === true,
     theme: root.Theme ?? undefined,
     tooltipFormat: tooltipFormat
       ? {

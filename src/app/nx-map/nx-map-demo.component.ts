@@ -1338,12 +1338,37 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // Shape/Map/Satellite option click handler (from the base-map dropdown) —
   // swaps the main layer's base map style at runtime, then closes the
   // dropdown the same way picking an option from a native <select> would.
+  //
+  // triggerSettleZoomCycle() below, scoped to switching TO "shape"
+  // specifically — resetToConfiguredView()'s own comment previously
+  // reasoned this cycle was unneeded here ("style-switch rebuilds...
+  // don't exhibit this"), but that was never actually confirmed for THIS
+  // specific path; reported live in the real host integration (this
+  // demo never reproduces the bug at all — see triggerSettleZoomCycle()'s
+  // own comment) that switching osm/satellite -> shape via this exact
+  // dropdown left the map's content scrolled up inside its container
+  // (Musandam cut off), the identical symptom Reset/first-load already
+  // had this fix for — clicking Reset immediately afterward corrected it,
+  // confirming it's the same stale-transform issue, just reached from a
+  // dropdown pick this time instead of Reset. Scoped to landing on
+  // "shape" only (not every style switch) since the underlying bug itself
+  // is shape-base-map-only (see triggerSettleZoomCycle()'s own comment) —
+  // switching to osm/satellite has no reason to need this. Same 400ms
+  // delay/shared resetSettleResizeTimer resetToConfiguredView() uses, so
+  // a Reset click and a dropdown pick landing close together cancel each
+  // other's pending cycle rather than both firing.
   setMapStyle(style: "shape" | "osm" | "satellite"): void {
     this.basemapPanelOpen = false;
     if (this.mapStyle === style || !this.baseConfig) {
       return;
     }
     this.applyBaseMapStyle(style);
+    if (style === "shape") {
+      clearTimeout(this.resetSettleResizeTimer);
+      this.resetSettleResizeTimer = setTimeout(() => {
+        this.triggerSettleZoomCycle();
+      }, 400);
+    }
   }
 
   // Shared by setMapStyle() and resetToConfiguredView() (the toolbar Reset
@@ -3590,10 +3615,14 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   // (e.g. a tab/panel animating) can just as easily have that same
   // late-settle race land on a Reset click as on first mount, not only
   // there. Scoped to Reset specifically (not folded into onMapLoaded()
-  // for every possible rebuild cause) so circular-chart-click and
-  // style-switch rebuilds — which already have their own normal
-  // hide-then-redraw and don't exhibit this — don't regain that same
-  // double-flash.
+  // for every possible rebuild cause) so circular-chart-click rebuilds —
+  // which already have their own normal hide-then-redraw and don't
+  // exhibit this — don't regain that same double-flash. UPDATE: a
+  // style-switch rebuild landing on "shape" turned out NOT to be exempt
+  // after all — reported live, confirmed the same symptom reaches there
+  // too (setMapStyle()'s own comment) — this class's own applyBaseMapStyle()
+  // is shared by both, so setMapStyle() now runs this exact same
+  // correction itself rather than that assumption being folded in here.
   private resetToConfiguredView(): void {
     this.applyBaseMapStyle(this.mapStyle);
     clearTimeout(this.resetSettleResizeTimer);

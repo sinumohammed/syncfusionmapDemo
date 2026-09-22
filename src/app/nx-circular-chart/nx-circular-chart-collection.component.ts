@@ -65,7 +65,32 @@ export class NxCircularChartCollectionComponent implements OnChanges {
   // stable across a loading/empty transition, matching skeletonItems (the
   // loading placeholder grid), which has no reliable final count to key
   // off yet.
-  @Input() columns!: number;
+  //
+  // Setter coerces to a real number — accepts `number | string` because a
+  // host binding this straight off its own raw config (e.g. GridColumn,
+  // arriving as "1" from a real upstream payload — see
+  // RawCircularChartCollectionNode.GridColumn's own comment) can hand this
+  // a STRING even though the type here says `number`. Angular's own
+  // template type-checking doesn't catch that mismatch for a plain
+  // property binding, and TypeScript's `+`/Math.min() on a number mixed
+  // with a string silently does the WRONG thing instead of throwing
+  // (string concatenation, e.g. `0 + "1"` -> `"01"`, then Math.min coerces
+  // THAT back to a number) — confirmed live in a real host integration:
+  // columnOffsets()'s own `offset + this.columns` step produced wrong
+  // stops (3 dots instead of the expected 5 for columns=1, count=5) purely
+  // because `this.columns` was still a string at that point, not because
+  // the math itself was wrong. This demo's own MapDashboardComponent never
+  // hit this — it already runs GridColumn through toPositiveInt() before
+  // binding — but nothing forced every other host to do the same, so this
+  // component now guarantees it itself.
+  @Input()
+  set columns(value: number | string) {
+    this._columns = Number(value);
+  }
+  get columns(): number {
+    return this._columns;
+  }
+  private _columns!: number;
 
   // Rows per COLUMN of the sliding carousel below (not a total row count
   // across every circular chart) — paired with `columns` (how many of
@@ -78,7 +103,18 @@ export class NxCircularChartCollectionComponent implements OnChanges {
   // this to something > 0 (e.g. TrendDashboardComponent's own rows=1,
   // columns=6 — a single-row strip that slides one card at a time once a
   // 7th arrives).
-  @Input() rows = 0;
+  //
+  // Same string/number coercion as `columns` above, same reasoning
+  // (RawCircularChartCollectionNode.GridRow has the identical
+  // string-from-a-real-payload shape).
+  @Input()
+  set rows(value: number | string) {
+    this._rows = Number(value);
+  }
+  get rows(): number {
+    return this._rows;
+  }
+  private _rows = 0;
 
   @Output() sublayersSelected = new EventEmitter<CircularChartSelectionEvent>();
 

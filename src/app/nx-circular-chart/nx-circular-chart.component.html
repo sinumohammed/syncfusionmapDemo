@@ -3,7 +3,8 @@
   class="nx-circular-chart-card"
   [class.nx-circular-chart-card--selected]="selected"
   [class.nx-circular-chart-card--disabled]="isNoData && !isHealthy"
-  (click)="select.emit()"
+  [class.nx-circular-chart-card--not-selectable]="!selectable"
+  (click)="selectable && select.emit()"
 >
   <!-- Gradient defs referenced from a point's own color as url(#id) — see
        NxCircularChartComponent.buildSeries()'s own comment. Zero-sized/absolutely

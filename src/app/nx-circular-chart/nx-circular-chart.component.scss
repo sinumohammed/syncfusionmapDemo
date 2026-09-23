@@ -22,6 +22,19 @@
   box-shadow: 0 6px 16px rgba(71, 161, 246, 0.3);
   transform: translateY(-2px);
 }
+/* showComments mode (see NxCircularChartComponent's own `selectable` Input
+   comment) — same at-rest look as any other card (no dimming, unlike
+   --disabled above), just the click-affordance cursor and hover lift/glow
+   removed, since a click here is a genuine no-op in that mode, not merely
+   visually suppressed. */
+.nx-circular-chart-card--not-selectable {
+  cursor: default;
+}
+.nx-circular-chart-card--not-selectable:hover {
+  border-color: rgba(71, 161, 246, 0.18);
+  box-shadow: 0 2px 6px rgba(20, 33, 61, 0.08);
+  transform: none;
+}
 /* Syncfusion's own pie/doughnut hover feedback sets the HOVERED point's own
    opacity attribute to 0.5 (ej2-charts accumulation-chart/renderer/pie-series.js
    toggleInnerPoint(), driven by tooltip.enable being true) — confirmed live via

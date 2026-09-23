@@ -501,6 +501,15 @@ export class NxCircularChartCollectionComponent implements OnChanges {
   }
 
   onCircularChartSelected(circularChart: CircularChartConfig): void {
+    // Belt-and-suspenders alongside NxCircularChartComponent's own
+    // `selectable` Input (which already suppresses the click at its
+    // source) — this component is the one that actually knows about
+    // showComments, so it's the right place to also guard against a
+    // selection reaching here some other way (e.g. a future caller of this
+    // method that isn't the template's own (select) binding).
+    if (this.showComments) {
+      return;
+    }
     const alreadySelected = this.selectedId === circularChart.id;
     this.selectedId = alreadySelected ? null : circularChart.id;
 

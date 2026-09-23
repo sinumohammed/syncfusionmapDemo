@@ -119,6 +119,23 @@ export class NxCircularChartCollectionComponent implements OnChanges {
   @Output() sublayersSelected = new EventEmitter<CircularChartSelectionEvent>();
 
   circularCharts: CircularChartConfig[] = [];
+
+  // Bound as the *ngFor trackBy in the template — applyConfigs() below
+  // rebuilds `circularCharts` as a brand-new array of brand-new objects on
+  // EVERY trendResponse refresh (buildCircularChartConfigs() never reuses a
+  // previous run's references), so without this Angular's default
+  // identity-based diffing sees every entry as removed+added on every
+  // refresh, destroying and recreating every <app-nx-circular-chart> (and
+  // so every real chart's <ejs-accumulationchart> DOM element) even when
+  // that specific chart's own data hasn't changed at all. Confirmed live as
+  // the cause of `TooltipExtComponent._toggleVisibility`/`_handleMouseLeave`
+  // console errors on hover: a refresh landing mid-hover tears down the
+  // chart element a still-pending Syncfusion tooltip timer later tries to
+  // read from. Keying by `id` (stable per chart — see
+  // parent-circular-chart-config-transform.ts's own `id` comment) instead
+  // lets Angular match old/new entries and update the existing component's
+  // @Input()s in place, same as any other trackBy.
+  trackByCircularChartId = (_index: number, circularChart: CircularChartConfig): string => circularChart.id;
   // How many COLUMNS the track has scrolled past — 0 = showing the first
   // `columns` columns. Reset to 0 whenever circularCharts is rebuilt
   // (applyConfigs()) so a host pushing fresh data/config never leaves the

@@ -77,7 +77,20 @@ export class NxCircularChartCommentsComponent {
   form: FormGroup;
   rowData: CircularChartComment[] = [];
 
-  defaultColDef: ColDef = { resizable: true, sortable: true };
+  // suppressMovable — this grid's own 8 columns are a fixed set (see
+  // columnDefs' own comment on their widths), never meant to be
+  // user-reorderable, so there's no reason to leave ag-grid's default
+  // column-header drag-to-reorder reachable at all. Confirmed live as the
+  // source of a stray "☰ Move [object Object]" badge appearing OUTSIDE
+  // this dialog, over the main chart panel behind it: that's ag-grid's own
+  // DragAndDropService.GHOST_TEMPLATE, appended once to document.body (not
+  // scoped to this grid/dialog) for ANY column-header drag; if this
+  // dialog/grid gets torn down (e.g. closed) while a header drag is still
+  // in progress, ag-grid's own cleanup — bound to a document `mouseup` —
+  // can miss its chance to remove it, leaving that ghost stuck and visible
+  // wherever it last floated. Disabling the drag entirely removes the only
+  // way to trigger it, rather than trying to patch that cleanup path.
+  defaultColDef: ColDef = { resizable: true, sortable: true, suppressMovable: true };
 
   // Edit/Delete both use NxCircularChartCommentsActionCellComponent (a real
   // ICellRendererAngularComp, see its own header comment for why a plain

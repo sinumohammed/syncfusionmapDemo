@@ -19,7 +19,8 @@ function noFutureDateValidator(): ValidatorFn {
     }
     const endOfToday = new Date();
     endOfToday.setHours(23, 59, 59, 999);
-    return new Date(control.value).getTime() > endOfToday.getTime() ? { futureDate: true } : null;
+    const date = toNativeDate(control.value);
+    return date && date.getTime() > endOfToday.getTime() ? { futureDate: true } : null;
   };
 }
 
@@ -112,7 +113,7 @@ export class NxCircularChartCommentsComponent {
     { field: "desc", headerName: "Desc", flex: 1, minWidth: 180 },
     { field: "spec", headerName: "Spec", width: 90 },
     { field: "customer", headerName: "Customer", width: 110 },
-    { field: "impact", headerName: "Impact", width: 100 },
+    { field: "isCustomer", headerName: "Impact", width: 120, valueFormatter: p => (p.value ? "Customer" : "Non-Customer") },
     { field: "reportedBy", headerName: "Reported By", width: 120 },
     {
       colId: "editAction",
@@ -143,7 +144,7 @@ export class NxCircularChartCommentsComponent {
       spec: ["", Validators.required],
       reportedBy: ["", Validators.required],
       customer: ["", Validators.required],
-      impact: ["Non-Custom", Validators.required],
+      isCustomer: [false, Validators.required],
       valid: [false]
     });
   }
@@ -229,12 +230,12 @@ export class NxCircularChartCommentsComponent {
   // same reset object drifting apart.
   private applyRowToForm(row?: CircularChartComment): void {
     this.form.reset({
-      date: row ? new Date(row.date) : this.defaultDateFor(this.dialogYear),
+      date: row ? toNativeDate(row.date) : this.defaultDateFor(this.dialogYear),
       desc: row?.desc ?? "",
       spec: row?.spec ?? this.specOptions[0] ?? "",
       reportedBy: row?.reportedBy ?? "",
       customer: row?.customer ?? "",
-      impact: row?.impact ?? "Non-Custom",
+      isCustomer: row?.isCustomer ?? false,
       valid: row?.valid ?? false
     });
   }
@@ -251,7 +252,7 @@ export class NxCircularChartCommentsComponent {
       spec: raw.spec,
       reportedBy: raw.reportedBy,
       customer: raw.customer,
-      impact: raw.impact,
+      isCustomer: raw.isCustomer === true,
       valid: raw.valid
     };
     // TODO: real save/update API call — payload logged here so the actual
@@ -296,10 +297,46 @@ export class NxCircularChartCommentsComponent {
     this.commentsService.delete(row.id).subscribe(() => this.refetch());
   }
 
-  private toIsoDate(value: Date): string {
-    const year = value.getFullYear();
-    const month = String(value.getMonth() + 1).padStart(2, "0");
-    const day = String(value.getDate()).padStart(2, "0");
+  // The datepicker's value type depends on whichever DateAdapter the HOST
+  // app provides — a native Date with MatNativeDateModule (this demo), but
+  // a Moment with MatMomentDateModule, a Luxon DateTime with the Luxon
+  // adapter, etc. Reported live: a host on a Moment adapter crashed here
+  // with "value.getFullYear is not a function" once a date was picked from
+  // the calendar (a Moment prints just like a Date, but has no
+  // getFullYear()). Normalize to a native Date first, whatever it is.
+  private toIsoDate(value: unknown): string {
+    const date = toNativeDate(value);
+    if (!date) {
+      throw new Error(`Unrecognized date value: ${String(value)}`);
+    }
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   }
+}
+
+// Date -> as is; Moment (toDate()) / Luxon (toJSDate()) -> their own
+// native-Date conversion (local calendar day preserved); "yyyy-MM-dd" ->
+// parsed as a LOCAL date (new Date("2025-01-01") would parse it as UTC
+// midnight, i.e. the previous day west of GMT); anything else -> new
+// Date(value). Returns null for anything that doesn't yield a valid date.
+function toNativeDate(value: unknown): Date | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  let date: Date;
+  if (value instanceof Date) {
+    date = value;
+  } else if (typeof (value as { toDate?: unknown }).toDate === "function") {
+    date = (value as { toDate(): Date }).toDate();
+  } else if (typeof (value as { toJSDate?: unknown }).toJSDate === "function") {
+    date = (value as { toJSDate(): Date }).toJSDate();
+  } else if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [y, m, d] = value.split("-").map(Number);
+    date = new Date(y, m - 1, d);
+  } else {
+    date = new Date(value as string | number);
+  }
+  return isNaN(date.getTime()) ? null : date;
 }

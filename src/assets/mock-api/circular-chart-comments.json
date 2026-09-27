@@ -6,7 +6,7 @@
     "spec": "TVP",
     "reportedBy": "A. Hassan",
     "customer": "Nibras Ops",
-    "impact": "Non-Custom",
+    "isCustomer": false,
     "valid": true
   },
   {
@@ -16,7 +16,7 @@
     "spec": "BSW",
     "reportedBy": "M. Al-Rawahi",
     "customer": "Nibras Ops",
-    "impact": "Custom",
+    "isCustomer": true,
     "valid": true
   },
   {
@@ -26,7 +26,7 @@
     "spec": "SALT",
     "reportedBy": "S. Khan",
     "customer": "Petro West",
-    "impact": "Custom",
+    "isCustomer": true,
     "valid": false
   },
   {
@@ -36,7 +36,7 @@
     "spec": "FLOW",
     "reportedBy": "A. Hassan",
     "customer": "Nibras Ops",
-    "impact": "Non-Custom",
+    "isCustomer": false,
     "valid": true
   }
 ]

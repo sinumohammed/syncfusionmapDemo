@@ -26,6 +26,8 @@ export interface CircularChartComment {
   spec: string;
   reportedBy: string;
   customer: string;
-  impact: "Custom" | "Non-Custom";
+  // The popup's Impact radio — true = Customer impact, false =
+  // Non-Customer impact (the same split the charts' own slices use).
+  isCustomer: boolean;
   valid: boolean;
 }

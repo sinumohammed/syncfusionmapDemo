@@ -38,9 +38,9 @@
 
       <div class="nx-circular-chart-comments-impact">
         <span class="nx-circular-chart-comments-impact-label">Impact</span>
-        <mat-radio-group formControlName="impact">
-          <mat-radio-button value="Custom">Custom</mat-radio-button>
-          <mat-radio-button value="Non-Custom">Non-Custom</mat-radio-button>
+        <mat-radio-group formControlName="isCustomer">
+          <mat-radio-button [value]="true">Customer</mat-radio-button>
+          <mat-radio-button [value]="false">Non-Customer</mat-radio-button>
         </mat-radio-group>
       </div>
 

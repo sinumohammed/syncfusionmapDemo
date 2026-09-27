@@ -1,0 +1,97 @@
+{
+  "layerConfig": {
+    "layerName": "Fuel Efficiency",
+    "groups": [
+      {
+        "id": "fe-meters",
+        "name": "Fuel Efficiency Meters",
+        "markerConfig": {
+          "style": {
+            "shape": "Circle",
+            "width": 12,
+            "height": 12,
+            "color": "#47a1f6",
+            "border": {
+              "color": "#ffffff",
+              "width": 2
+            }
+          },
+          "points": [
+            {
+              "id": "FE-BARGE-FD",
+              "x": 150,
+              "y": 282,
+              "name": "Lower Barge Flow & Density"
+            },
+            {
+              "id": "FE-TANK-LEVEL",
+              "x": 239,
+              "y": 295,
+              "name": "Ship Fuel Tank Level"
+            },
+            {
+              "id": "FE-VISCOSITY",
+              "x": 270,
+              "y": 330,
+              "name": "Viscosity"
+            },
+            {
+              "id": "FE-ENG1-SUPPLY",
+              "x": 375,
+              "y": 284,
+              "name": "Engine 1 Supply"
+            },
+            {
+              "id": "FE-ENG1-RETURN",
+              "x": 400,
+              "y": 300,
+              "name": "Engine 1 Return"
+            },
+            {
+              "id": "FE-ENG2-SUPPLY",
+              "x": 375,
+              "y": 328,
+              "name": "Engine 2 Supply"
+            },
+            {
+              "id": "FE-ENG2-RETURN",
+              "x": 402,
+              "y": 345,
+              "name": "Engine 2 Return"
+            }
+          ]
+        }
+      },
+      {
+        "id": "fe-assets",
+        "name": "Assets",
+        "markerConfig": {
+          "style": {
+            "shape": "Balloon",
+            "width": 16,
+            "height": 22,
+            "color": "#ef4444",
+            "border": {
+              "color": "#ffffff",
+              "width": 1.5
+            }
+          },
+          "points": [
+            {
+              "id": "FE-TANK",
+              "x": 225,
+              "y": 340,
+              "name": "Ship Fuel Tank"
+            },
+            {
+              "id": "FE-BRIDGE",
+              "x": 365,
+              "y": 230,
+              "name": "Bridge Systems"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

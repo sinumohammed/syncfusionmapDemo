@@ -1,0 +1,304 @@
+<div class="nim-root">
+  <div class="nim-header" *ngIf="config?.title">{{ config?.title }}</div>
+
+  <div
+    #viewport
+    class="nim-viewport"
+    [class.nim-viewport--pick]="pickMode"
+    [class.nim-viewport--pannable]="zoomEnabled && !pickMode"
+    [class.nim-viewport--dragging]="isDragging"
+    (pointerdown)="onPointerDown($event)"
+    (pointermove)="onPointerMove($event)"
+    (pointerup)="onPointerUp($event)"
+    (pointercancel)="onPointerUp($event)"
+    (pointerleave)="onPointerLeave()"
+    (dblclick)="onDoubleClick($event)"
+  >
+    <img
+      *ngIf="config?.baseImage?.url"
+      class="nim-image"
+      [src]="config?.baseImage?.url"
+      [style.width.px]="imageWidth || null"
+      [style.height.px]="imageHeight || null"
+      [style.transform]="imageTransform"
+      [style.visibility]="imageLoaded ? 'visible' : 'hidden'"
+      draggable="false"
+      alt=""
+      (load)="onImageLoad($any($event.target))"
+      (error)="onImageError()"
+    />
+
+    <div class="nim-overlay" *ngIf="imageLoaded">
+      <ng-container *ngFor="let m of visibleMarkers; trackBy: trackMarker">
+        <div
+          class="nim-marker"
+          [class.nim-marker--balloon]="m.shape === 'Balloon' && !m.imageUrl"
+          [style.left.px]="screenX(m.x)"
+          [style.top.px]="screenY(m.y)"
+          [attr.data-marker-id]="m.id"
+          (mouseenter)="onMarkerEnter(m)"
+          (mouseleave)="onMarkerLeave(m)"
+          (click)="onMarkerClick(m, $event)"
+        >
+          <ng-container *ngTemplateOutlet="markerGlyph; context: { $implicit: m }"></ng-container>
+        </div>
+
+        <div
+          *ngIf="showsValueBox(m)"
+          class="nim-valuebox nim-valuebox--{{ m.labelPosition }}"
+          [style.left.px]="screenX(m.x)"
+          [style.top.px]="screenY(m.y)"
+          [style.--nim-offset]="(m.width > m.height ? m.width : m.height) / 2 + 6 + 'px'"
+          (mouseenter)="onMarkerEnter(m)"
+          (mouseleave)="onMarkerLeave(m)"
+        >
+          <div class="nim-valuebox-name" [style.color]="m.labelColor || null">{{ m.name }}</div>
+          <div class="nim-valuebox-row" *ngFor="let r of m.records">
+            <span class="nim-swatch" *ngIf="r.Color" [style.background]="r.Color"></span>
+            <span class="nim-valuebox-label" *ngIf="r.Label">{{ r.Label }}</span>
+            <span class="nim-valuebox-value">{{ formatValue(r.Value, r.Unit) }}</span>
+          </div>
+          <div class="nim-valuebox-row nim-muted" *ngIf="!m.records.length">No data</div>
+        </div>
+      </ng-container>
+
+      <div class="nim-pick-pin" *ngFor="let p of picks" [style.left.px]="screenX(p.x)" [style.top.px]="screenY(p.y)">
+        <span class="nim-pick-pin-label">{{ p.id }}</span>
+      </div>
+
+      <div
+        *ngIf="hovered as m"
+        class="nim-tooltip {{ tooltipLayoutClass(m) }}"
+        [class.nim-tooltip--name-only]="!m.tiles.length"
+        [style.left.px]="screenX(m.x)"
+        [style.top.px]="screenY(m.y)"
+        [style.transform]="tooltipTransform(m)"
+      >
+        <div class="nim-tt-header">
+          <span class="nim-tt-swatch"><ng-container *ngTemplateOutlet="markerGlyph; context: { $implicit: m }"></ng-container></span>
+          <span class="nim-tt-title">{{ m.name }}</span>
+        </div>
+        <div class="nim-tt-subtitle">{{ m.groupName }} · {{ m.id }}</div>
+        <div class="nim-tt-grid" *ngIf="m.tiles.length; else noData" [style.grid-template-columns]="'repeat(' + m.tooltipColumns + ', minmax(0, 1fr))'">
+          <div class="nim-tt-stat" *ngFor="let t of m.tiles">
+            <div class="nim-tt-label">{{ t.Label }}</div>
+            <div class="nim-tt-value" [style.color]="t.Color || null">
+              {{ formatValue(t.Value) }}<span class="nim-tt-limit" *ngIf="hasLimit(t)"> / {{ t.Limit }}</span>
+              <span class="nim-tt-unit" *ngIf="t.Unit">{{ t.Unit }}</span>
+            </div>
+            <div class="nim-tt-timestamp" *ngIf="t.Date">{{ formatDate(t.Date) }}</div>
+          </div>
+        </div>
+        <ng-template #noData><div class="nim-tt-empty">No data</div></ng-template>
+      </div>
+    </div>
+
+    <div class="nim-status" *ngIf="loading || (!imageLoaded && !imageError && config?.baseImage?.url)">Loading…</div>
+    <div class="nim-data-loading" *ngIf="dataLoading && !loading">Loading data…</div>
+    <div class="nim-status nim-status--error" *ngIf="imageError">Base image could not be loaded.</div>
+    <div class="nim-status" *ngIf="!config?.baseImage?.url">No base image configured.</div>
+
+    <!-- Toolbar row pinned top-right; its popups (Layers, Problems) open
+         right below it, right-aligned under the buttons. -->
+    <div class="nim-top-right" (pointerdown)="$event.stopPropagation()" (dblclick)="$event.stopPropagation()">
+      <!-- Icon-only buttons in one row, nx-map style; every label lives in
+           the button's hover tooltip. Order: picker, layers, +, −, reset
+           (problems last, only when there are any). -->
+      <div class="nim-toolbar">
+        <button
+          *ngIf="locationPickerVisible"
+          type="button"
+          class="nim-btn"
+          [class.nim-btn--active]="pickMode"
+          [title]="pickMode ? 'Stop picking x/y' : 'Pick x/y — click the image to copy its position'"
+          (click)="togglePickMode()"
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" aria-hidden="true">
+            <path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
+            <circle cx="12" cy="9.5" r="2.3" stroke="currentColor" stroke-width="1.8" />
+          </svg>
+        </button>
+        <button
+          *ngIf="filterTree.length"
+          type="button"
+          class="nim-btn"
+          [class.nim-btn--active]="showFilter"
+          [title]="'Layers — ' + visibleMarkers.length + ' of ' + markers.length + ' markers shown'"
+          (click)="toggleFilter()"
+        >
+          <!-- Same three-bar icon as nx-map's layer list button. -->
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="3" rx="1" fill="currentColor" />
+            <rect x="3" y="10.5" width="18" height="3" rx="1" fill="currentColor" />
+            <rect x="3" y="17" width="18" height="3" rx="1" fill="currentColor" />
+          </svg>
+        </button>
+        <button type="button" class="nim-btn" [disabled]="!zoomEnabled || zoom >= maxZoom" [title]="zoomEnabled ? 'Zoom in' : zoomDisabledReason" (click)="zoomIn()">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+        </button>
+        <button type="button" class="nim-btn" [disabled]="!zoomEnabled || zoom <= 1" [title]="zoomEnabled ? 'Zoom out' : zoomDisabledReason" (click)="zoomOut()">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" aria-hidden="true">
+            <path d="M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+        </button>
+        <button type="button" class="nim-btn" [disabled]="!zoomEnabled || zoom === 1" [title]="zoomEnabled ? 'Reset view' : zoomDisabledReason" (click)="resetView()">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" aria-hidden="true">
+            <path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
+        <button
+          *ngIf="problems.length"
+          type="button"
+          class="nim-btn nim-btn--warn"
+          [title]="problems.length + ' problem(s) — click for details'"
+          (click)="showProblems = !showProblems"
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true">
+            <path d="M12 4 2 20h20L12 4Z" stroke="#d97706" stroke-width="1.6" stroke-linejoin="round" fill="#fef3c7" />
+            <path d="M12 10.5v4.5" stroke="#d97706" stroke-width="1.8" stroke-linecap="round" />
+            <circle cx="12" cy="17.3" r="1" fill="#d97706" />
+          </svg>
+          <span class="nim-badge">{{ problems.length }}</span>
+        </button>
+      </div>
+
+      <div class="nim-panel nim-problems" *ngIf="showProblems && problems.length">
+        <div class="nim-panel-head">
+          <span>Problems</span>
+          <button type="button" class="nim-link" (click)="showProblems = false">Close</button>
+        </div>
+        <ul>
+          <li *ngFor="let p of problems">{{ p }}</li>
+        </ul>
+      </div>
+
+      <div class="nim-panel nim-filter-panel" *ngIf="showFilter">
+        <div class="nim-panel-head">
+          <span>Layers</span>
+          <button type="button" class="nim-link" (click)="showFilter = false">Close</button>
+        </div>
+        <input class="nim-filter-search" type="search" placeholder="Search layers, groups, markers…" [(ngModel)]="filterText" />
+        <div class="nim-panel-actions nim-filter-actions">
+          <button type="button" class="nim-link" (click)="setAll(true)">Select all</button>
+          <button type="button" class="nim-link nim-link--muted" (click)="setAll(false)">Clear all</button>
+        </div>
+        <ul class="nim-tree">
+          <li *ngFor="let l of shownLayers">
+            <div class="nim-tree-row">
+              <button type="button" class="nim-tree-caret" (click)="toggleExpanded(l.key)">{{ isExpanded(l.key) ? "▾" : "▸" }}</button>
+              <label>
+                <input type="checkbox" [checked]="layerState(l) === 'all'" [indeterminate]="layerState(l) === 'some'" (change)="toggleLayer(l)" />
+                <span class="nim-tree-layer">{{ l.name }}</span>
+              </label>
+            </div>
+            <ul *ngIf="isExpanded(l.key)">
+              <li *ngFor="let g of shownGroups(l)">
+                <div class="nim-tree-row">
+                  <button type="button" class="nim-tree-caret" (click)="toggleExpanded(g.key)">{{ isExpanded(g.key) ? "▾" : "▸" }}</button>
+                  <label>
+                    <input type="checkbox" [checked]="groupState(g) === 'all'" [indeterminate]="groupState(g) === 'some'" (change)="toggleGroup(g)" />
+                    <span>{{ g.name }}</span>
+                    <span class="nim-muted">({{ g.markers.length }})</span>
+                  </label>
+                </div>
+                <ul *ngIf="isExpanded(g.key)">
+                  <li *ngFor="let m of shownMarkers(l, g)">
+                    <div class="nim-tree-row nim-tree-row--leaf">
+                      <label>
+                        <input type="checkbox" [checked]="isChecked(m)" (change)="toggleMarker(m)" />
+                        <span>{{ m.name }}</span>
+                      </label>
+                    </div>
+                  </li>
+                </ul>
+              </li>
+            </ul>
+          </li>
+        </ul>
+        <div class="nim-muted" *ngIf="!shownLayers.length">No matches.</div>
+      </div>
+    </div>
+  </div>
+
+
+  <div class="nim-zoom-indicator" *ngIf="zoomEnabled && zoom > 1">{{ zoom | number: "1.0-1" }}×</div>
+
+  <div class="nim-panel nim-pick-panel" *ngIf="pickMode" (pointerdown)="$event.stopPropagation()">
+    <div class="nim-panel-head">
+      <span>Location picker</span>
+      <button type="button" class="nim-link" (click)="togglePickMode()">Done</button>
+    </div>
+    <div class="nim-cursor">
+      <ng-container *ngIf="cursor; else noCursor">x: <b>{{ cursor.x }}</b>, y: <b>{{ cursor.y }}</b></ng-container>
+      <ng-template #noCursor><span class="nim-muted">Click the image — its x/y is copied to the clipboard ({{ imageWidth }}×{{ imageHeight }} px space)</span></ng-template>
+    </div>
+    <div class="nim-picks" *ngIf="picks.length">
+      <div class="nim-pick" *ngFor="let p of picks">
+        <code>{{ pointSnippet(p) }}</code>
+        <button type="button" class="nim-link" (click)="copyPick(p)">Copy</button>
+        <button type="button" class="nim-link nim-link--muted" title="Remove" (click)="removePick(p)">✕</button>
+      </div>
+    </div>
+    <div class="nim-panel-actions" *ngIf="picks.length">
+      <button type="button" class="nim-link" (click)="copyAllPicks()">Copy all</button>
+      <button type="button" class="nim-link nim-link--muted" (click)="clearPicks()">Clear</button>
+    </div>
+  </div>
+
+  <div class="nim-toast" *ngIf="toast">{{ toast }}</div>
+  <!-- One marker's own glyph (imageUrl icon, or its shape/color/border) —
+       shared by the marker on the image and the swatch in its tooltip
+       title, so the two always look the same. -->
+  <ng-template #markerGlyph let-m>
+    <img *ngIf="m.imageUrl; else shapeTpl" [src]="m.imageUrl" [style.width.px]="m.width" [style.height.px]="m.height" draggable="false" alt="" />
+    <ng-template #shapeTpl>
+      <svg [attr.width]="svgWidth(m)" [attr.height]="svgHeight(m)" [attr.viewBox]="'0 0 ' + svgWidth(m) + ' ' + svgHeight(m)" [ngSwitch]="m.shape">
+        <rect
+          *ngSwitchCase="'Rectangle'"
+          [attr.x]="m.borderWidth"
+          [attr.y]="m.borderWidth"
+          [attr.width]="m.width"
+          [attr.height]="m.height"
+          [attr.fill]="m.color"
+          [attr.stroke]="m.borderColor"
+          [attr.stroke-width]="m.borderWidth"
+        ></rect>
+        <polygon
+          *ngSwitchCase="'Triangle'"
+          [attr.points]="polygonPoints(m)"
+          [attr.fill]="m.color"
+          [attr.stroke]="m.borderColor"
+          [attr.stroke-width]="m.borderWidth"
+          stroke-linejoin="round"
+        ></polygon>
+        <polygon
+          *ngSwitchCase="'Diamond'"
+          [attr.points]="polygonPoints(m)"
+          [attr.fill]="m.color"
+          [attr.stroke]="m.borderColor"
+          [attr.stroke-width]="m.borderWidth"
+          stroke-linejoin="round"
+        ></polygon>
+        <path
+          *ngSwitchCase="'Balloon'"
+          [attr.d]="balloonPath(m)"
+          [attr.fill]="m.color"
+          [attr.stroke]="m.borderColor"
+          [attr.stroke-width]="m.borderWidth"
+        ></path>
+        <ellipse
+          *ngSwitchDefault
+          [attr.cx]="svgWidth(m) / 2"
+          [attr.cy]="svgHeight(m) / 2"
+          [attr.rx]="m.width / 2"
+          [attr.ry]="m.height / 2"
+          [attr.fill]="m.color"
+          [attr.stroke]="m.borderColor"
+          [attr.stroke-width]="m.borderWidth"
+        ></ellipse>
+      </svg>
+    </ng-template>
+  </ng-template>
+</div>

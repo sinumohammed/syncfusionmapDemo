@@ -1,0 +1,36 @@
+:host {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+.imd-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.imd-options {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 6px 12px;
+  font-size: 12px;
+  border-bottom: 1px solid #e5e7eb;
+
+  label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+  }
+}
+.imd-hint {
+  color: #b45309;
+}
+.imd-click {
+  color: #4b5563;
+}
+.imd-map {
+  flex: 1 1 auto;
+  min-height: 0;
+}

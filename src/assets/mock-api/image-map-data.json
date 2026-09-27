@@ -1,0 +1,247 @@
+[
+  {
+    "MarkerId": "BNK-REFINERY-FD",
+    "Label": "Flow",
+    "Value": 412.5,
+    "Unit": "m³/h",
+    "Color": "#16a34a",
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "Flow",
+          "Value": 412.5,
+          "Unit": "m³/h",
+          "Color": "#16a34a",
+          "Date": "2026-09-24T08:00:00+04:00"
+        },
+        {
+          "Label": "Density",
+          "Value": 991.2,
+          "Unit": "kg/m³",
+          "Color": "#16a34a",
+          "Date": "2026-09-24T08:00:00+04:00"
+        }
+      ]
+    }
+  },
+  {
+    "MarkerId": "BNK-STORAGE-FD",
+    "Label": "Flow",
+    "Value": 388.1,
+    "Unit": "m³/h",
+    "Color": "#16a34a",
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "Flow",
+          "Value": 388.1,
+          "Unit": "m³/h",
+          "Color": "#16a34a",
+          "Date": "2026-09-24T08:00:00+04:00"
+        },
+        {
+          "Label": "Density",
+          "Value": 990.8,
+          "Unit": "kg/m³",
+          "Color": "#16a34a",
+          "Date": "2026-09-24T08:00:00+04:00"
+        }
+      ]
+    }
+  },
+  {
+    "MarkerId": "BNK-BARGE-FD",
+    "Label": "Flow",
+    "Value": 96.4,
+    "Unit": "m³/h",
+    "Color": "#d97706",
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "Flow",
+          "Value": 96.4,
+          "Unit": "m³/h",
+          "Color": "#d97706",
+          "Date": "2026-09-24T08:00:00+04:00"
+        },
+        {
+          "Label": "Density",
+          "Value": 1002.4,
+          "Unit": "kg/m³",
+          "Color": "#dc2626",
+          "Date": "2026-09-24T08:00:00+04:00"
+        }
+      ]
+    }
+  },
+  {
+    "MarkerId": "BNK-BARGE",
+    "Label": "Cargo",
+    "Value": 1840,
+    "Unit": "t"
+  },
+  {
+    "MarkerId": "BNK-CRUISE",
+    "Label": "Delivered",
+    "Value": 420,
+    "Unit": "t",
+    "Color": "#16a34a"
+  },
+  {
+    "MarkerId": "BNK-CARGO",
+    "Label": "Delivered",
+    "Value": 610,
+    "Unit": "t",
+    "Color": "#16a34a"
+  },
+  {
+    "MarkerId": "BNK-MERCHANT",
+    "Label": "Delivered",
+    "Value": 0,
+    "Unit": "t",
+    "Color": "#d97706"
+  },
+  {
+    "MarkerId": "BNK-FLEET-OPS",
+    "Label": "Active vessels",
+    "Value": 12,
+    "Unit": ""
+  },
+  {
+    "MarkerId": "BNK-FLEET-OPS",
+    "Label": "Alarms",
+    "Value": 2,
+    "Unit": "",
+    "Color": "#dc2626"
+  },
+  {
+    "MarkerId": "FE-BARGE-FD",
+    "Label": "Flow",
+    "Value": 88.7,
+    "Unit": "m³/h",
+    "Color": "#16a34a",
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "Flow",
+          "Value": 88.7,
+          "Unit": "m³/h",
+          "Color": "#16a34a",
+          "Date": "2026-09-24T08:00:00+04:00"
+        },
+        {
+          "Label": "Density",
+          "Value": 989.9,
+          "Unit": "kg/m³",
+          "Color": "#16a34a",
+          "Date": "2026-09-24T08:00:00+04:00"
+        }
+      ]
+    }
+  },
+  {
+    "MarkerId": "FE-TANK-LEVEL",
+    "Label": "Level",
+    "Value": 72.4,
+    "Unit": "%",
+    "Color": "#16a34a"
+  },
+  {
+    "MarkerId": "FE-VISCOSITY",
+    "Label": "Viscosity",
+    "Value": 380,
+    "Unit": "cSt",
+    "Color": "#d97706"
+  },
+  {
+    "MarkerId": "FE-ENG1-SUPPLY",
+    "Label": "Supply",
+    "Value": 1.42,
+    "Unit": "t/h",
+    "Color": "#16a34a"
+  },
+  {
+    "MarkerId": "FE-ENG1-RETURN",
+    "Label": "Return",
+    "Value": 0.31,
+    "Unit": "t/h",
+    "Color": "#16a34a"
+  },
+  {
+    "MarkerId": "FE-ENG2-SUPPLY",
+    "Label": "Supply",
+    "Value": 1.38,
+    "Unit": "t/h",
+    "Color": "#16a34a"
+  },
+  {
+    "MarkerId": "FE-ENG2-RETURN",
+    "Label": "Return",
+    "Value": 0.52,
+    "Unit": "t/h",
+    "Color": "#dc2626"
+  },
+  {
+    "MarkerId": "FE-TANK",
+    "Label": "Volume",
+    "Value": 1265,
+    "Unit": "m³",
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "Level",
+          "Value": 72.4,
+          "Unit": "%",
+          "Color": "#16a34a",
+          "Date": "2026-09-24T08:00:00+04:00"
+        },
+        {
+          "Label": "Temperature",
+          "Value": 48.2,
+          "Unit": "°C",
+          "Color": "#16a34a",
+          "Date": "2026-09-24T08:00:00+04:00"
+        },
+        {
+          "Label": "Volume",
+          "Value": 1265,
+          "Unit": "m³",
+          "Color": null,
+          "Date": "2026-09-24T08:00:00+04:00"
+        },
+        {
+          "Label": "Water",
+          "Value": 0.3,
+          "Unit": "%",
+          "Color": "#d97706",
+          "Date": "2026-09-24T08:00:00+04:00"
+        }
+      ],
+      "Columns": 2
+    }
+  },
+  {
+    "MarkerId": "FE-BRIDGE",
+    "Label": "Consumption",
+    "Value": 2.81,
+    "Unit": "t/h",
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "Engine 1",
+          "Value": 1.11,
+          "Unit": "t/h",
+          "Color": "#16a34a",
+          "Date": "2026-09-24T08:00:00+04:00"
+        },
+        {
+          "Label": "Engine 2",
+          "Value": 0.86,
+          "Unit": "t/h",
+          "Color": "#d97706",
+          "Date": "2026-09-24T08:00:00+04:00"
+        }
+      ]
+    }
+  }
+]

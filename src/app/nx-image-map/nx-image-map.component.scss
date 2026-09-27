@@ -1,0 +1,613 @@
+:host {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+
+.nim-root {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  font-family: inherit;
+  font-size: 12px;
+  color: #1f2937;
+}
+
+.nim-header {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #14213d;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.nim-viewport {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  background: #f3f5f9;
+  // Pan/zoom is handled here, so the browser's own touch scrolling/pinch
+  // must not also act on the same gesture.
+  touch-action: none;
+  user-select: none;
+}
+.nim-viewport--pannable {
+  cursor: grab;
+}
+.nim-viewport--dragging {
+  cursor: grabbing;
+}
+.nim-viewport--pick {
+  cursor: crosshair;
+}
+
+.nim-image {
+  position: absolute;
+  left: 0;
+  top: 0;
+  max-width: none;
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+
+// Untransformed overlay — every child is placed at its own screen x/y
+// (NxImageMapComponent.screenX()/screenY()), so markers keep a constant
+// on-screen size at any zoom.
+.nim-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.nim-marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  cursor: pointer;
+  line-height: 0;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+
+  svg,
+  img {
+    display: block;
+    overflow: visible;
+  }
+}
+// A pin's tip, not its center, sits on the point.
+.nim-marker--balloon {
+  transform: translate(-50%, -100%);
+}
+.nim-viewport--pick .nim-marker {
+  cursor: crosshair;
+}
+
+.nim-valuebox {
+  --nim-offset: 12px;
+  position: absolute;
+  pointer-events: auto;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: rgba(20, 33, 61, 0.88);
+  color: #fff;
+  white-space: nowrap;
+  font-size: 11px;
+  line-height: 1.35;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+.nim-valuebox--right {
+  transform: translate(var(--nim-offset), -50%);
+}
+.nim-valuebox--left {
+  transform: translate(calc(-100% - var(--nim-offset)), -50%);
+}
+.nim-valuebox--top {
+  transform: translate(-50%, calc(-100% - var(--nim-offset)));
+}
+.nim-valuebox--bottom {
+  transform: translate(-50%, var(--nim-offset));
+}
+.nim-valuebox-name {
+  font-weight: 600;
+}
+.nim-valuebox-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.nim-valuebox-label {
+  opacity: 0.75;
+}
+.nim-valuebox-value {
+  font-weight: 600;
+}
+
+.nim-swatch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex: 0 0 auto;
+}
+
+.nim-muted {
+  opacity: 0.6;
+}
+
+// Hover tooltip — same card/tile structure and the same named layouts as
+// nx-map's marker tooltip (TooltipFormat.Layout / a record's
+// Tooltip.Template: default, compact, template2, nibras), restyled here
+// with the nim-tt-* class names.
+.nim-tooltip {
+  position: absolute;
+  z-index: 5;
+  min-width: 200px;
+  max-width: 360px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #1a1a1a;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+}
+.nim-tt-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+// The marker's own glyph (shape or imageUrl icon), fitted into a small box
+// — its svg/img are scaled down via the svg's viewBox / object-fit.
+.nim-tt-swatch {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+
+  svg,
+  img {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain;
+    overflow: visible;
+  }
+}
+.nim-tt-title {
+  font-size: 15px;
+  font-weight: 700;
+}
+.nim-tt-subtitle {
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: #9aa0a6;
+}
+.nim-tt-grid {
+  display: grid;
+  gap: 10px 14px;
+  margin-top: 10px;
+}
+.nim-tt-stat {
+  min-width: 0;
+}
+.nim-tt-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: #9aa0a6;
+}
+.nim-tt-value {
+  margin-top: 2px;
+  font-size: 16px;
+  font-weight: 700;
+  white-space: nowrap;
+  color: #1a1a1a;
+}
+.nim-tt-limit {
+  font-size: 12px;
+  font-weight: 500;
+  color: #9aa0a6;
+}
+.nim-tt-unit {
+  margin-left: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #9aa0a6;
+}
+.nim-tt-timestamp {
+  margin-top: 2px;
+  font-size: 10px;
+  color: #9aa0a6;
+  white-space: nowrap;
+}
+.nim-tt-empty {
+  margin-top: 6px;
+  font-size: 11px;
+  color: #9aa0a6;
+}
+
+.nim-tooltip--layout-compact {
+  min-width: 170px;
+  padding: 8px 10px;
+  border-radius: 8px;
+
+  .nim-tt-grid {
+    gap: 4px 12px;
+    margin-top: 6px;
+  }
+  .nim-tt-stat {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .nim-tt-label {
+    font-size: 9px;
+  }
+  .nim-tt-value {
+    margin-top: 0;
+    font-size: 13px;
+  }
+}
+
+.nim-tooltip--layout-template2 {
+  min-width: 240px;
+  padding: 14px;
+  background: #1a1a1a;
+  border-radius: 14px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+
+  .nim-tt-title,
+  .nim-tt-value {
+    color: #ffffff;
+  }
+  .nim-tt-grid {
+    gap: 8px;
+  }
+  .nim-tt-stat {
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    text-align: center;
+  }
+  .nim-tt-unit {
+    color: #6b7280;
+  }
+}
+
+// Palette as nx-map's "nibras" layout: white card, blue border, tinted
+// title band and tiles.
+.nim-tooltip--layout-nibras {
+  min-width: 240px;
+  padding: 14px;
+  border: 1.5px solid #47a1f6;
+  border-radius: 14px;
+  box-shadow: 0 6px 20px rgba(71, 161, 246, 0.2);
+
+  .nim-tt-header {
+    margin: -14px -14px 0 -14px;
+    padding: 10px 14px;
+    border-radius: 14px 14px 0 0;
+    background: #eaf4ff;
+  }
+  .nim-tt-title {
+    color: #14213d;
+  }
+  .nim-tt-subtitle {
+    margin-top: 6px;
+  }
+  .nim-tt-grid {
+    gap: 8px;
+  }
+  .nim-tt-stat {
+    padding: 8px 10px;
+    border: 1px solid rgba(71, 161, 246, 0.25);
+    border-radius: 10px;
+    background: rgba(71, 161, 246, 0.06);
+    text-align: center;
+  }
+  .nim-tt-label {
+    color: #0f6fb2;
+  }
+  .nim-tt-value {
+    color: #14213d;
+  }
+  .nim-tt-unit {
+    color: #0099b3;
+  }
+}
+
+.nim-data-loading {
+  position: absolute;
+  left: 50%;
+  top: 10px;
+  transform: translateX(-50%);
+  z-index: 6;
+  padding: 3px 10px;
+  border-radius: 10px;
+  background: rgba(20, 33, 61, 0.8);
+  color: #fff;
+  font-size: 11px;
+}
+
+.nim-pick-pin {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  background: #ef4444;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px #ef4444;
+}
+.nim-pick-pin-label {
+  position: absolute;
+  left: 12px;
+  top: -4px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.nim-status {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: #6b7280;
+}
+.nim-status--error {
+  color: #b91c1c;
+}
+
+// Toolbar row + its popups (Layers, Problems) at the viewport's top-right:
+// the buttons sit in one horizontal row, and a popup opens directly below
+// it, right-aligned under the buttons.
+.nim-top-right {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  bottom: 10px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: calc(100% - 20px);
+  pointer-events: none;
+
+  > * {
+    pointer-events: auto;
+  }
+  .nim-panel {
+    position: static;
+    min-height: 0;
+    max-height: 100%;
+    box-sizing: border-box;
+  }
+}
+.nim-toolbar {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+}
+// Same look as nx-map's .layer-btn: white 36px square, soft shadow, grey icon.
+.nim-btn {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: #fff;
+  color: #5f6368;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+
+  &:hover:not(:disabled):not(.nim-btn--active) {
+    background: #f1f3f4;
+  }
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+.nim-btn--active {
+  background: #e8f0fe;
+  color: #1a73e8;
+  box-shadow: 0 0 0 2px #4285f4, 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+.nim-btn--warn {
+  background: #fffbeb;
+}
+.nim-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #d97706;
+  color: #fff;
+  font-size: 10px;
+  line-height: 16px;
+}
+
+.nim-zoom-indicator {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(20, 33, 61, 0.75);
+  color: #fff;
+  font-size: 11px;
+  z-index: 10;
+}
+
+.nim-panel {
+  position: absolute;
+  top: 10px;
+  z-index: 10;
+  width: 340px;
+  max-width: calc(100% - 20px);
+  max-height: calc(100% - 20px);
+  overflow: auto;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+}
+.nim-problems {
+
+  ul {
+    margin: 0;
+    padding-left: 16px;
+  }
+  li {
+    margin: 4px 0;
+  }
+}
+.nim-pick-panel {
+  left: 10px;
+  top: auto;
+  bottom: 10px;
+}
+.nim-filter-panel {
+  width: 300px;
+  min-width: 0;
+}
+.nim-filter-search {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 12px;
+}
+.nim-filter-actions {
+  margin: 6px 0;
+}
+.nim-tree {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  ul {
+    margin: 0;
+    padding-left: 18px;
+    list-style: none;
+  }
+}
+.nim-tree-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 22px;
+
+  label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    min-width: 0;
+
+    span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+}
+.nim-tree-row--leaf {
+  padding-left: 18px;
+}
+.nim-tree-caret {
+  width: 16px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #6b7280;
+  cursor: pointer;
+}
+.nim-tree-layer {
+  font-weight: 600;
+}
+.nim-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.nim-panel-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+}
+.nim-cursor {
+  padding: 4px 0 6px;
+}
+.nim-picks {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.nim-pick {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  code {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+    padding: 2px 4px;
+    border-radius: 3px;
+    background: #f3f4f6;
+  }
+}
+.nim-link {
+  border: none;
+  background: none;
+  padding: 0;
+  color: #2563eb;
+  font-size: 12px;
+  cursor: pointer;
+}
+.nim-link--muted {
+  color: #6b7280;
+}
+
+.nim-toast {
+  position: absolute;
+  left: 50%;
+  top: 12px;
+  transform: translateX(-50%);
+  z-index: 20;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: rgba(20, 33, 61, 0.92);
+  color: #fff;
+}

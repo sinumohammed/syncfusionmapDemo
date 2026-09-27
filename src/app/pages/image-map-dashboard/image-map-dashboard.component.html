@@ -1,0 +1,16 @@
+<div class="imd-page">
+  <div class="imd-options">
+    <label>
+      Date (sent as <code>?date=</code> to DataAPIURL)
+      <input type="date" [(ngModel)]="date" (ngModelChange)="applyParams()" />
+    </label>
+    <span class="imd-hint" *ngIf="!date">LoadDataOnStart is false — pick a date to load data.</span>
+    <span class="imd-click" *ngIf="lastClick">Clicked: {{ lastClick }}</span>
+  </div>
+  <app-nx-image-map-collection
+    class="imd-map"
+    [rawConfig]="rawConfig"
+    [params]="params"
+    (markerClick)="onMarkerClick($event)"
+  ></app-nx-image-map-collection>
+</div>

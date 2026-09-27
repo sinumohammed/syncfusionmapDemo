@@ -1,0 +1,111 @@
+{
+  "layerConfig": {
+    "layerName": "Bunkering",
+    "groups": [
+      {
+        "id": "bunkering-meters",
+        "name": "Bunkering Meters",
+        "markerConfig": {
+          "style": {
+            "shape": "Circle",
+            "width": 12,
+            "height": 12,
+            "color": "#47a1f6",
+            "border": {
+              "color": "#ffffff",
+              "width": 2
+            }
+          },
+          "points": [
+            {
+              "id": "BNK-REFINERY-FD",
+              "x": 76,
+              "y": 118,
+              "name": "Refinery Flow & Density"
+            },
+            {
+              "id": "BNK-STORAGE-FD",
+              "x": 205,
+              "y": 118,
+              "name": "Storage Terminal Flow & Density"
+            },
+            {
+              "id": "BNK-BARGE-FD",
+              "x": 345,
+              "y": 34,
+              "name": "Barge Discharge Flow & Density"
+            }
+          ]
+        }
+      },
+      {
+        "id": "bunkering-vessels",
+        "name": "Vessels",
+        "markerConfig": {
+          "style": {
+            "shape": "Diamond",
+            "width": 14,
+            "height": 14,
+            "color": "#f59e0b",
+            "border": {
+              "color": "#ffffff",
+              "width": 2
+            }
+          },
+          "points": [
+            {
+              "id": "BNK-BARGE",
+              "x": 262,
+              "y": 125,
+              "name": "Barge"
+            },
+            {
+              "id": "BNK-CRUISE",
+              "x": 455,
+              "y": 48,
+              "name": "Cruise Line"
+            },
+            {
+              "id": "BNK-CARGO",
+              "x": 460,
+              "y": 108,
+              "name": "Cargo"
+            },
+            {
+              "id": "BNK-MERCHANT",
+              "x": 455,
+              "y": 160,
+              "name": "Merchant Marine"
+            }
+          ]
+        }
+      },
+      {
+        "id": "fleet",
+        "name": "Fleet Operations",
+        "valueDisplay": "always",
+        "labelPosition": "bottom",
+        "markerConfig": {
+          "style": {
+            "shape": "Rectangle",
+            "width": 12,
+            "height": 12,
+            "color": "#10b981",
+            "border": {
+              "color": "#ffffff",
+              "width": 2
+            }
+          },
+          "points": [
+            {
+              "id": "BNK-FLEET-OPS",
+              "x": 55,
+              "y": 190,
+              "name": "Fleet Operations"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

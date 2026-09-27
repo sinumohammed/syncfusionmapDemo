@@ -1,0 +1,341 @@
+[
+  {
+    "MarkerId": "CT-REFINERY",
+    "Label": "Throughput",
+    "Value": 182,
+    "Unit": "kbbl/d",
+    "Color": "#16a34a",
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "Throughput",
+          "Value": 182,
+          "Unit": "kbbl/d",
+          "Color": "#16a34a",
+          "Date": "2026-09-27T08:00:00+04:00"
+        },
+        {
+          "Label": "Utilisation",
+          "Value": 91,
+          "Unit": "%",
+          "Color": "#16a34a",
+          "Date": "2026-09-27T08:00:00+04:00"
+        }
+      ]
+    }
+  },
+  {
+    "MarkerId": "CT-TANK-FARM",
+    "Label": "Inventory",
+    "Value": 1.42,
+    "Unit": "MMbbl",
+    "Color": "#16a34a",
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "Inventory",
+          "Value": 1.42,
+          "Unit": "MMbbl",
+          "Color": "#16a34a",
+          "Date": "2026-09-27T08:00:00+04:00"
+        },
+        {
+          "Label": "Ullage",
+          "Value": 0.38,
+          "Unit": "MMbbl",
+          "Date": "2026-09-27T08:00:00+04:00"
+        },
+        {
+          "Label": "Tanks online",
+          "Value": 6,
+          "Unit": "",
+          "Date": "2026-09-27T08:00:00+04:00"
+        },
+        {
+          "Label": "Temp",
+          "Value": 46.5,
+          "Unit": "°C",
+          "Color": "#16a34a",
+          "Date": "2026-09-27T08:00:00+04:00"
+        }
+      ]
+    }
+  },
+  {
+    "MarkerId": "CT-JETTY-PUMP",
+    "Label": "Discharge",
+    "Value": 14.2,
+    "Unit": "bar",
+    "Color": "#d97706",
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "Discharge",
+          "Value": 14.2,
+          "Unit": "bar",
+          "Color": "#d97706",
+          "Date": "2026-09-27T08:00:00+04:00",
+          "Limit": 13.5
+        },
+        {
+          "Label": "Pumps running",
+          "Value": 3,
+          "Unit": "",
+          "Date": "2026-09-27T08:00:00+04:00"
+        }
+      ]
+    }
+  },
+  {
+    "MarkerId": "CT-INLET-FLOW",
+    "Label": "Flow",
+    "Value": 7420,
+    "Unit": "m³/h",
+    "Color": "#16a34a",
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "Flow",
+          "Value": 7420,
+          "Unit": "m³/h",
+          "Color": "#16a34a",
+          "Date": "2026-09-27T08:00:00+04:00"
+        },
+        {
+          "Label": "Density",
+          "Value": 852.4,
+          "Unit": "kg/m³",
+          "Color": "#16a34a",
+          "Date": "2026-09-27T08:00:00+04:00"
+        }
+      ]
+    }
+  },
+  {
+    "MarkerId": "CT-REF-FLOW",
+    "Label": "Flow",
+    "Value": 1210,
+    "Unit": "m³/h",
+    "Color": "#16a34a",
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "Flow",
+          "Value": 1210,
+          "Unit": "m³/h",
+          "Color": "#16a34a",
+          "Date": "2026-09-27T08:00:00+04:00"
+        },
+        {
+          "Label": "Density",
+          "Value": 848.9,
+          "Unit": "kg/m³",
+          "Color": "#16a34a",
+          "Date": "2026-09-27T08:00:00+04:00"
+        }
+      ]
+    }
+  },
+  {
+    "MarkerId": "CT-TANK-MANIFOLD",
+    "Label": "Pressure",
+    "Value": 6.8,
+    "Unit": "bar",
+    "Color": "#16a34a"
+  },
+  {
+    "MarkerId": "CT-EXPORT-FLOW",
+    "Label": "Flow",
+    "Value": 9850,
+    "Unit": "m³/h",
+    "Color": "#16a34a",
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "Flow",
+          "Value": 9850,
+          "Unit": "m³/h",
+          "Color": "#16a34a",
+          "Date": "2026-09-27T08:00:00+04:00"
+        },
+        {
+          "Label": "BS&W",
+          "Value": 0.4,
+          "Unit": "%",
+          "Color": "#d97706",
+          "Date": "2026-09-27T08:00:00+04:00",
+          "Limit": 0.5
+        }
+      ]
+    }
+  },
+  {
+    "MarkerId": "CT-SPM1-LINE",
+    "Label": "Flow",
+    "Value": 5120,
+    "Unit": "m³/h",
+    "Color": "#16a34a"
+  },
+  {
+    "MarkerId": "CT-SPM2-LINE",
+    "Label": "Flow",
+    "Value": 4730,
+    "Unit": "m³/h",
+    "Color": "#16a34a"
+  },
+  {
+    "MarkerId": "CT-SPM1",
+    "Label": "Hose pressure",
+    "Value": 9.1,
+    "Unit": "bar",
+    "Color": "#16a34a",
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "Hose pressure",
+          "Value": 9.1,
+          "Unit": "bar",
+          "Color": "#16a34a",
+          "Date": "2026-09-27T08:00:00+04:00",
+          "Limit": 12
+        },
+        {
+          "Label": "Swivel temp",
+          "Value": 38,
+          "Unit": "°C",
+          "Color": "#16a34a",
+          "Date": "2026-09-27T08:00:00+04:00"
+        }
+      ]
+    }
+  },
+  {
+    "MarkerId": "CT-SPM2",
+    "Label": "Hose pressure",
+    "Value": 12.6,
+    "Unit": "bar",
+    "Color": "#dc2626",
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "Hose pressure",
+          "Value": 12.6,
+          "Unit": "bar",
+          "Color": "#dc2626",
+          "Date": "2026-09-27T08:00:00+04:00",
+          "Limit": 12
+        },
+        {
+          "Label": "Swivel temp",
+          "Value": 41,
+          "Unit": "°C",
+          "Color": "#d97706",
+          "Date": "2026-09-27T08:00:00+04:00"
+        }
+      ]
+    }
+  },
+  {
+    "MarkerId": "CT-TANKER1",
+    "Label": "Loaded",
+    "Value": 612,
+    "Unit": "kbbl",
+    "Color": "#16a34a",
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "Loaded",
+          "Value": 612,
+          "Unit": "kbbl",
+          "Color": "#16a34a",
+          "Date": "2026-09-27T08:00:00+04:00"
+        },
+        {
+          "Label": "Remaining",
+          "Value": 388,
+          "Unit": "kbbl",
+          "Date": "2026-09-27T08:00:00+04:00"
+        },
+        {
+          "Label": "ETC",
+          "Value": 14,
+          "Unit": "h",
+          "Date": "2026-09-27T08:00:00+04:00"
+        }
+      ]
+    }
+  },
+  {
+    "MarkerId": "CT-TANKER2",
+    "Label": "Loaded",
+    "Value": 145,
+    "Unit": "kbbl",
+    "Color": "#d97706"
+  },
+  {
+    "MarkerId": "CT-SEA-INTAKE",
+    "Label": "Flow",
+    "Value": 3200,
+    "Unit": "m³/h",
+    "Color": "#16a34a"
+  },
+  {
+    "MarkerId": "CT-WATER-FLOW",
+    "Label": "Flow",
+    "Value": 2860,
+    "Unit": "m³/h",
+    "Color": "#16a34a",
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "Flow",
+          "Value": 2860,
+          "Unit": "m³/h",
+          "Color": "#16a34a",
+          "Date": "2026-09-27T08:00:00+04:00"
+        },
+        {
+          "Label": "Temp in",
+          "Value": 31.2,
+          "Unit": "°C",
+          "Color": "#16a34a",
+          "Date": "2026-09-27T08:00:00+04:00"
+        },
+        {
+          "Label": "Temp out",
+          "Value": 38.9,
+          "Unit": "°C",
+          "Color": "#d97706",
+          "Date": "2026-09-27T08:00:00+04:00",
+          "Limit": 38
+        }
+      ]
+    }
+  },
+  {
+    "MarkerId": "CT-DESAL",
+    "Label": "Output",
+    "Value": 540,
+    "Unit": "m³/h",
+    "Color": "#16a34a",
+    "Tooltip": {
+      "ComponentList": [
+        {
+          "Label": "Output",
+          "Value": 540,
+          "Unit": "m³/h",
+          "Color": "#16a34a",
+          "Date": "2026-09-27T08:00:00+04:00"
+        },
+        {
+          "Label": "Salinity",
+          "Value": 210,
+          "Unit": "ppm",
+          "Color": "#16a34a",
+          "Date": "2026-09-27T08:00:00+04:00",
+          "Limit": 500
+        }
+      ]
+    }
+  }
+]

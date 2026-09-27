@@ -1,10 +1,16 @@
 <div class="imd-page">
   <div class="imd-options">
     <label>
+      Image
+      <select [(ngModel)]="selectedConfig" (ngModelChange)="selectConfig()">
+        <option *ngFor="let c of configs" [value]="c.name">{{ c.name }}</option>
+      </select>
+    </label>
+    <label>
       Date (sent as <code>?date=</code> to DataAPIURL)
       <input type="date" [(ngModel)]="date" (ngModelChange)="applyParams()" />
     </label>
-    <span class="imd-hint" *ngIf="!date">LoadDataOnStart is false — pick a date to load data.</span>
+    <span class="imd-hint" *ngIf="!date && !loadsOnStart">LoadDataOnStart is false — pick a date to load data.</span>
     <span class="imd-click" *ngIf="lastClick">Clicked: {{ lastClick }}</span>
   </div>
   <app-nx-image-map-collection

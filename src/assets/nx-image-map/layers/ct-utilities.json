@@ -1,0 +1,43 @@
+{
+  "layerConfig": {
+    "layerName": "CT Utilities",
+    "groups": [
+      {
+        "id": "ct-seawater",
+        "name": "Seawater System",
+        "markerConfig": {
+          "style": {
+            "shape": "Triangle",
+            "width": 14,
+            "height": 14,
+            "color": "#0ea5e9",
+            "border": {
+              "color": "#ffffff",
+              "width": 2
+            }
+          },
+          "points": [
+            {
+              "id": "CT-SEA-INTAKE",
+              "x": 545,
+              "y": 445,
+              "name": "Seawater Intake"
+            },
+            {
+              "id": "CT-WATER-FLOW",
+              "x": 418,
+              "y": 320,
+              "name": "Cooling Water Flow"
+            },
+            {
+              "id": "CT-DESAL",
+              "x": 350,
+              "y": 425,
+              "name": "Desalination Plant"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

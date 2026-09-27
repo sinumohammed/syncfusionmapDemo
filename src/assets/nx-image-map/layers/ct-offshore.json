@@ -1,0 +1,99 @@
+{
+  "layerConfig": {
+    "layerName": "CT Offshore",
+    "groups": [
+      {
+        "id": "ct-subsea",
+        "name": "Subsea Lines",
+        "markerConfig": {
+          "style": {
+            "shape": "Circle",
+            "width": 12,
+            "height": 12,
+            "color": "#22c55e",
+            "border": {
+              "color": "#ffffff",
+              "width": 2
+            }
+          },
+          "points": [
+            {
+              "id": "CT-SPM1-LINE",
+              "x": 1045,
+              "y": 172,
+              "name": "Subsea Line to SPM-1"
+            },
+            {
+              "id": "CT-SPM2-LINE",
+              "x": 1030,
+              "y": 355,
+              "name": "Subsea Line to SPM-2"
+            }
+          ]
+        }
+      },
+      {
+        "id": "ct-spm",
+        "name": "SPM Buoys",
+        "markerConfig": {
+          "style": {
+            "shape": "Diamond",
+            "width": 16,
+            "height": 16,
+            "color": "#f59e0b",
+            "border": {
+              "color": "#ffffff",
+              "width": 2
+            }
+          },
+          "points": [
+            {
+              "id": "CT-SPM1",
+              "x": 1240,
+              "y": 118,
+              "name": "SPM-1"
+            },
+            {
+              "id": "CT-SPM2",
+              "x": 1235,
+              "y": 470,
+              "name": "SPM-2"
+            }
+          ]
+        }
+      },
+      {
+        "id": "ct-tankers",
+        "name": "Tankers",
+        "valueDisplay": "both",
+        "labelPosition": "bottom",
+        "markerConfig": {
+          "style": {
+            "shape": "Rectangle",
+            "width": 14,
+            "height": 14,
+            "color": "#b91c1c",
+            "border": {
+              "color": "#ffffff",
+              "width": 2
+            }
+          },
+          "points": [
+            {
+              "id": "CT-TANKER1",
+              "x": 1505,
+              "y": 85,
+              "name": "Tanker at SPM-1"
+            },
+            {
+              "id": "CT-TANKER2",
+              "x": 1495,
+              "y": 462,
+              "name": "Tanker at SPM-2"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

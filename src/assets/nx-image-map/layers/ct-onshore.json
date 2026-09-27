@@ -1,0 +1,88 @@
+{
+  "layerConfig": {
+    "layerName": "CT Onshore",
+    "groups": [
+      {
+        "id": "ct-facilities",
+        "name": "Facilities",
+        "markerConfig": {
+          "style": {
+            "shape": "Balloon",
+            "width": 16,
+            "height": 22,
+            "color": "#ef4444",
+            "border": {
+              "color": "#ffffff",
+              "width": 1.5
+            }
+          },
+          "points": [
+            {
+              "id": "CT-REFINERY",
+              "x": 590,
+              "y": 62,
+              "name": "Refinery"
+            },
+            {
+              "id": "CT-TANK-FARM",
+              "x": 400,
+              "y": 208,
+              "name": "Tank Farm",
+              "imageUrl": "assets/nx-map/icons/tank.svg",
+              "width": 22,
+              "height": 22
+            },
+            {
+              "id": "CT-JETTY-PUMP",
+              "x": 780,
+              "y": 248,
+              "name": "Jetty Pump Station"
+            }
+          ]
+        }
+      },
+      {
+        "id": "ct-onshore-meters",
+        "name": "Flow Meters",
+        "markerConfig": {
+          "style": {
+            "shape": "Circle",
+            "width": 12,
+            "height": 12,
+            "color": "#22c55e",
+            "border": {
+              "color": "#ffffff",
+              "width": 2
+            }
+          },
+          "points": [
+            {
+              "id": "CT-INLET-FLOW",
+              "x": 150,
+              "y": 148,
+              "name": "Crude Inlet Flow"
+            },
+            {
+              "id": "CT-REF-FLOW",
+              "x": 512,
+              "y": 118,
+              "name": "Refinery Transfer Flow"
+            },
+            {
+              "id": "CT-TANK-MANIFOLD",
+              "x": 525,
+              "y": 215,
+              "name": "Tank Farm Manifold"
+            },
+            {
+              "id": "CT-EXPORT-FLOW",
+              "x": 650,
+              "y": 232,
+              "name": "Export Line Flow"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

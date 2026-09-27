@@ -78,11 +78,14 @@ export function buildImageMapConfig(node: RawImageMapNode): ImageMapConfig {
   const defaultSelected = parseCommaList(node.LayersDefaultSelected);
   return {
     layerName: main?.layerName,
-    title: main?.title?.text || undefined,
+    // Optional — no title (or a blank one) means no header bar at all.
+    title: main?.title?.text?.trim() || undefined,
     baseImage: main?.baseImage ?? { url: "" },
     valueDisplay: main?.valueDisplay,
     labelPosition: main?.labelPosition,
     zoom: main?.zoom,
+    imageFit: main?.imageFit,
+    autoFitMaxStretch: main?.autoFitMaxStretch,
     showLocationPicker: main?.coordinatePickerEnabled !== false,
     markerStyle: main?.markerStyle,
     layers,

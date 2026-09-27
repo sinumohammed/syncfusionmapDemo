@@ -65,7 +65,7 @@
       "LayersDefaultSelected": "Bunkering",
       "SupportedIdentity": 144,
       "LoadDataOnStart": false,
-      "MainLayerSettings": "{   \"layerName\": \"Marine Bunkering\",   \"title\": { \"text\": \"Marine Bunkering & Fuel Efficiency\" },   \"baseImage\": { \"url\": \"assets/nx-image-map/marine-bunker.jpg\", \"width\": 500, \"height\": 386 },   \"valueDisplay\": \"hover\",   \"labelPosition\": \"right\",   \"zoom\": { \"mode\": \"auto\", \"autoThresholdPx\": 1200, \"maxZoom\": 8 },   \"coordinatePickerEnabled\": true }",
+      "MainLayerSettings": "{   \"layerName\": \"Marine Bunkering\",   \"baseImage\": { \"url\": \"assets/nx-image-map/marine-bunker.jpg\", \"width\": 500, \"height\": 386 },   \"valueDisplay\": \"both\",   \"labelPosition\": \"right\",   \"imageFit\": \"auto\",   \"zoom\": { \"mode\": \"auto\", \"autoThresholdPx\": 1200, \"maxZoom\": 8 },   \"coordinatePickerEnabled\": true }",
       "Name": null,
       "Param1": null,
       "xposition": 0,

@@ -33,6 +33,16 @@ export interface ImageMapZoomConfig {
   step?: number; // zoom factor per button click / wheel notch, default 1.5
 }
 
+// How the picture fits its area:
+//  "auto" (default) — "fill" when that stretches the picture by at most
+//                     autoFitMaxStretch (default 0.15 = 15%), else "contain"
+//  "fill"    — exactly the widget's width and height: no gaps, no cropping,
+//              the picture stretches (markers still line up — x and y
+//              scale independently)
+//  "contain" — keeps the aspect ratio, leaving gaps on two sides
+//  "cover"   — keeps the aspect ratio and crops whatever overflows
+export type ImageMapImageFit = "auto" | "fill" | "contain" | "cover";
+
 export interface ImageMapBaseImage {
   url: string;
   // The coordinate space every point's x/y is authored in. Omit both to use
@@ -53,6 +63,8 @@ export interface ImageMapConfig {
   valueDisplay?: ImageMapValueDisplay; // default "hover"
   labelPosition?: ImageMapLabelPosition; // default "right"
   zoom?: ImageMapZoomConfig;
+  imageFit?: ImageMapImageFit; // default "auto"
+  autoFitMaxStretch?: number; // "auto" only — default 0.15
   // The 📍 toolbar button — click the image, get its x/y as a ready-to-paste
   // point line. Default true; set false for production dashboards.
   showLocationPicker?: boolean;
@@ -128,6 +140,8 @@ export interface ImageMapMainLayerSettings {
   valueDisplay?: ImageMapValueDisplay;
   labelPosition?: ImageMapLabelPosition;
   zoom?: ImageMapZoomConfig;
+  imageFit?: ImageMapImageFit;
+  autoFitMaxStretch?: number;
   coordinatePickerEnabled?: boolean;
   markerStyle?: ImageMapMarkerStyle;
 }

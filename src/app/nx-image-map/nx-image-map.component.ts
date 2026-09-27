@@ -33,6 +33,7 @@ const DEFAULT_ZOOM_THRESHOLD_PX = 1200;
 const DEFAULT_MAX_ZOOM = 8;
 const DEFAULT_ZOOM_STEP = 1.5;
 const DEFAULT_TOOLTIP_COLUMNS = 2;
+const DEFAULT_AUTO_FIT_MAX_STRETCH = 0.15;
 const DEFAULT_DATE_FORMAT = "dd-MMM-yyyy HH:mm";
 const NO_DATA_PREFIX = "No data for";
 // A pointer that moves less than this between down and up is a click
@@ -106,12 +107,17 @@ function markerKey(layerName: string, groupId: string, pointId: string): string 
 // Picture-as-base-layer marker map. Rendering model:
 //  - The <img> is drawn at its coordinate-space size (baseImage.width/height,
 //    or its natural size) and placed with ONE CSS transform:
-//    translate(tx, ty) scale(scale), where scale = fitScale * zoom.
+//    translate(tx, ty) scale(scaleX, scaleY), where scaleX/Y = fitScaleX/Y
+//    * zoom. The fit scales come from config.imageFit — "fill" stretches to
+//    exactly the viewport's width AND height (no side gaps, the two axes
+//    scale independently), "contain" keeps the aspect ratio with gaps,
+//    "cover" keeps it and crops the overflow, "auto" (default) picks fill or
+//    contain by how much filling would distort (resolvedImageFit()).
 //  - Markers/labels/pick pins live in an untransformed overlay, each at
-//    screen position (tx + x * scale, ty + y * scale) — so they stay pinned
+//    screen position (tx + x * scaleX, ty + y * scaleY) — so they stay pinned
 //    to their image spot at any size/zoom while keeping a constant on-screen
 //    size (a 12px marker stays 12px at 8x zoom).
-//  - The location picker inverts the same formula: x = (px - tx) / scale.
+//  - The location picker inverts the same formula: x = (px - tx) / scaleX.
 @Component({
   selector: "app-nx-image-map",
   templateUrl: "./nx-image-map.component.html",
@@ -151,7 +157,8 @@ export class NxImageMapComponent implements OnChanges, AfterViewInit, OnDestroy 
 
   viewportWidth = 0;
   viewportHeight = 0;
-  fitScale = 1;
+  fitScaleX = 1;
+  fitScaleY = 1;
   zoom = 1;
   tx = 0;
   ty = 0;
@@ -193,12 +200,16 @@ export class NxImageMapComponent implements OnChanges, AfterViewInit, OnDestroy 
 
   constructor(private configService: NxImageMapConfigService, private zone: NgZone) {}
 
-  get scale(): number {
-    return this.fitScale * this.zoom;
+  get scaleX(): number {
+    return this.fitScaleX * this.zoom;
+  }
+
+  get scaleY(): number {
+    return this.fitScaleY * this.zoom;
   }
 
   get imageTransform(): string {
-    return `translate(${this.tx}px, ${this.ty}px) scale(${this.scale})`;
+    return `translate(${this.tx}px, ${this.ty}px) scale(${this.scaleX}, ${this.scaleY})`;
   }
 
   get locationPickerVisible(): boolean {
@@ -705,29 +716,51 @@ export class NxImageMapComponent implements OnChanges, AfterViewInit, OnDestroy 
     }
     // Keep whatever image point sits at the view's center there after resize.
     const hadSize = this.viewportWidth > 0 && this.imageWidth > 0;
-    const cx = hadSize ? (this.viewportWidth / 2 - this.tx) / this.scale : this.imageWidth / 2;
-    const cy = hadSize ? (this.viewportHeight / 2 - this.ty) / this.scale : this.imageHeight / 2;
+    const cx = hadSize ? (this.viewportWidth / 2 - this.tx) / this.scaleX : this.imageWidth / 2;
+    const cy = hadSize ? (this.viewportHeight / 2 - this.ty) / this.scaleY : this.imageHeight / 2;
     this.viewportWidth = width;
     this.viewportHeight = height;
     this.updateFitScale();
-    this.tx = width / 2 - cx * this.scale;
-    this.ty = height / 2 - cy * this.scale;
+    this.tx = width / 2 - cx * this.scaleX;
+    this.ty = height / 2 - cy * this.scaleY;
     this.clampPan();
   }
 
   private updateFitScale(): void {
     if (!this.imageWidth || !this.imageHeight || !this.viewportWidth || !this.viewportHeight) {
-      this.fitScale = 1;
+      this.fitScaleX = this.fitScaleY = 1;
       return;
     }
-    this.fitScale = Math.min(this.viewportWidth / this.imageWidth, this.viewportHeight / this.imageHeight);
+    const sx = this.viewportWidth / this.imageWidth;
+    const sy = this.viewportHeight / this.imageHeight;
+    const fit = this.resolvedImageFit(sx, sy);
+    if (fit === "fill") {
+      this.fitScaleX = sx;
+      this.fitScaleY = sy;
+    } else {
+      this.fitScaleX = this.fitScaleY = fit === "cover" ? Math.max(sx, sy) : Math.min(sx, sy);
+    }
+  }
+
+  // "auto" (the default): fill the area edge to edge when that only stretches
+  // the picture a little — its aspect ratio within autoFitMaxStretch (default
+  // 15%) of the area's — otherwise keep its proportions ("contain") rather
+  // than visibly distort it. Re-decided on every resize.
+  private resolvedImageFit(sx: number, sy: number): "fill" | "contain" | "cover" {
+    const fit = this.config?.imageFit ?? "auto";
+    if (fit !== "auto") {
+      return fit;
+    }
+    const maxStretch = this.config?.autoFitMaxStretch ?? DEFAULT_AUTO_FIT_MAX_STRETCH;
+    const stretch = Math.max(sx, sy) / Math.min(sx, sy) - 1;
+    return stretch <= maxStretch ? "fill" : "contain";
   }
 
   // A picture smaller than the view stays centered on that axis; a larger
   // one can pan but never leaves an empty gap at its edge.
   private clampPan(): void {
-    const sw = this.imageWidth * this.scale;
-    const sh = this.imageHeight * this.scale;
+    const sw = this.imageWidth * this.scaleX;
+    const sh = this.imageHeight * this.scaleY;
     this.tx = sw <= this.viewportWidth ? (this.viewportWidth - sw) / 2 : Math.min(0, Math.max(this.viewportWidth - sw, this.tx));
     this.ty = sh <= this.viewportHeight ? (this.viewportHeight - sh) / 2 : Math.min(0, Math.max(this.viewportHeight - sh, this.ty));
   }
@@ -735,6 +768,10 @@ export class NxImageMapComponent implements OnChanges, AfterViewInit, OnDestroy 
   resetView(): void {
     this.zoom = 1;
     this.updateFitScale();
+    // Centered — for "cover" the image overflows one axis, and clampPan()
+    // alone would otherwise pin it to that axis's top/left edge.
+    this.tx = (this.viewportWidth - this.imageWidth * this.scaleX) / 2;
+    this.ty = (this.viewportHeight - this.imageHeight * this.scaleY) / 2;
     this.clampPan();
   }
 
@@ -755,11 +792,11 @@ export class NxImageMapComponent implements OnChanges, AfterViewInit, OnDestroy 
     if (next === this.zoom) {
       return;
     }
-    const ix = (cx - this.tx) / this.scale;
-    const iy = (cy - this.ty) / this.scale;
+    const ix = (cx - this.tx) / this.scaleX;
+    const iy = (cy - this.ty) / this.scaleY;
     this.zoom = next;
-    this.tx = cx - ix * this.scale;
-    this.ty = cy - iy * this.scale;
+    this.tx = cx - ix * this.scaleX;
+    this.ty = cy - iy * this.scaleY;
     this.clampPan();
   }
 
@@ -845,11 +882,11 @@ export class NxImageMapComponent implements OnChanges, AfterViewInit, OnDestroy 
   // ---------------------------------------------------------------- markers
 
   screenX(x: number): number {
-    return this.tx + x * this.scale;
+    return this.tx + x * this.scaleX;
   }
 
   screenY(y: number): number {
-    return this.ty + y * this.scale;
+    return this.ty + y * this.scaleY;
   }
 
   showsTooltip(m: ResolvedMarker): boolean {
@@ -943,8 +980,8 @@ export class NxImageMapComponent implements OnChanges, AfterViewInit, OnDestroy 
 
   private toImagePoint(e: MouseEvent): { x: number; y: number } | null {
     const rect = this.viewportRef.nativeElement.getBoundingClientRect();
-    const x = (e.clientX - rect.left - this.tx) / this.scale;
-    const y = (e.clientY - rect.top - this.ty) / this.scale;
+    const x = (e.clientX - rect.left - this.tx) / this.scaleX;
+    const y = (e.clientY - rect.top - this.ty) / this.scaleY;
     if (x < 0 || y < 0 || x > this.imageWidth || y > this.imageHeight) {
       return null;
     }

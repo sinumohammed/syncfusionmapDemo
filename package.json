@@ -2,8 +2,9 @@
   "name": "nx-map-demo",
   "version": "0.0.1",
   "scripts": {
-    "start": "ng serve",
-    "build": "ng build"
+    "start": "node node_modules/@angular/cli/bin/ng.js serve",
+    "build": "node node_modules/@angular/cli/bin/ng.js build",
+    "ng": "node node_modules/@angular/cli/bin/ng.js"
   },
   "dependencies": {
     "@angular/animations": "^13.3.11",

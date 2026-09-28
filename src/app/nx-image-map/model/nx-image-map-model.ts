@@ -1,17 +1,20 @@
 // nx-image-map: a picture (plant schematic, vessel layout, ...) as the one
 // base layer, with marker layers placed on it by plain image-pixel x/y —
-// no lat/long, no projection, no Syncfusion. Deliberately shares nothing
-// with nx-map at the type level (same independent-copy convention
-// nx-circular-chart follows): the shapes below mirror nx-map's where it
-// helps authoring (mol.json-style layer files, MetricOverlayRecord-style
-// data records) but are their own declarations.
+// no lat/long, no projection, no Syncfusion. The wire shapes it has in
+// common with nx-map (DataSource, data records, tooltip entries, tooltip
+// format, raw host-node fields) come from ../../nx-map-common — the
+// ImageMap* names below are aliases/extensions of those so this component's
+// own code reads the same as before.
+import type {
+  DataSource,
+  MarkerDataRecordBase,
+  RawMapNodeBase,
+  TooltipComponentEntry,
+  TooltipFormatConfig
+} from "../../nx-map-common/nx-map-common.model";
 
-// Same three interchangeable sources nx-map's own DataSource<T> offers.
-export interface ImageMapDataSource<T> {
-  source: "inline" | "file" | "api";
-  value?: T; // required when source === "inline"
-  url?: string; // required when source === "file" | "api"
-}
+// Same three interchangeable sources as nx-map — the shared DataSource<T>.
+export type ImageMapDataSource<T> = DataSource<T>;
 
 // "hover"  — values only in the hover tooltip (default)
 // "always" — a value box stays next to the marker, no hover tooltip
@@ -94,11 +97,7 @@ export interface ImageMapConfig {
 // RawTooltipFormat. `layout` names a tile style (default/compact/template2/
 // nibras — same names nx-map uses); `dateFormat` uses the same
 // yyyy/MMM/MM/dd/HH/hh/mm/ss/a tokens.
-export interface ImageMapTooltipFormat {
-  columns?: number;
-  layout?: string;
-  dateFormat?: string;
-}
+export type ImageMapTooltipFormat = TooltipFormatConfig;
 
 // Query params for DataAPIURL — whatever the host page has selected (date,
 // asset, ...). null/undefined/"" values are left off the request.
@@ -108,25 +107,17 @@ export type ImageMapParams = Record<string, string | number | boolean | null | u
 // (JSON-encoded strings for structured settings, comma-separated name
 // lists). Only the fields read here are typed; every other generic widget
 // field (Columns, Rows, Icon, ...) is ignored.
-export interface RawImageMapNode {
-  ComponentType?: number;
+//
+// MainLayerSettings (-> ImageMapMainLayerSettings), LayerFileLists
+// ("Bunkering,Fuel Efficiency" -> assets/nx-image-map/layers/<slug>.json),
+// LayerAPIURL / LayerInlineJSON (ImageMapLayerFile[]), LayersDefaultSelected,
+// DataAPIURL and TooltipFormat come from the shared RawMapNodeBase.
+export interface RawImageMapNode extends RawMapNodeBase {
   Id?: number;
   ElementName?: string | null;
-  // JSON string -> ImageMapMainLayerSettings.
-  MainLayerSettings?: string | null;
-  // "Bunkering,Fuel Efficiency" -> assets/nx-image-map/layers/<slug>.json each.
-  LayerFileLists?: string | null;
-  // URL returning ImageMapLayerFile[].
-  LayerAPIURL?: string | null;
-  // JSON string of ImageMapLayerFile[].
-  LayerInlineJSON?: string | null;
-  LayersDefaultSelected?: string | null;
-  DataAPIURL?: string | null;
   LoadDataOnStart?: boolean | null;
   // nx-map's name for the same flag — accepted as an alias.
   LoadMetricOnStart?: boolean | null;
-  // JSON string: { Columns, Layout, DateFormat }.
-  TooltipFormat?: string | null;
   // Collection node (ComponentType 7125) only — one image map per entry.
   Configuration?: RawImageMapNode[] | null;
 }
@@ -198,34 +189,16 @@ export interface ImageMapPoint extends ImageMapMarkerStyle {
 // MetricOverlayRecord (MarkerId/Value/Unit/Color/Tooltip.ComponentList), so
 // one backend payload can feed either control. Several records may share a
 // MarkerId; each becomes its own line in that marker's value box/tooltip.
-export interface ImageMapDataRecord {
-  // Optional — scopes the MarkerId match to the layer with this layerName
-  // (same as nx-map's MetricOverlayRecord.LayerId); omit to match any layer.
-  LayerId?: string;
-  MarkerId?: string;
-  markerId?: string; // tolerated lowercase alias
-  Label?: string;
-  Value?: string | number;
-  Unit?: string;
-  Color?: string; // also recolors the marker itself (first record wins)
+export interface ImageMapDataRecord extends MarkerDataRecordBase {
+  // Tolerated lowercase alias of MarkerId.
+  markerId?: string;
+  // The headline reading's own timestamp (tooltip tile fallback when the
+  // record has no Tooltip.ComponentList).
   Date?: string;
-  Tooltip?: {
-    Columns?: number;
-    ComponentList?: ImageMapTooltipEntry[];
-    // Per-marker tile style override — same as nx-map's
-    // MetricOverlayTooltip.Template.
-    Template?: string;
-  };
 }
 
-export interface ImageMapTooltipEntry {
-  Label?: string;
-  Value?: string | number;
-  Unit?: string;
-  Color?: string;
-  Date?: string;
-  Limit?: string | number;
-}
+// One tooltip tile's reading — the shared TooltipComponentEntry.
+export type ImageMapTooltipEntry = TooltipComponentEntry;
 
 // Emitted by NxImageMapComponent.markerClick.
 export interface ImageMapMarkerClickEvent {

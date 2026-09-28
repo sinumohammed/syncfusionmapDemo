@@ -4,6 +4,11 @@ import {
   ZoomSettingsModel,
 } from "@syncfusion/ej2-angular-maps";
 import { FormElementConfig } from "./form-element.model";
+import type { DataSource, MarkerDataRecordBase } from "../../nx-map-common/nx-map-common.model";
+
+// Shared with nx-image-map (see nx-map-common.model.ts) — re-exported so
+// every existing import from this file keeps working unchanged.
+export type { DataSource, MetricOverlayTooltip, TooltipComponentEntry } from "../../nx-map-common/nx-map-common.model";
 
 export type MapObject = MapPoint | MapLine | MapPolygon | MapCircle;
 
@@ -273,9 +278,11 @@ export interface PointMetric {
 // on-screen toast, that record skipped. A deployment's own backend decides
 // how it computes/attributes each reading — this map only ever cares about
 // these extra fields on top of the reading itself.
-export interface MetricOverlayRecord {
-  LayerId?: string;
-  MarkerId?: string;
+//
+// LayerId/MarkerId/Label/Value/Unit/Color/Tooltip come from the shared
+// MarkerDataRecordBase (nx-map-common.model.ts); only the nx-map-specific
+// fields are declared here.
+export interface MetricOverlayRecord extends MarkerDataRecordBase {
   // Only meaningful for a brand-new (unanchored) point — its own identity,
   // independent of `MarkerId` (which always means "match this EXISTING
   // marker", whether or not that match actually resolves). Omit to fall
@@ -285,18 +292,14 @@ export interface MetricOverlayRecord {
   Latitude?: number;
   Longitude?: number;
   Name?: string;
-  // This reading's own value/status — Value is coerced to a number
-  // wherever it's actually read (NxMapDemoComponent.toPointMetric()), same
-  // "API may send either a number or a numeric string" tolerance
-  // TooltipComponentEntry.Value already has to allow for.
-  Value?: string | number;
-  Unit?: string;
+  // (Inherited Value/Unit — this reading's own value/status — are coerced
+  // to a number wherever they're actually read (NxMapDemoComponent.
+  // toPointMetric()), same "API may send either a number or a numeric
+  // string" tolerance TooltipComponentEntry.Value already has to allow for.)
   Value2?: string | number;
   Unit2?: string;
   Value3?: string | number;
   Unit3?: string;
-  Label?: string;
-  Color?: string;
   Shape?: MarkerShape;
   TextColor?: string;
   // Shape/Color/Width/Height/ImageUrl/TextColor are only meaningful for a
@@ -311,7 +314,7 @@ export interface MetricOverlayRecord {
   Height?: number;
   ImageUrl?: string;
 
-  // The FULL multi-metric snapshot for this point's always-on hover
+  // (Inherited Tooltip.) The FULL multi-metric snapshot for this point's always-on hover
   // tooltip — independent of which single metric this record's own
   // Value/MarkerId are actually about (that pair still only
   // ever drives the ONE selected metric's on-map overlay label/color,
@@ -327,7 +330,6 @@ export interface MetricOverlayRecord {
   // creates as MapPoint.tooltipColumns — every other point keeps using the
   // map-wide default, a static layer's own MapConfig.tooltipTemplate.columns
   // when set, otherwise NXMapBuilderService.DEFAULT_TOOLTIP_TEMPLATE.columns).
-  Tooltip?: MetricOverlayTooltip;
   // Explicit false blanks just this record's own on-map overlay LABEL TEXT
   // (its MarkerId's point name + Value + Unit — see PointMetric.showInfo's
   // own comment for exactly what renders instead) for the currently
@@ -342,64 +344,16 @@ export interface MetricOverlayRecord {
   ShowInfo?: boolean;
 }
 
-// One metric reading inside MetricOverlayRecord.Tooltip.ComponentList — the
-// wire shape a real metric-overlay API sends this point's full multi-metric
-// hover-tooltip snapshot in. No explicit metric id of its own: Label is a
-// human title ("API", "BS&W", ...), and NxMapDemoComponent derives a stable
-// key for it by slugifying Label (lowercased, non-alphanumeric runs
-// collapsed to "_") — see its own toTooltipMetrics()/deriveTooltipTemplate()
-// comments. PascalCase field names are read straight off the API, no
-// separate mapping layer.
-export interface TooltipComponentEntry {
-  Label?: string;
-  Color?: string;
-  Value?: string | number;
-  Unit?: string;
-  // This one metric's own reading timestamp — per-entry (not shared across
-  // the whole ComponentList/Tooltip), so two metrics in the same fetch can
-  // carry different reading times. Rendered as-is under that tile's value
-  // (see PointMetric.date's own comment) — no parsing/timezone handling on
-  // this side, whatever string the API sends is what shows.
-  Date?: string;
-  // This one metric's own threshold — Color already tells a viewer a
-  // reading is out of range (e.g. red), but not by how much or against
-  // what; rendered as "value / Limit" right in the tile's own value line
-  // (see PointMetric.limit's own comment) so that context is visible
-  // without a separate lookup. Per-entry, same reasoning as Date — two
-  // metrics in the same fetch can have different limits.
-  Limit?: string | number;
-  // A short ordered run of this metric's own past readings, oldest first —
-  // drives the trend sparkline shown on hovering this tile (see
-  // PointMetric.history's own comment for how it's consumed). Each entry's
-  // own Value/Limit are coerced to numbers the same tolerant way this
-  // entry's own Value/Limit already are (NxMapDemoComponent.
-  // toTooltipMetrics()); Date is carried straight through, used as that
-  // point's own x-axis label on the chart. Limit is per-entry, same
-  // reasoning as this whole entry's own top-level Limit above — a
-  // threshold isn't necessarily constant over the history window — and is
-  // what lets the chart mark exactly which date(s) crossed it, not just
-  // whether the CURRENT reading did. Omit entirely (or fewer than 2
-  // entries) for a tile with no sparkline at all — every existing record
-  // already works exactly as before without this field.
-  History?: { Date?: string; Value?: string | number; Limit?: string | number }[];
-}
-
-// MetricOverlayRecord.Tooltip's own shape — Columns is a real field here,
-// not a magic reserved key mixed in among the metrics themselves the way
-// the old free-form Record<string, PointMetric | number | string> map's own
-// "columns"/"template" keys used to be.
-export interface MetricOverlayTooltip {
-  Columns?: number;
-  ComponentList?: TooltipComponentEntry[];
-  // Per-point tile-STYLE override — a named .mtt-layout-* CSS variant (see
-  // NxMapDemoComponent's TOOLTIP_TILE_LAYOUTS/nx-map-demo.component.scss),
-  // forwarded onto this record's own point as MapPoint.tooltipLayout (see
-  // NxMapDemoComponent.toTooltipLayout()) — same per-point-override role
-  // Columns already plays for tooltipColumns. Absent leaves the point on
-  // the map-wide default (RawTooltipFormat.Layout/MapConfig.
-  // tooltipTemplate.layout), same as before this field existed.
-  Template?: string;
-}
+// TooltipComponentEntry (one tile's reading: Label/Color/Value/Unit/Date/
+// Limit/History) and MetricOverlayTooltip (Columns/ComponentList/Template)
+// now live in nx-map-common.model.ts, shared with nx-image-map, and are
+// re-exported at the top of this file. nx-map specifics: a ComponentList
+// entry has no metric id of its own — NxMapDemoComponent derives each
+// tile's key by slugifying Label (see its toTooltipMetrics()/
+// deriveTooltipTemplate()); Template names a .mtt-layout-* CSS variant
+// (TOOLTIP_TILE_LAYOUTS / nx-map-demo.component.scss), forwarded onto the
+// point as MapPoint.tooltipLayout; History drives the tile's trend
+// sparkline (PointMetric.history).
 
 // One tile in the hover tooltip's metric grid — `metricId` can be any
 // string. This full item list is never required to be authored by hand:
@@ -799,11 +753,8 @@ export interface MapConfig {
 // A value that's either hardcoded inline, loaded from a static file, or
 // fetched from a live API — the same three interchangeable sources apply
 // to both a layer's group/marker config and its shape/boundary geometry.
-export interface DataSource<T> {
-  source: "inline" | "file" | "api";
-  value?: T; // required when source === "inline"
-  url?: string; // required when source === "file" | "api" (HttpClient.get either way)
-}
+// DataSource<T> itself is declared in nx-map-common.model.ts (shared with
+// nx-image-map) and re-exported at the top of this file.
 
 // What a child layer brought in via LayerFileLists/LayerAPIURL/
 // LayerInlineJSON (parent-config-transform.ts) resolves to — one per

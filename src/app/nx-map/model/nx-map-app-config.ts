@@ -1,4 +1,5 @@
 import { DataSource, LayerFileEnvelope, MapConfig } from "./nx-map-model";
+import type { TooltipFormatConfig } from "../../nx-map-common/nx-map-common.model";
 
 // Top-level, deployment-swappable description of where every piece of map
 // data comes from.
@@ -69,9 +70,5 @@ export interface NXMapAppConfig {
   // shown when a reading has no Date at all (NXMapBuilderService's own
   // dateFallback) is not configurable from here at all yet — always that
   // service's own hardcoded placeholder.
-  tooltipFormat?: {
-    columns?: number;
-    layout?: string;
-    dateFormat?: string;
-  };
+  tooltipFormat?: TooltipFormatConfig;
 }

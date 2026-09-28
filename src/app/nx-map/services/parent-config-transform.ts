@@ -1,5 +1,9 @@
 import { NXMapAppConfig } from "../model/nx-map-app-config";
 import { DataSource, LayerFileEnvelope, MapCollectionConfig } from "../model/nx-map-model";
+import type { RawMapNodeBase, RawTooltipFormat } from "../../nx-map-common/nx-map-common.model";
+
+// Shared with nx-image-map — re-exported so existing imports keep working.
+export type { RawTooltipFormat } from "../../nx-map-common/nx-map-common.model";
 
 // The real upstream payload's own discriminant for "this node is a
 // collection of maps, not a map itself" — every node under a
@@ -24,7 +28,12 @@ export const LAYER_FILES_BASE_PATH = "assets/nx-map/layers";
 // entry), never by buildAppConfig(). Deliberately typed loosely (only the
 // fields this transform actually reads) — a real node carries many other
 // unrelated properties (Columns, Icon, WidgetId, ...), all ignored here.
-export interface RawLayerNode {
+//
+// The fields shared with nx-image-map's own node (LayerFileLists, LayerAPIURL,
+// LayerInlineJSON, LayersDefaultSelected, DataAPIURL, TooltipFormat, ...) are
+// declared once in RawMapNodeBase (nx-map-common.model.ts); they're repeated
+// below only where nx-map's own comment adds nx-map-specific detail.
+export interface RawLayerNode extends RawMapNodeBase {
   ComponentType?: number;
   // This map's own settings ONLY — layerName, baseMapType,
   // availableBaseMapTypes, mapCenter, zoomFactor, title, dataLabel, theme,
@@ -108,11 +117,7 @@ export interface RawLayerNode {
 // Tooltip.ComponentList[].Date) — yyyy/MM/dd/HH/mm/ss tokens, see
 // formatDate()'s own comment for why it reads the ISO string's own literal
 // fields rather than going through a real Date object.
-export interface RawTooltipFormat {
-  Columns?: number;
-  Layout?: string;
-  DateFormat?: string;
-}
+// (RawTooltipFormat itself is declared in nx-map-common.model.ts.)
 
 // Lowercases and collapses any run of non-alphanumeric characters to a
 // single "-", so "Sub Surface", "Sub surface", "sub-surface", and

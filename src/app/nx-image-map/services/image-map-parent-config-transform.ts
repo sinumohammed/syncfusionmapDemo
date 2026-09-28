@@ -7,9 +7,9 @@ import {
   RawImageMapNode
 } from "../model/nx-image-map-model";
 
-// Own copy of nx-map's parent-config-transform.ts conventions (same field
-// names, same comma-list/slug/JSON-string rules) — nx-image-map keeps no
-// code dependency on nx-map.
+// Same conventions as nx-map's parent-config-transform.ts (same field names,
+// same comma-list/slug/JSON-string rules). The raw-node and tooltip-format
+// TYPES are shared (../../nx-map-common); this transform stays per component.
 
 // COMPONENT_NX_MAP_IMAGE_COLLECTION — its Configuration[] holds one
 // COMPONENT_NX_MAP_IMAGE (7124) node per image map.

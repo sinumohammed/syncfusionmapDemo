@@ -3,8 +3,8 @@ import { HttpClient, HttpParams } from "@angular/common/http";
 import { Observable, of } from "rxjs";
 import { ImageMapDataRecord, ImageMapDataSource, ImageMapParams } from "../model/nx-image-map-model";
 
-// Own copy of nx-map's NXMapConfigService.resolve() — nx-image-map keeps no
-// dependency on nx-map (same convention nx-circular-chart follows).
+// Same resolve() as nx-map's NXMapConfigService. Only the TYPES are shared
+// with nx-map (../../nx-map-common); services stay per component.
 @Injectable()
 export class NxImageMapConfigService {
   constructor(private http: HttpClient) {}

@@ -145,16 +145,11 @@ export class NxCircularChartComponent implements OnChanges, AfterViewInit, OnDes
   // upstream (see that component's own comment).
   @Input() config?: CircularChartConfig;
   @Input() selected = false;
-  // False whenever the collection's own header comments feature is on
-  // (NxCircularChartCollectionComponent's own showComments — see its own
-  // binding) — that "+"/history-grid affordance and per-card selection are
-  // mutually exclusive per product decision, so a card must render
-  // IDENTICALLY either way (same colors/content/no dimming) but stop
-  // responding to a click/hover entirely once comments mode is on, rather
-  // than looking selectable and silently doing nothing (confirmed that
-  // reads as broken) or looking visibly disabled (confirmed that reads as
-  // "this chart has no data", already used for isEmpty — a different,
-  // unrelated state this must not be confused with).
+  // False makes a card look identical (same colors/content, no dimming) but
+  // ignore clicks and drop its hover lift. The collection no longer sets it
+  // — cards stay selectable with ShowComments on too (the comments "+"
+  // button and card selection now work side by side) — kept as an opt-out
+  // for a host that wants read-only cards.
   @Input() selectable = true;
   // NxCircularChartCollectionComponent's own resolved rawConfig.SeriesPalette
   // (or DEFAULT_SERIES_PALETTE when unset) — see buildSeries()'s own use of

@@ -7,7 +7,8 @@
     "reportedBy": "A. Hassan",
     "customer": "Nibras Ops",
     "isCustomer": false,
-    "valid": true
+    "startDate": "2026-03-10",
+    "endDate": "2026-03-12"
   },
   {
     "id": 2,
@@ -17,7 +18,8 @@
     "reportedBy": "M. Al-Rawahi",
     "customer": "Nibras Ops",
     "isCustomer": true,
-    "valid": true
+    "startDate": "2026-06-01",
+    "endDate": null
   },
   {
     "id": 3,
@@ -27,7 +29,8 @@
     "reportedBy": "S. Khan",
     "customer": "Petro West",
     "isCustomer": true,
-    "valid": false
+    "startDate": "2025-11-18",
+    "endDate": "2025-11-20"
   },
   {
     "id": 4,
@@ -37,6 +40,7 @@
     "reportedBy": "A. Hassan",
     "customer": "Nibras Ops",
     "isCustomer": false,
-    "valid": true
+    "startDate": null,
+    "endDate": null
   }
 ]

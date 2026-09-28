@@ -116,6 +116,11 @@ export class NxCircularChartCollectionComponent implements OnChanges {
   }
   private _rows = 0;
 
+  // The logged-in user's display name — passed straight down to the
+  // comments popup, where it auto-fills Reported By (see
+  // NxCircularChartCommentsComponent.currentUser).
+  @Input() currentUser?: string | null;
+
   @Output() sublayersSelected = new EventEmitter<CircularChartSelectionEvent>();
 
   circularCharts: CircularChartConfig[] = [];

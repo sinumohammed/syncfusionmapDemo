@@ -24,10 +24,15 @@ export interface CircularChartComment {
   // ordered) — a free string here, not a typed union, since the actual set
   // of valid values is config-driven, not fixed at compile time.
   spec: string;
+  // Filled automatically from the host's current user (the collection's
+  // `currentUser` @Input) for a new comment; an edit keeps the original.
   reportedBy: string;
   customer: string;
   // The popup's Impact radio — true = Customer impact, false =
   // Non-Customer impact (the same split the charts' own slices use).
   isCustomer: boolean;
-  valid: boolean;
+  // Optional period the comment covers — ISO "yyyy-MM-dd" strings, null when
+  // not set. endDate is never before startDate (form validator).
+  startDate: string | null;
+  endDate: string | null;
 }

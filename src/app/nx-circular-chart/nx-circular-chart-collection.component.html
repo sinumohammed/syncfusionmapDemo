@@ -19,7 +19,7 @@
       <mat-select class="nx-circular-chart-year-select" [value]="selectedYear" (selectionChange)="onYearChange($event.value)" panelClass="nx-circular-chart-year-select-panel">
         <mat-option *ngFor="let year of years" [value]="year">{{ year }}</mat-option>
       </mat-select>
-      <app-nx-circular-chart-comments [year]="selectedYear" [years]="years" [specOptions]="specOptions"></app-nx-circular-chart-comments>
+      <app-nx-circular-chart-comments [year]="selectedYear" [years]="years" [specOptions]="specOptions" [currentUser]="currentUser"></app-nx-circular-chart-comments>
     </div>
   </div>
 

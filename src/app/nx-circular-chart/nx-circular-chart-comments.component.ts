@@ -24,6 +24,17 @@ function noFutureDateValidator(): ValidatorFn {
   };
 }
 
+// Start/End Date pair: only checked once BOTH are set — End Date may not
+// come before Start Date. Set on the FormGroup (not either control) since it
+// depends on both; the template shows its error under End Date.
+function endNotBeforeStartValidator(): ValidatorFn {
+  return (group: AbstractControl): ValidationErrors | null => {
+    const start = toNativeDate(group.get("startDate")?.value);
+    const end = toNativeDate(group.get("endDate")?.value);
+    return start && end && end.getTime() < start.getTime() ? { endBeforeStart: true } : null;
+  };
+}
+
 // Just the "+" button at the top level (rendered inline in
 // NxCircularChartCollectionComponent's own header, next to its year
 // <select> — see that component's own template) — everything else (the
@@ -50,6 +61,10 @@ export class NxCircularChartCommentsComponent {
   @Input() year!: number;
   @Input() years: number[] = [];
   @Input() specOptions: string[] = [];
+  // The logged-in user's display name, from the host — auto-fills (and
+  // locks) Reported By on every new comment. Unset -> Reported By stays a
+  // normal required text box, same as before this existed.
+  @Input() currentUser?: string | null;
 
   // Must live in THIS component, not a shared/global template — MatDialog's
   // TemplateRef-based open() reuses THIS SAME instance across every open
@@ -114,6 +129,8 @@ export class NxCircularChartCommentsComponent {
     { field: "spec", headerName: "Spec", width: 90 },
     { field: "customer", headerName: "Customer", width: 110 },
     { field: "isCustomer", headerName: "Impact", width: 120, valueFormatter: p => (p.value ? "Customer" : "Non-Customer") },
+    { field: "startDate", headerName: "Start Date", width: 105 },
+    { field: "endDate", headerName: "End Date", width: 105 },
     { field: "reportedBy", headerName: "Reported By", width: 120 },
     {
       colId: "editAction",
@@ -138,15 +155,19 @@ export class NxCircularChartCommentsComponent {
   ];
 
   constructor(private fb: FormBuilder, private dialog: MatDialog, private commentsService: NxCircularChartCommentsService) {
-    this.form = this.fb.group({
-      date: [null, [Validators.required, noFutureDateValidator()]],
-      desc: ["", Validators.required],
-      spec: ["", Validators.required],
-      reportedBy: ["", Validators.required],
-      customer: ["", Validators.required],
-      isCustomer: [false, Validators.required],
-      valid: [false]
-    });
+    this.form = this.fb.group(
+      {
+        date: [null, [Validators.required, noFutureDateValidator()]],
+        desc: ["", Validators.required],
+        spec: ["", Validators.required],
+        reportedBy: ["", Validators.required],
+        customer: ["", Validators.required],
+        isCustomer: [false, Validators.required],
+        startDate: [null],
+        endDate: [null]
+      },
+      { validators: endNotBeforeStartValidator() }
+    );
   }
 
   // TODO: stub — the sketch shows a separate "History" link/action with no
@@ -166,10 +187,11 @@ export class NxCircularChartCommentsComponent {
     this.applyRowToForm();
     this.dialogRef = this.dialog.open(this.addCommentsDialog, {
       ...DEFAULT_DIALOG_CONFIG,
-      // Wide enough for the grid below to show all 8 columns without
+      // Wide enough for the grid below to show all 10 columns without
       // horizontal scrolling for the common case — see columnDefs' own
-      // comment for the ~800px this needs.
-      width: "900px",
+      // comment (~1010px with the Start/End Date columns).
+      width: "1060px",
+      maxWidth: "95vw",
       data: { title: "Add Comment", specOptions: this.specOptions }
     });
   }
@@ -233,11 +255,22 @@ export class NxCircularChartCommentsComponent {
       date: row ? toNativeDate(row.date) : this.defaultDateFor(this.dialogYear),
       desc: row?.desc ?? "",
       spec: row?.spec ?? this.specOptions[0] ?? "",
-      reportedBy: row?.reportedBy ?? "",
+      // An edit keeps whoever originally reported it; a new comment is the
+      // current user.
+      reportedBy: row?.reportedBy ?? this.currentUser ?? "",
       customer: row?.customer ?? "",
       isCustomer: row?.isCustomer ?? false,
-      valid: row?.valid ?? false
+      startDate: toNativeDate(row?.startDate),
+      endDate: toNativeDate(row?.endDate)
     });
+    // Auto-filled -> not editable. disable() also drops it from
+    // form.value, which is why save() reads it via getRawValue().
+    const reportedBy = this.form.get("reportedBy");
+    if (this.currentUser) {
+      reportedBy?.disable({ emitEvent: false });
+    } else {
+      reportedBy?.enable({ emitEvent: false });
+    }
   }
 
   save(): void {
@@ -245,7 +278,7 @@ export class NxCircularChartCommentsComponent {
       this.form.markAllAsTouched();
       return;
     }
-    const raw = this.form.value;
+    const raw = this.form.getRawValue();
     const entry: Omit<CircularChartComment, "id"> = {
       date: this.toIsoDate(raw.date),
       desc: raw.desc,
@@ -253,7 +286,8 @@ export class NxCircularChartCommentsComponent {
       reportedBy: raw.reportedBy,
       customer: raw.customer,
       isCustomer: raw.isCustomer === true,
-      valid: raw.valid
+      startDate: raw.startDate ? this.toIsoDate(raw.startDate) : null,
+      endDate: raw.endDate ? this.toIsoDate(raw.endDate) : null
     };
     // TODO: real save/update API call — payload logged here so the actual
     // request/response wiring is easy to verify in the console right up

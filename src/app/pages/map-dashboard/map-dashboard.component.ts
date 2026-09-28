@@ -24,6 +24,10 @@ export class MapDashboardComponent {
 
   circularChartSelection: MapCircularChartSelection | null = null;
 
+  // Stand-in for the host app's logged-in user — auto-fills Reported By in
+  // the circular chart comments popup.
+  readonly currentUser = "Demo User";
+
   // Carousel columns/rows for <app-nx-circular-chart-collection> itself —
   // read from its own raw config (GridColumn/GridRow) instead of being
   // hardcoded on this page's HTML. Neither one takes a fixed hardcoded

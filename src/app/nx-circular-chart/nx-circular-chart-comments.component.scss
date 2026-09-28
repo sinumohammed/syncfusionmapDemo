@@ -33,6 +33,19 @@
   gap: 4px;
   min-width: 280px;
 }
+// Start Date / End Date side by side (replaced the old "Valid" checkbox).
+.nx-circular-chart-comments-dates {
+  display: flex;
+  gap: 12px;
+
+  mat-form-field {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+.nx-circular-chart-comments-date-error {
+  color: #d32f2f;
+}
 .nx-circular-chart-comments-form-actions {
   display: flex;
   justify-content: flex-end;

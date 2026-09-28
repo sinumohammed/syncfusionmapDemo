@@ -17,14 +17,21 @@ import { catchError, map } from "rxjs/operators";
 import {
   ImageMapConfig,
   ImageMapDataRecord,
-  ImageMapLabelPosition,
   ImageMapLayerFile,
   ImageMapMarkerClickEvent,
   ImageMapMarkerShape,
   ImageMapParams,
-  ImageMapTooltipEntry,
-  ImageMapValueDisplay
+  ImageMapTooltipEntry
 } from "./model/nx-image-map-model";
+import {
+  CheckState,
+  FilterGroupNode,
+  FilterLayerNode,
+  FilterMarkerNode,
+  LoadedLayer,
+  PickedPoint,
+  ResolvedMarker
+} from "./model/nx-image-map-internal.model";
 import { NxImageMapConfigService, toQueryParams } from "./services/nx-image-map-config.service";
 import { slugifyImageMapName } from "./services/image-map-parent-config-transform";
 
@@ -39,66 +46,6 @@ const NO_DATA_PREFIX = "No data for";
 // A pointer that moves less than this between down and up is a click
 // (location pick / marker click), anything further is a pan drag.
 const DRAG_THRESHOLD_PX = 4;
-
-// One point from a layer file with its style fully resolved (point ->
-// group style -> config.markerStyle -> DEFAULT_MARKER) and its data joined.
-interface ResolvedMarker {
-  key: string;
-  id: string;
-  name: string;
-  layerName: string;
-  groupId: string;
-  groupName: string;
-  x: number;
-  y: number;
-  shape: ImageMapMarkerShape;
-  color: string;
-  width: number;
-  height: number;
-  borderColor: string;
-  borderWidth: number;
-  imageUrl?: string;
-  labelColor?: string;
-  valueDisplay: ImageMapValueDisplay;
-  labelPosition: ImageMapLabelPosition;
-  records: ImageMapDataRecord[];
-  // Tooltip tiles — the records' Tooltip.ComponentList entries when any
-  // were sent, otherwise one tile per record (Label/Value/Unit/Color/Date).
-  tiles: ImageMapTooltipEntry[];
-  tooltipColumns: number;
-  // Per-marker tile style (a record's Tooltip.Template), else TooltipFormat.Layout.
-  tooltipLayout?: string;
-}
-
-interface PickedPoint {
-  id: string;
-  x: number;
-  y: number;
-}
-
-interface LoadedLayer {
-  source: string;
-  file?: ImageMapLayerFile;
-  error?: string;
-}
-
-// Layer filter tree: Layer -> Group -> Marker. Checked state lives only on
-// the markers (checkedKeys); a group's/layer's state is derived from them.
-interface FilterMarkerNode {
-  key: string;
-  name: string;
-}
-interface FilterGroupNode {
-  key: string;
-  name: string;
-  markers: FilterMarkerNode[];
-}
-interface FilterLayerNode {
-  key: string;
-  name: string;
-  groups: FilterGroupNode[];
-}
-type CheckState = "all" | "none" | "some";
 
 function markerKey(layerName: string, groupId: string, pointId: string): string {
   return `${layerName}::${groupId}::${pointId}`;

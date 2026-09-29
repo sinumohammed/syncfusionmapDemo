@@ -19,7 +19,6 @@ import {
   ImageMapDataRecord,
   ImageMapLayerFile,
   ImageMapMarkerClickEvent,
-  ImageMapMarkerShape,
   ImageMapParams,
   ImageMapTooltipEntry
 } from "./model/nx-image-map-model";
@@ -32,10 +31,11 @@ import {
   PickedPoint,
   ResolvedMarker
 } from "./model/nx-image-map-internal.model";
+import { MarkerShape } from "../nx-map-common/nx-map-common.model";
 import { NxImageMapConfigService, toQueryParams } from "./services/nx-image-map-config.service";
 import { slugifyImageMapName } from "./services/image-map-parent-config-transform";
 
-const DEFAULT_MARKER = { shape: "Circle" as ImageMapMarkerShape, color: "#47a1f6", width: 12, height: 12, borderColor: "#ffffff", borderWidth: 2 };
+const DEFAULT_MARKER = { shape: MarkerShape.Circle, color: "#47a1f6", width: 12, height: 12, borderColor: "#ffffff", borderWidth: 2 };
 const DEFAULT_ZOOM_THRESHOLD_PX = 1200;
 const DEFAULT_MAX_ZOOM = 8;
 const DEFAULT_ZOOM_STEP = 1.5;
@@ -899,8 +899,11 @@ export class NxImageMapComponent implements OnChanges, AfterViewInit, OnDestroy 
     const b = m.borderWidth;
     const w = m.width;
     const h = m.height;
-    if (m.shape === "Triangle") {
+    if (m.shape === MarkerShape.Triangle) {
       return `${b + w / 2},${b} ${b + w},${b + h} ${b},${b + h}`;
+    }
+    if (m.shape === MarkerShape.InvertedTriangle) {
+      return `${b},${b} ${b + w},${b} ${b + w / 2},${b + h}`;
     }
     return `${b + w / 2},${b} ${b + w},${b + h / 2} ${b + w / 2},${b + h} ${b},${b + h / 2}`;
   }

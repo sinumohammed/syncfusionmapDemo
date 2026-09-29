@@ -6,10 +6,10 @@ import {
   ImageMapDataRecord,
   ImageMapLabelPosition,
   ImageMapLayerFile,
-  ImageMapMarkerShape,
   ImageMapTooltipEntry,
   ImageMapValueDisplay
 } from "./nx-image-map-model";
+import { MarkerShape } from "../../nx-map-common/nx-map-common.model";
 
 // One point from a layer file with its style fully resolved (point ->
 // group style -> config.markerStyle -> DEFAULT_MARKER) and its data joined.
@@ -22,7 +22,7 @@ export interface ResolvedMarker {
   groupName: string;
   x: number;
   y: number;
-  shape: ImageMapMarkerShape;
+  shape: MarkerShape;
   color: string;
   width: number;
   height: number;

@@ -4,22 +4,20 @@
 // represents so a click can tell the host what to ask the map for. It has
 // no idea what a "sub-layer" or "marker" actually is.
 
-// Mirrors nx-map's own MarkerShape values (nx-map/model/nx-map-model.ts) by
-// NAME only — this module stays deliberately independent of nx-map's model
-// (see this file's own header comment), so this is a parallel string
-// vocabulary, not a shared type/import. The relationship is intentional,
-// just not a code dependency: a SeriesPaletteEntry's Shape is meant to
-// visually echo whatever shape a host configured for that SAME category's
-// marker over on the map (e.g. a mol.json point's own `shape`), so the
-// legend swatch here and that marker read as "the same thing" without
-// either side needing to know the other exists.
-export type SeriesPaletteShape = "Balloon" | "Circle" | "Diamond" | "Rectangle" | "Triangle" | "InvertedTriangle" | "Image";
+import { MarkerShape } from "../../nx-map-common/nx-map-common.model";
+
+// A SeriesPaletteEntry's Shape uses the same MarkerShape enum as the maps'
+// markers (shared via nx-map-common) — meant to visually echo whatever shape
+// a host configured for that SAME category's marker on the map (e.g. a
+// mol.json point's own `shape`), so the legend swatch here and that marker
+// read as "the same thing". Only the shape vocabulary is shared; this
+// component still knows nothing about maps, sub-layers or markers.
 
 export interface SeriesPaletteEntry {
   Color: string;
   // Absent/unrecognized falls back to "Circle" — see
   // NxCircularChartCollectionComponent's own legend-swatch shape resolution.
-  Shape?: SeriesPaletteShape;
+  Shape?: MarkerShape;
   // Only meaningful when Shape is "Image" — same convention as nx-map's own
   // ShapeStyle.imageUrl. Shape: "Image" with this absent has no defined
   // rendering yet; treat it the same as any other unrecognized shape
@@ -40,12 +38,12 @@ export interface SeriesPaletteEntry {
 // original DEFAULT_PALETTE (a plain color array, no shape concept) never
 // distinguished shapes — only a host's own SeriesPalette does that now.
 export const DEFAULT_SERIES_PALETTE: SeriesPaletteEntry[] = [
-  { Color: "#1f4e79", Shape: "Circle" },
-  { Color: "#e07b39", Shape: "Circle" },
-  { Color: "#3fae5a", Shape: "Circle" },
-  { Color: "#c94a3f", Shape: "Circle" },
-  { Color: "#8e5ea2", Shape: "Circle" },
-  { Color: "#3fbfbf", Shape: "Circle" }
+  { Color: "#1f4e79", Shape: MarkerShape.Circle },
+  { Color: "#e07b39", Shape: MarkerShape.Circle },
+  { Color: "#3fae5a", Shape: MarkerShape.Circle },
+  { Color: "#c94a3f", Shape: MarkerShape.Circle },
+  { Color: "#8e5ea2", Shape: MarkerShape.Circle },
+  { Color: "#3fbfbf", Shape: MarkerShape.Circle }
 ];
 
 // RawCircularChartCollectionNode.SeriesPalette arrives from the real

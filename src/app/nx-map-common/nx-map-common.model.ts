@@ -1,13 +1,32 @@
-// Types shared by nx-map (geo map) and nx-image-map (picture base layer).
-// Both read the same host payload conventions and the same data-record /
-// tooltip wire shapes, so those live here once instead of as two copies.
+// Model shared by nx-map (geo map), nx-image-map (picture base layer) and
+// nx-circular-chart. The maps read the same host payload conventions and
+// the same data-record / tooltip wire shapes, and all three use the same
+// marker/swatch shape vocabulary (MarkerShape), so those live here once
+// instead of as separate copies.
 //
-// Types only — no runtime code, no Syncfusion imports, and no imports from
-// either component — so this folder can be copied next to nx-map/ and
-// nx-image-map/ as-is (both import it by relative path). Anything that
-// genuinely differs between the two (lat/long vs x/y points, nx-map's
-// MarkerShape enum, each raw node's own Configuration[] type, etc.) stays in
-// that component's own model file. nx-circular-chart stays independent.
+// Types plus the one MarkerShape enum — no other runtime code, no Syncfusion
+// imports, and no imports from any component — so this folder can be copied
+// next to nx-map/, nx-image-map/ and nx-circular-chart/ as-is (each imports
+// it by relative path). Anything that genuinely differs (lat/long vs x/y
+// points, each raw node's own Configuration[] type, etc.) stays in that
+// component's own model file.
+
+// Marker / legend-swatch shapes. String-valued, so a config's "Circle" IS
+// MarkerShape.Circle — JSON configs keep using the plain names.
+//  - nx-map: every value (Image = the point's imageUrl icon).
+//  - nx-image-map: every value; Image, or any shape with an imageUrl, draws
+//    the icon.
+//  - nx-circular-chart: legend swatch shape (SeriesPaletteEntry.Shape), so a
+//    category's swatch can echo that same category's marker on the map.
+export enum MarkerShape {
+  Balloon = "Balloon",
+  Circle = "Circle",
+  Diamond = "Diamond",
+  Rectangle = "Rectangle",
+  Triangle = "Triangle",
+  Image = "Image",
+  InvertedTriangle = "InvertedTriangle"
+}
 
 // A value that's either hardcoded inline, loaded from a static file, or
 // fetched from a live API.

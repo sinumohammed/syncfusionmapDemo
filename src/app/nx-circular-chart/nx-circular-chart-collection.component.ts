@@ -8,9 +8,9 @@ import {
   parseSeriesPalette,
   RawCircularChartCollectionNode,
   SeriesPaletteEntry,
-  SeriesPaletteShape,
   TrendNode
 } from "./model/nx-circular-chart-model";
+import { MarkerShape } from "../nx-map-common/nx-map-common.model";
 
 // Iterates NxCircularChartComponent — one <app-nx-circular-chart> per circular chart buildCircularChartConfigs()
 // resolves from the two inputs below, purely off its own returned length,
@@ -234,10 +234,10 @@ export class NxCircularChartCollectionComponent implements OnChanges {
   // `shape` drives which .nx-circular-chart-swatch--* CSS rule the legend
   // renders (see SeriesPaletteEntry's own comment on why this echoes a
   // map marker's shape without any real dependency on nx-map) — always a
-  // real SeriesPaletteShape by the time it lands here, never the raw
+  // real MarkerShape by the time it lands here, never the raw
   // possibly-unrecognized config value (resolveSeriesPalette() below/
   // toSwatchShape() already normalize it).
-  legendItems: { label: string; color: string; shape: SeriesPaletteShape; imageUrl?: string | null }[] = [];
+  legendItems: { label: string; color: string; shape: MarkerShape; imageUrl?: string | null }[] = [];
   // rawConfig.SeriesPalette (parsed via parseSeriesPalette() — see its own
   // comment, it arrives as a JSON-encoded string on a real upstream config)
   // when non-empty, else DEFAULT_SERIES_PALETTE — see SeriesPaletteEntry's
@@ -449,7 +449,7 @@ export class NxCircularChartCollectionComponent implements OnChanges {
     // index color would fall back to — a slice's own explicit `color`
     // (CircularChartSlice has no shape field of its own) still borrows its
     // legend shape from the palette slot, since nothing else defines one.
-    const seen = new Map<string, { color: string; shape: SeriesPaletteShape; imageUrl?: string | null }>();
+    const seen = new Map<string, { color: string; shape: MarkerShape; imageUrl?: string | null }>();
     this.circularCharts.forEach(chart =>
       (chart.data ?? []).forEach((d, i) => {
         if (!seen.has(d.x)) {
@@ -459,7 +459,7 @@ export class NxCircularChartCollectionComponent implements OnChanges {
           // "Circle" same as any other unrecognized shape rather than
           // rendering a broken/empty swatch.
           const resolvedShape = this.toSwatchShape(paletteEntry.Shape);
-          const shape = resolvedShape === "Image" && !paletteEntry.ImageUrl ? "Circle" : resolvedShape;
+          const shape = resolvedShape === MarkerShape.Image && !paletteEntry.ImageUrl ? MarkerShape.Circle : resolvedShape;
           seen.set(d.x, {
             color: d.color ?? paletteEntry.Color,
             shape,
@@ -484,25 +484,16 @@ export class NxCircularChartCollectionComponent implements OnChanges {
 
   // Case-insensitive normalization, same reasoning as nx-map's own
   // capitalizeShape() (NXMapBuilderService) — a real upstream config's
-  // Shape casing has no reason to match this file's own SeriesPaletteShape
-  // literals exactly, and a raw JSON value is untyped at runtime regardless
+  // Shape casing has no reason to match MarkerShape's own values exactly, and a raw JSON value is untyped at runtime regardless
   // of what SeriesPaletteEntry.Shape claims. Anything absent or not one of
   // the known values (a typo, "Image" with no ImageUrl handling built yet)
   // falls back to "Circle" — the legend always shows SOME recognizable
   // swatch rather than silently rendering nothing.
-  private static readonly KNOWN_SWATCH_SHAPES: SeriesPaletteShape[] = [
-    "Balloon",
-    "Circle",
-    "Diamond",
-    "Rectangle",
-    "Triangle",
-    "InvertedTriangle",
-    "Image"
-  ];
+  private static readonly KNOWN_SWATCH_SHAPES: MarkerShape[] = Object.values(MarkerShape);
 
-  private toSwatchShape(shape: string | undefined | null): SeriesPaletteShape {
+  private toSwatchShape(shape: string | undefined | null): MarkerShape {
     const match = shape ? NxCircularChartCollectionComponent.KNOWN_SWATCH_SHAPES.find(s => s.toLowerCase() === shape.toLowerCase()) : undefined;
-    return match ?? "Circle";
+    return match ?? MarkerShape.Circle;
   }
 
   onCircularChartSelected(circularChart: CircularChartConfig): void {

@@ -274,6 +274,14 @@
           stroke-linejoin="round"
         ></polygon>
         <polygon
+          *ngSwitchCase="'InvertedTriangle'"
+          [attr.points]="polygonPoints(m)"
+          [attr.fill]="m.color"
+          [attr.stroke]="m.borderColor"
+          [attr.stroke-width]="m.borderWidth"
+          stroke-linejoin="round"
+        ></polygon>
+        <polygon
           *ngSwitchCase="'Diamond'"
           [attr.points]="polygonPoints(m)"
           [attr.fill]="m.color"

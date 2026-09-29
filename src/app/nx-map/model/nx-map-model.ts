@@ -5,10 +5,13 @@ import {
 } from "@syncfusion/ej2-angular-maps";
 import { FormElementConfig } from "./form-element.model";
 import type { DataSource, MarkerDataRecordBase } from "../../nx-map-common/nx-map-common.model";
+import { MarkerShape } from "../../nx-map-common/nx-map-common.model";
 
 // Shared with nx-image-map (see nx-map-common.model.ts) — re-exported so
 // every existing import from this file keeps working unchanged.
 export type { DataSource, MetricOverlayTooltip, TooltipComponentEntry } from "../../nx-map-common/nx-map-common.model";
+// MarkerShape is a real (runtime) enum, so a value re-export — not `export type`.
+export { MarkerShape } from "../../nx-map-common/nx-map-common.model";
 
 export type MapObject = MapPoint | MapLine | MapPolygon | MapCircle;
 
@@ -841,15 +844,8 @@ export interface ParseTargetResult {
   index: number;
 }
 
-export enum MarkerShape {
-  Balloon = "Balloon",
-  Circle = "Circle",
-  Diamond = "Diamond",
-  Rectangle = "Rectangle",
-  Triangle = "Triangle",
-  Image = "Image",
-  InvertedTriangle = "InvertedTriangle",
-}
+// MarkerShape is declared in nx-map-common.model.ts (shared with
+// nx-image-map and nx-circular-chart) and re-exported at the top of this file.
 
 export const MAPS = {
   oman: "maps/oman.json",

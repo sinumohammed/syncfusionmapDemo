@@ -5,6 +5,7 @@
 // format, raw host-node fields) come from ../../nx-map-common — the
 // ImageMap* names below are aliases/extensions of those so this component's
 // own code reads the same as before.
+import { MarkerShape } from "../../nx-map-common/nx-map-common.model";
 import type {
   DataSource,
   MarkerDataRecordBase,
@@ -23,7 +24,6 @@ export type ImageMapValueDisplay = "hover" | "always" | "both";
 
 export type ImageMapLabelPosition = "right" | "left" | "top" | "bottom";
 
-export type ImageMapMarkerShape = "Circle" | "Rectangle" | "Triangle" | "Diamond" | "Balloon";
 
 export interface ImageMapZoomConfig {
   // "auto" enables zoom/pan only when the image's real (natural) resolution
@@ -143,7 +143,7 @@ export interface ImageMapBorder {
 }
 
 export interface ImageMapMarkerStyle {
-  shape?: ImageMapMarkerShape;
+  shape?: MarkerShape;
   color?: string;
   width?: number;
   height?: number;

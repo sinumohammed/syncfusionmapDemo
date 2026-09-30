@@ -45,6 +45,10 @@ const DEFAULT_RADIUS_PERCENT = 80;
 // an ~104px ring that visibly overflowed past the card's own edges, while
 // every real (populated) chart alongside it had already shrunk to fit.
 const CHART_BOX_PX = 130;
+// Delay before re-checking a chart's size after a resize/visibility change
+// (see NxCircularChartComponent.scheduleChartResync()).
+const RESYNC_DEBOUNCE_MS = 100;
+
 // Must match .nx-circular-chart-empty-ring's own CSS border-width exactly —
 // read by healthyInnerSizePx() below to size the healthy fill to this
 // ring's own actual hole, not an approximate percentage of it (see that
@@ -295,6 +299,11 @@ export class NxCircularChartComponent implements OnChanges, AfterViewInit, OnDes
   // comment for why the ResizeObserver watches THIS element specifically.
   @ViewChild("cardEl", { static: true }) private cardEl!: ElementRef<HTMLElement>;
   private resizeObserver?: ResizeObserver;
+  // The live Syncfusion chart (captured in onChartLoaded()) and a pending
+  // resync frame — see resyncChartSize().
+  private chartInstance?: AccumulationChart;
+  private resyncTimer?: ReturnType<typeof setTimeout>;
+  private onVisibilityChange = (): void => this.scheduleChartResync();
 
   constructor(private cdr: ChangeDetectorRef) {}
 
@@ -316,12 +325,55 @@ export class NxCircularChartComponent implements OnChanges, AfterViewInit, OnDes
         this.measuredBoxPx = width;
         this.cdr.markForCheck();
       }
+      this.scheduleChartResync();
     });
     this.resizeObserver.observe(this.cardEl.nativeElement);
+    // A browser tab switch doesn't necessarily resize this card, but a zoom
+    // done in ANOTHER tab of the same app (browser zoom is per-site) lands
+    // while this one was in the background — re-check on return.
+    document.addEventListener("visibilitychange", this.onVisibilityChange);
   }
 
   ngOnDestroy(): void {
     this.resizeObserver?.disconnect();
+    document.removeEventListener("visibilitychange", this.onVisibilityChange);
+    if (this.resyncTimer !== undefined) {
+      clearTimeout(this.resyncTimer);
+    }
+  }
+
+  // Syncfusion's chart only re-measures on a WINDOW resize. Reported live:
+  // zoom the browser while this page is hidden (another in-app tab, or
+  // another browser tab of the same app) and that resize is handled while
+  // the chart's container measures 0 — Syncfusion falls back to a 600px-wide
+  // render (reproduced: 600px charts inside 134px cards) and nothing
+  // re-measures once the page is shown again, until the next zoom. So: any
+  // time this card is visible and its width no longer matches the width the
+  // chart last laid itself out at, refresh() the chart. Debounced so a
+  // burst of resize callbacks (a zoom step, a pane transition) refreshes
+  // once; a timer rather than requestAnimationFrame, which never fires in a
+  // background tab.
+  private scheduleChartResync(): void {
+    if (this.resyncTimer !== undefined) {
+      clearTimeout(this.resyncTimer);
+    }
+    this.resyncTimer = setTimeout(() => {
+      this.resyncTimer = undefined;
+      this.resyncChartSize();
+    }, RESYNC_DEBOUNCE_MS);
+  }
+
+  private resyncChartSize(): void {
+    const chart = this.chartInstance as (AccumulationChart & { isDestroyed?: boolean }) | undefined;
+    const el = chart?.element as HTMLElement | undefined;
+    if (!chart || chart.isDestroyed || !el?.isConnected || document.visibilityState === "hidden") {
+      return;
+    }
+    const width = el.clientWidth;
+    // > 1px — ignore sub-pixel rounding; 0 means still hidden (display:none).
+    if (width > 0 && Math.abs((chart.availableSize?.width ?? 0) - width) > 1) {
+      chart.refresh();
+    }
   }
 
   // .nx-circular-chart-empty-ring is a plain CSS border-circle, not a Syncfusion
@@ -531,6 +583,7 @@ export class NxCircularChartComponent implements OnChanges, AfterViewInit, OnDes
   // Syncfusion-internal difference.
   onChartLoaded(args: any): void {
     const chart = args?.accumulation;
+    this.chartInstance = chart;
     const points = chart?.visibleSeries?.[0]?.points;
     const pieModule = chart?.pieSeriesModule;
     if (!points || !pieModule) {

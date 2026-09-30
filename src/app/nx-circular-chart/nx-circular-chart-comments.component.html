@@ -68,7 +68,7 @@
 
       <div class="nx-circular-chart-comments-form-actions">
         <button type="button" mat-button *ngIf="editingId != null" (click)="cancelEdit()">Cancel edit</button>
-        <button type="button" mat-raised-button color="primary" [disabled]="form.invalid" (click)="save()">{{ editingId != null ? "Update" : "Save" }}</button>
+        <button type="button" mat-raised-button color="primary" [disabled]="form.invalid || isLoading" (click)="save()">{{ editingId != null ? "Update" : "Save" }}</button>
       </div>
     </div>
 
@@ -97,8 +97,13 @@
          queue entirely, rendered fine the whole time). Forces the
          synchronous creation path instead, sidestepping whatever isn't
          ticking that queue in this context. -->
+    <!-- isLoading: a comments API call (list/save/delete) is in flight. -->
+    <div class="nx-circular-chart-comments-loader">
+      <mat-progress-bar *ngIf="isLoading" mode="indeterminate"></mat-progress-bar>
+    </div>
     <ag-grid-angular
       class="ag-theme-alpine nx-circular-chart-comments-grid"
+      [class.nx-circular-chart-comments-grid--loading]="isLoading"
       [columnDefs]="columnDefs"
       [defaultColDef]="defaultColDef"
       [rowData]="rowData"

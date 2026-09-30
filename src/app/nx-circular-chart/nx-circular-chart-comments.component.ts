@@ -1,9 +1,15 @@
 import { Component, Input, TemplateRef, ViewChild } from "@angular/core";
 import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, ValidatorFn, Validators } from "@angular/forms";
 import { MatDialog, MatDialogRef } from "@angular/material/dialog";
+import { Observable } from "rxjs";
+import { finalize } from "rxjs/operators";
 import { ColDef } from "ag-grid-community";
 import { CircularChartComment } from "./model/nx-circular-chart-comment-model";
 import { NxCircularChartCommentsService } from "./services/nx-circular-chart-comments.service";
+
+// TODO(host): replace with the logged-in user's API token (the host app
+// supplies its own); passed straight through to every comments API call.
+const COMMENTS_API_TOKEN = "";
 import { DEFAULT_DIALOG_CONFIG } from "./nx-circular-chart-comments.constants";
 import { ActionCellParams, NxCircularChartCommentsActionCellComponent } from "./nx-circular-chart-comments-action-cell.component";
 
@@ -85,13 +91,23 @@ export class NxCircularChartCommentsComponent {
   dialogYear!: number;
 
   // Non-null while editRow() below is populating the form for an existing
-  // entry — save() branches on this to call commentsService.update()
-  // instead of .save(). Cleared back to null on openAddDialog() (starting
-  // a fresh Add) and after a successful save/update.
+  // entry — save() then sends this id with the payload (same save call as
+  // an Add, which sends none). Cleared back to null on openAddDialog()
+  // (starting a fresh Add) and after a successful save.
   editingId: number | null = null;
 
   form: FormGroup;
   rowData: CircularChartComment[] = [];
+
+  // True while any comments API call (list, save, delete) is in flight —
+  // drives the progress bar over the grid and disables Save/Update. A
+  // counter, not a plain boolean: save -> refetch overlap, and the save's
+  // own completion must not switch the loader off while its refetch is
+  // still running.
+  private pendingRequests = 0;
+  get isLoading(): boolean {
+    return this.pendingRequests > 0;
+  }
 
   // suppressMovable — this grid's own 8 columns are a fixed set (see
   // columnDefs' own comment on their widths), never meant to be
@@ -203,12 +219,12 @@ export class NxCircularChartCommentsComponent {
 
   // Backs the grid's own Edit column — populates the form with this row's
   // own values (date parsed back to a real Date for the datepicker) and
-  // flags editingId so save() below knows to update() this row instead of
-  // creating a new one. The row stays visible/editable from the SAME
+  // flags editingId so save() below sends this row's id (an edit) instead
+  // of none (a new comment). The row stays visible/editable from the SAME
   // already-open dialog (its own grid sits right below the form) rather
   // than opening a second dialog.
   editRow(row: CircularChartComment): void {
-    this.editingId = row.id;
+    this.editingId = row.id ?? null;
     this.applyRowToForm(row);
   }
 
@@ -222,16 +238,14 @@ export class NxCircularChartCommentsComponent {
     this.applyRowToForm();
   }
 
-  // TODO: real "get list" API call — called on dialog open, on the
-  // popup's own year change, and after every save/update/delete (see each
-  // of their own comments), same trigger points a real host's own GET
-  // would need. Logged here so a save -> refresh round trip is visible in
-  // the console end to end, not just save()'s own payload log.
+  // Fetches the grid's rows from the API for dialogYear (year sent as the
+  // payload, same as the trend fetch) — on dialog open, on the popup's own
+  // year change, and after every save/edit/delete, so the grid always shows
+  // what the server has (ids included) rather than a locally patched copy.
   private refetch(): void {
-    console.log("[TODO] GET comments list — year:", this.dialogYear);
-    this.commentsService.getByYear(this.dialogYear).subscribe(rows => {
-      console.log("[TODO] GET comments list resolved — rows:", rows);
-      this.rowData = rows;
+    this.trackLoading(this.commentsService.getByYear({ year: this.dialogYear }, COMMENTS_API_TOKEN)).subscribe({
+      next: rows => (this.rowData = Array.isArray(rows) ? rows : []),
+      error: err => console.error("[NxCircularChartComments] Loading comments failed:", err)
     });
   }
 
@@ -278,8 +292,14 @@ export class NxCircularChartCommentsComponent {
       this.form.markAllAsTouched();
       return;
     }
+    if (this.isLoading) {
+      return; // a save/refetch is still running — no double submit
+    }
     const raw = this.form.getRawValue();
-    const entry: Omit<CircularChartComment, "id"> = {
+    // Add and edit are the same save call: an edit carries its existing id,
+    // a new comment carries none — the server assigns it.
+    const payload: CircularChartComment = {
+      ...(this.editingId != null ? { id: this.editingId } : {}),
       date: this.toIsoDate(raw.date),
       desc: raw.desc,
       spec: raw.spec,
@@ -289,29 +309,16 @@ export class NxCircularChartCommentsComponent {
       startDate: raw.startDate ? this.toIsoDate(raw.startDate) : null,
       endDate: raw.endDate ? this.toIsoDate(raw.endDate) : null
     };
-    // TODO: real save/update API call — payload logged here so the actual
-    // request/response wiring is easy to verify in the console right up
-    // until a real endpoint replaces NxCircularChartCommentsService's own
-    // mock. The mock call right below already exercises the same
-    // save-then-refresh flow a real API would (see refetch()'s own TODO
-    // log), so this is confirmation, not a placeholder standing in for
-    // missing behavior.
-    console.log(this.editingId != null ? `[TODO] UPDATE comment id=${this.editingId} — payload:` : "[TODO] SAVE new comment — payload:", entry);
-    // editingId set -> update() the existing row; otherwise save() a new
-    // one — see editRow()'s own comment.
-    const request$ = this.editingId != null ? this.commentsService.update(this.editingId, entry) : this.commentsService.save(entry);
-    request$.subscribe(() => {
-      this.editingId = null;
-      // Re-fetch rather than locally patching `rowData` — the datepicker
-      // lets a user pick any past date up to today regardless of
-      // `dialogYear` (only capped by [max], not pinned to that year), so
-      // the saved/updated entry isn't guaranteed to still belong in the
-      // CURRENTLY filtered grid (an edit could move it to a different
-      // year). Re-fetching by dialogYear is what stays correct either
-      // way, at the cost of one extra (already-cached, near-instant)
-      // service call.
-      this.refetch();
-      this.applyRowToForm();
+    this.trackLoading(this.commentsService.save(payload, COMMENTS_API_TOKEN)).subscribe({
+      next: () => {
+        this.editingId = null;
+        // Refetch rather than patching rowData locally — the server owns the
+        // ids, and an edit can move a comment to a different year than the
+        // one the grid is showing.
+        this.refetch();
+        this.applyRowToForm();
+      },
+      error: err => console.error("[NxCircularChartComments] Saving the comment failed:", err)
     });
   }
 
@@ -320,15 +327,22 @@ export class NxCircularChartCommentsComponent {
   }
 
   // Backs the grid's own Delete column — confirm() first (a real delete,
-  // not reversible in this mock any more than a real one would be),
-  // then the mock DELETE call (commentsService.delete()) and a re-fetch
-  // rather than a local splice, same "stay correct, not just locally
-  // consistent" reasoning save()'s own re-fetch comment gives.
+  // not reversible), then delete by id and refetch, same as save().
   private deleteRow(row: CircularChartComment): void {
-    if (!window.confirm(`Delete this comment (${row.desc || row.spec})?`)) {
+    if (row.id == null || !window.confirm(`Delete this comment (${row.desc || row.spec})?`)) {
       return;
     }
-    this.commentsService.delete(row.id).subscribe(() => this.refetch());
+    this.trackLoading(this.commentsService.delete(row.id, COMMENTS_API_TOKEN)).subscribe({
+      next: () => this.refetch(),
+      error: err => console.error("[NxCircularChartComments] Deleting the comment failed:", err)
+    });
+  }
+
+  // Counts `request$` as in flight (isLoading) from subscribe until it
+  // completes, errors or is unsubscribed.
+  private trackLoading<T>(request$: Observable<T>): Observable<T> {
+    this.pendingRequests++;
+    return request$.pipe(finalize(() => (this.pendingRequests = Math.max(0, this.pendingRequests - 1))));
   }
 
   // The datepicker's value type depends on whichever DateAdapter the HOST

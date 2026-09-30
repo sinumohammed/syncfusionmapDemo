@@ -9,6 +9,7 @@ import { MatDialogModule } from "@angular/material/dialog";
 import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatInputModule } from "@angular/material/input";
 import { MatNativeDateModule } from "@angular/material/core";
+import { MatProgressBarModule } from "@angular/material/progress-bar";
 import { MatRadioModule } from "@angular/material/radio";
 import { MatSelectModule } from "@angular/material/select";
 import { AgGridModule } from "ag-grid-angular";
@@ -58,6 +59,7 @@ import { NxCircularChartCommentsService } from "./services/nx-circular-chart-com
     MatFormFieldModule,
     MatInputModule,
     MatNativeDateModule,
+    MatProgressBarModule,
     MatRadioModule,
     MatSelectModule,
     AgGridModule

@@ -90,6 +90,17 @@
   color: #14213d;
   background: #ffffff;
 }
+// Fixed-height slot so the grid doesn't jump when the progress bar shows.
+.nx-circular-chart-comments-loader {
+  height: 4px;
+}
+// While loading, the grid dims and ignores clicks (no Edit/Delete on rows
+// that are about to be replaced by the refetch).
+.nx-circular-chart-comments-grid--loading {
+  opacity: 0.55;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
 // Ag-grid REQUIRES a bounded container height — with no explicit height
 // here it renders at 0px (confirmed the documented ag-grid behavior, not
 // specific to this component).

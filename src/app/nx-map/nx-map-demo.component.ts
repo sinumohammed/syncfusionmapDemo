@@ -64,6 +64,19 @@ import { buildAppConfig, RawLayerNode, slugifyLayerFileName } from "./services/p
 // original "Module Selection is not available" warning and a dead click).
 Maps.Inject(Zoom, Marker, DataLabel, MapsTooltip, NavigationLine, Polygon, Selection);
 
+// How far Syncfusion's cached layout size (availableSize) may differ from
+// the map element's real size before it counts as stale (see
+// NxMapDemoComponent.documentVisibilityHandler) — a few px of difference is
+// normal (e.g. 856 vs 859 tall), the hidden-render fallback is hundreds off.
+const MAP_SIZE_TOLERANCE_PX = 10;
+
+// scheduleGeometrySettle() delays. A window resize waits past Syncfusion's
+// own mapsOnResize() re-render (a fixed 500ms setTimeout in ej2-maps) plus
+// margin, so the correction runs against the re-rendered map; fullscreen
+// keeps the 400ms it always used.
+const WINDOW_RESIZE_SETTLE_DELAY_MS = 900;
+const FULLSCREEN_SETTLE_DELAY_MS = 400;
+
 // Named tooltip-tile HTML layouts — selected via TooltipTemplateConfig.layout
 // (see its own comment), defaulting to "default" below. Every renderer gets
 // the exact same per-item Syncfusion ${field} placeholders to work with —
@@ -306,11 +319,38 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     // view-preserving fix. Consumed (reset false) either way, so the next
     // toggle starts from a clean read of whether ANOTHER zoom happened
     // since.
+    this.scheduleGeometrySettle(FULLSCREEN_SETTLE_DELAY_MS);
+  }
+
+  // The stale-transform correction onFullscreenChange()'s comment above
+  // describes, shared with every other change to the map's container
+  // geometry — fullscreen, a browser zoom / window resize
+  // (onWindowResize()), and the map becoming visible again after one of
+  // those happened while it was hidden (observeContainerResize() /
+  // documentVisibilityHandler). Reported live (host application, same
+  // shape-mode-only class as the Musandam/fullscreen bugs — never
+  // reproduces in this demo): browser zoom to 90% made the map content
+  // invisible (controls still there; the layer group left at
+  // translate(-16392, -10988)) until zooming back to 100%. A browser zoom
+  // is a window resize: Syncfusion re-renders via its own mapsOnResize(),
+  // which recomputes SIZE only and leaves exactly this stale pan/scale
+  // transform — see triggerSettleZoomCycle()'s comment.
+  //
+  // Debounced: every call restarts the wait, so a drag-resize or a burst
+  // of zoom steps settles once. If the map is hidden when the wait ends
+  // (0x0 container, or a background tab), correcting it now would do
+  // nothing — geometrySettlePending defers it until it's visible again.
+  private scheduleGeometrySettle(delayMs: number): void {
     clearTimeout(this.fullscreenSettleZoomTimer);
     clearTimeout(this.fullscreenRebuildSettleTimer);
-    const needsFullRebuild = this.hasZoomedSinceFullscreenToggle;
-    this.hasZoomedSinceFullscreenToggle = false;
     this.fullscreenSettleZoomTimer = setTimeout(() => {
+      if (!this.isMapVisible()) {
+        this.geometrySettlePending = true;
+        return;
+      }
+      this.geometrySettlePending = false;
+      const needsFullRebuild = this.hasZoomedSinceFullscreenToggle;
+      this.hasZoomedSinceFullscreenToggle = false;
       if (!needsFullRebuild) {
         this.triggerSettleZoomCycle();
         this.scheduleFinalAlignAfterSettleCycle();
@@ -325,7 +365,18 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
         this.triggerSettleZoomCycle();
         this.scheduleFinalAlignAfterSettleCycle();
       }, 400);
-    }, 400);
+    }, delayMs);
+  }
+
+  // True while a geometry settle is waiting for the map to be visible.
+  private geometrySettlePending = false;
+
+  private isMapVisible(): boolean {
+    if (document.visibilityState === "hidden") {
+      return false;
+    }
+    const el = (this.mapInstance as any)?.element as HTMLElement | undefined;
+    return !!el?.isConnected && el.clientWidth > 0 && el.clientHeight > 0;
   }
 
   private fullscreenSettleZoomTimer: ReturnType<typeof setTimeout> | undefined;
@@ -2372,6 +2423,7 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
     this.metricOverlaySubscription?.unsubscribe();
     this.layerGroupObserver?.disconnect();
     this.containerResizeObserver?.disconnect();
+    document.removeEventListener("visibilitychange", this.documentVisibilityHandler);
     this.stickyTooltipObserver?.disconnect();
     document.removeEventListener("mousemove", this.stickyPointerMoveHandler, NxMapDemoComponent.POINTER_TRACK_CAPTURE);
     const sparkRoot = this.elRef.nativeElement.querySelector(".nx-map");
@@ -2926,15 +2978,58 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
       return;
     }
     let skipFirst = true;
-    this.containerResizeObserver = new ResizeObserver(() => {
+    this.containerResizeObserver = new ResizeObserver(entries => {
       if (skipFirst) {
         skipFirst = false;
         return;
       }
+      // 0x0 = the map is hidden (display:none — e.g. the host switched to
+      // another in-app tab). Re-rendering now would lay the map out at
+      // Syncfusion's 600x450 fallback; wait for it to be shown again, which
+      // fires this observer once more with the real size.
+      const rect = entries[0]?.contentRect;
+      if (!rect?.width || !rect?.height) {
+        return;
+      }
       this.mapInstance?.mapsOnResize(new Event("resize"));
+      if (this.geometrySettlePending) {
+        this.scheduleGeometrySettle(WINDOW_RESIZE_SETTLE_DELAY_MS);
+      }
     });
     this.containerResizeObserver.observe(host);
+    document.addEventListener("visibilitychange", this.documentVisibilityHandler);
   }
+
+  // Reported live (host application): zoom the browser while the map is
+  // hidden — another in-app tab, or another browser tab of the same site
+  // (browser zoom is per-site) — and the map comes back INVISIBLE until the
+  // next zoom. Syncfusion's own window-resize handler ran while the
+  // container measured 0x0, cached its 600x450 fallback as availableSize
+  // and drew a 1x1 SVG (reproduced: element back to 1428x856, availableSize
+  // still 600x450), and nothing re-measured once it was visible again. On
+  // return to a visible document, re-run mapsOnResize() ONLY when the cached
+  // layout size no longer matches the real one — mapsOnResize() also resets
+  // the map's zoom/pan, so an ordinary tab switch must stay a no-op.
+  private documentVisibilityHandler = (): void => {
+    if (document.visibilityState === "hidden") {
+      return;
+    }
+    const inst = this.mapInstance as any;
+    const el = inst?.element as HTMLElement | undefined;
+    if (!inst || inst.isDestroyed || !el?.isConnected) {
+      return;
+    }
+    const width = el.clientWidth;
+    const height = el.clientHeight;
+    const cached = inst.availableSize;
+    const stale = !cached || Math.abs(cached.width - width) > MAP_SIZE_TOLERANCE_PX || Math.abs(cached.height - height) > MAP_SIZE_TOLERANCE_PX;
+    if (width > 0 && height > 0 && stale) {
+      inst.mapsOnResize(new Event("resize"));
+      this.scheduleGeometrySettle(WINDOW_RESIZE_SETTLE_DELAY_MS);
+    } else if (this.geometrySettlePending) {
+      this.scheduleGeometrySettle(0);
+    }
+  };
 
   // Reported live (host application, not this demo): in "shape" mode, the
   // map's rendered content sometimes starts scrolled slightly UP inside its
@@ -3417,7 +3512,27 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   private resizeAlignAttempt = 0;
   private resizeFinalCheckTimer: ReturnType<typeof setTimeout> | undefined;
 
-  onMapResize(): void {
+  // `args` is Syncfusion's own resize event (IResizeEventArgs) — fired from
+  // mapsOnResize() BEFORE its delayed re-render, and cancellable.
+  //
+  // Reported live (host application): switching away from the map's tab and
+  // back left the map broken, with Syncfusion throwing
+  // "Cannot read properties of null (reading 'querySelectorAll')" inside
+  // Marker.markerRender. A host tab can DETACH its inactive content (not
+  // just hide it); a window resize while detached (e.g. a browser zoom)
+  // still reaches Syncfusion's own window-resize listener, whose 500ms
+  // re-render then looks its elements up by id in a document they're no
+  // longer in. So: whenever the map isn't actually on screen (detached,
+  // 0x0, or a background browser tab), cancel that re-render and mark a
+  // geometry settle as pending — observeContainerResize() /
+  // documentVisibilityHandler run the real mapsOnResize() plus the
+  // stale-transform correction once the map is visible again.
+  onMapResize(args?: { cancel?: boolean }): void {
+    if (args && !this.isMapVisible()) {
+      args.cancel = true;
+      this.geometrySettlePending = true;
+      return;
+    }
     this.resizeAlignAttempt = 0;
     this.scheduleAlignLayerControl();
 
@@ -3799,6 +3914,9 @@ export class NxMapDemoComponent implements OnChanges, AfterViewInit, OnDestroy {
   @HostListener("window:resize")
   onWindowResize(): void {
     setTimeout(() => this.alignLayerControl(), 150);
+    // A browser zoom (Ctrl +/-) is a window resize too — see
+    // scheduleGeometrySettle()'s comment.
+    this.scheduleGeometrySettle(WINDOW_RESIZE_SETTLE_DELAY_MS);
   }
 
   // Closes the layer-list panel on any click outside .layer-control OR

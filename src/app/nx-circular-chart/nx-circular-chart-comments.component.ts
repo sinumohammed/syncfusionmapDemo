@@ -1,32 +1,33 @@
 import { Component, Input, TemplateRef, ViewChild } from "@angular/core";
 import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, ValidatorFn, Validators } from "@angular/forms";
+import { DateAdapter } from "@angular/material/core";
 import { MatDialog, MatDialogRef } from "@angular/material/dialog";
 import { Observable } from "rxjs";
 import { finalize } from "rxjs/operators";
 import { ColDef } from "ag-grid-community";
 import { CircularChartComment } from "./model/nx-circular-chart-comment-model";
 import { NxCircularChartCommentsService } from "./services/nx-circular-chart-comments.service";
+import { DEFAULT_DIALOG_CONFIG } from "./nx-circular-chart-comments.constants";
+import { ActionCellParams, NxCircularChartCommentsActionCellComponent } from "./nx-circular-chart-comments-action-cell.component";
 
 // TODO(host): replace with the logged-in user's API token (the host app
 // supplies its own); passed straight through to every comments API call.
 const COMMENTS_API_TOKEN = "";
-import { DEFAULT_DIALOG_CONFIG } from "./nx-circular-chart-comments.constants";
-import { ActionCellParams, NxCircularChartCommentsActionCellComponent } from "./nx-circular-chart-comments-action-cell.component";
 
-// Blocks a date strictly AFTER today (today itself is still valid) — applied
-// both as this form's own control validator (blocks typed/pasted input) AND
-// via [max] on the template's <input matDatepicker> (blocks calendar
-// picking) — one without the other leaves a hole a user could still get
-// through the other way.
-function noFutureDateValidator(): ValidatorFn {
+// Only yesterday or earlier — today and any future date are rejected.
+// Applied both as this form's own control validator (blocks typed/pasted
+// input) AND via [max] (= yesterday) on the template's <input
+// matDatepicker> (blocks calendar picking) — one without the other leaves a
+// hole a user could still get through the other way.
+function beforeTodayValidator(): ValidatorFn {
   return (control: AbstractControl): ValidationErrors | null => {
     if (!control.value) {
       return null;
     }
-    const endOfToday = new Date();
-    endOfToday.setHours(23, 59, 59, 999);
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
     const date = toNativeDate(control.value);
-    return date && date.getTime() > endOfToday.getTime() ? { futureDate: true } : null;
+    return date && date.getTime() >= startOfToday.getTime() ? { notBeforeToday: true } : null;
   };
 }
 
@@ -81,7 +82,11 @@ export class NxCircularChartCommentsComponent {
   @ViewChild("addCommentsDialog", { static: false }) addCommentsDialog!: TemplateRef<HTMLElement>;
   dialogRef?: MatDialogRef<HTMLElement>;
 
-  readonly maxDate = new Date();
+  // Latest pickable Date — yesterday (see beforeTodayValidator()). Built
+  // through the datepicker's own DateAdapter (constructor) so it's the
+  // date type the host's adapter expects (a Moment under
+  // MatMomentDateModule, a native Date under MatNativeDateModule).
+  readonly maxDate: unknown;
 
   // The popup's OWN year filter for its history grid — deliberately
   // separate from the parent's own `year` @Input (that one only seeds this
@@ -170,10 +175,16 @@ export class NxCircularChartCommentsComponent {
     }
   ];
 
-  constructor(private fb: FormBuilder, private dialog: MatDialog, private commentsService: NxCircularChartCommentsService) {
+  constructor(
+    private fb: FormBuilder,
+    private dialog: MatDialog,
+    private commentsService: NxCircularChartCommentsService,
+    private dateAdapter: DateAdapter<unknown>
+  ) {
+    this.maxDate = this.dateAdapter.addCalendarDays(this.dateAdapter.today(), -1);
     this.form = this.fb.group(
       {
-        date: [null, [Validators.required, noFutureDateValidator()]],
+        date: [null, [Validators.required, beforeTodayValidator()]],
         desc: ["", Validators.required],
         spec: ["", Validators.required],
         reportedBy: ["", Validators.required],
@@ -249,14 +260,24 @@ export class NxCircularChartCommentsComponent {
     });
   }
 
-  // Today when `year` is the current year (the common case — logging
-  // something that just happened), else Jan 1 of that year — a January
-  // default reads more naturally than "today's month/day in a past year"
-  // when the user has deliberately switched to an older year before
-  // clicking +.
-  private defaultDateFor(year: number): Date {
-    const today = new Date();
-    return year === today.getFullYear() ? today : new Date(year, 0, 1);
+  // Yesterday (the latest allowed date — see beforeTodayValidator()) when
+  // `year` is the current year, else Jan 1 of that year — a January default
+  // reads more naturally than "today's month/day in a past year" when the
+  // user has deliberately switched to an older year before clicking +.
+  // Created through the DateAdapter so it's the host adapter's own date
+  // type — reported live: a native Date default under a Moment adapter
+  // showed the field red (unparseable) and kept Save disabled.
+  private defaultDateFor(year: number): unknown {
+    const today = this.dateAdapter.today();
+    return year === this.dateAdapter.getYear(today) ? this.maxDate : this.dateAdapter.createDate(year, 0, 1);
+  }
+
+  // A stored "yyyy-MM-dd" (or any date-ish value) -> the DateAdapter's own
+  // date type for the form, same local calendar day; null when empty or
+  // unparseable. See defaultDateFor() for why the adapter type matters.
+  private toAdapterDate(value: unknown): unknown {
+    const date = toNativeDate(value);
+    return date ? this.dateAdapter.createDate(date.getFullYear(), date.getMonth(), date.getDate()) : null;
   }
 
   // Shared by openAddDialog() (row omitted -> blank/default form),
@@ -266,7 +287,7 @@ export class NxCircularChartCommentsComponent {
   // same reset object drifting apart.
   private applyRowToForm(row?: CircularChartComment): void {
     this.form.reset({
-      date: row ? toNativeDate(row.date) : this.defaultDateFor(this.dialogYear),
+      date: row ? this.toAdapterDate(row.date) : this.defaultDateFor(this.dialogYear),
       desc: row?.desc ?? "",
       spec: row?.spec ?? this.specOptions[0] ?? "",
       // An edit keeps whoever originally reported it; a new comment is the
@@ -274,8 +295,8 @@ export class NxCircularChartCommentsComponent {
       reportedBy: row?.reportedBy ?? this.currentUser ?? "",
       customer: row?.customer ?? "",
       isCustomer: row?.isCustomer ?? false,
-      startDate: toNativeDate(row?.startDate),
-      endDate: toNativeDate(row?.endDate)
+      startDate: this.toAdapterDate(row?.startDate),
+      endDate: this.toAdapterDate(row?.endDate)
     });
     // Auto-filled -> not editable. disable() also drops it from
     // form.value, which is why save() reads it via getRawValue().

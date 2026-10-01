@@ -15,7 +15,7 @@
         <input matInput [matDatepicker]="datePicker" formControlName="date" [max]="maxDate" />
         <mat-datepicker-toggle matSuffix [for]="datePicker"></mat-datepicker-toggle>
         <mat-datepicker #datePicker></mat-datepicker>
-        <mat-error *ngIf="form.get('date')?.hasError('futureDate')">No future date allowed</mat-error>
+        <mat-error *ngIf="form.get('date')?.hasError('notBeforeToday')">Date must be yesterday or earlier</mat-error>
         <mat-error *ngIf="form.get('date')?.hasError('required')">Date is required</mat-error>
       </mat-form-field>
 

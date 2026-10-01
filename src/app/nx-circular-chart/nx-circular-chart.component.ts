@@ -581,6 +581,22 @@ export class NxCircularChartComponent implements OnChanges, AfterViewInit, OnDes
   // draws the pie/doughnut itself at — keeps every chart type's badges at
   // an identical "just past the outer edge" distance regardless of that
   // Syncfusion-internal difference.
+  // Syncfusion's tooltip settings are applied here, just before each
+  // render, instead of via a `[tooltip]="tooltipSettings"` template binding.
+  // Reported live (host application): the host's shared module exports a
+  // directive with selector `[tooltip]`, and Angular matches attribute
+  // selectors against PROPERTY BINDINGS too — so every <ejs-accumulationchart>
+  // also got that directive, which on hover tried to show its own tooltip
+  // with this settings object as text and threw ("Cannot read properties of
+  // undefined (reading 'nativeElement')" in TooltipExtComponent). With no
+  // `tooltip` binding in the template, no such directive can match.
+  onChartLoad(args: any): void {
+    const chart = args?.accumulation;
+    if (chart) {
+      Object.assign(chart.tooltip, this.tooltipSettings);
+    }
+  }
+
   onChartLoaded(args: any): void {
     const chart = args?.accumulation;
     this.chartInstance = chart;

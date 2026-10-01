@@ -14,20 +14,20 @@ import { ActionCellParams, NxCircularChartCommentsActionCellComponent } from "./
 // supplies its own); passed straight through to every comments API call.
 const COMMENTS_API_TOKEN = "";
 
-// Only yesterday or earlier — today and any future date are rejected.
-// Applied both as this form's own control validator (blocks typed/pasted
-// input) AND via [max] (= yesterday) on the template's <input
-// matDatepicker> (blocks calendar picking) — one without the other leaves a
-// hole a user could still get through the other way.
-function beforeTodayValidator(): ValidatorFn {
+// Today or earlier — any future date is rejected. Applied both as this
+// form's own control validator (blocks typed/pasted input) AND via [max]
+// (= today) on the template's <input matDatepicker> (blocks calendar
+// picking) — one without the other leaves a hole a user could still get
+// through the other way.
+function noFutureDateValidator(): ValidatorFn {
   return (control: AbstractControl): ValidationErrors | null => {
     if (!control.value) {
       return null;
     }
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
     const date = toNativeDate(control.value);
-    return date && date.getTime() >= startOfToday.getTime() ? { notBeforeToday: true } : null;
+    return date && date.getTime() > endOfToday.getTime() ? { futureDate: true } : null;
   };
 }
 
@@ -82,7 +82,7 @@ export class NxCircularChartCommentsComponent {
   @ViewChild("addCommentsDialog", { static: false }) addCommentsDialog!: TemplateRef<HTMLElement>;
   dialogRef?: MatDialogRef<HTMLElement>;
 
-  // Latest pickable Date — yesterday (see beforeTodayValidator()). Built
+  // Latest pickable Date — today (see noFutureDateValidator()). Built
   // through the datepicker's own DateAdapter (constructor) so it's the
   // date type the host's adapter expects (a Moment under
   // MatMomentDateModule, a native Date under MatNativeDateModule).
@@ -181,10 +181,10 @@ export class NxCircularChartCommentsComponent {
     private commentsService: NxCircularChartCommentsService,
     private dateAdapter: DateAdapter<unknown>
   ) {
-    this.maxDate = this.dateAdapter.addCalendarDays(this.dateAdapter.today(), -1);
+    this.maxDate = this.dateAdapter.today();
     this.form = this.fb.group(
       {
-        date: [null, [Validators.required, beforeTodayValidator()]],
+        date: [null, [Validators.required, noFutureDateValidator()]],
         desc: ["", Validators.required],
         spec: ["", Validators.required],
         reportedBy: ["", Validators.required],
@@ -260,8 +260,8 @@ export class NxCircularChartCommentsComponent {
     });
   }
 
-  // Yesterday (the latest allowed date — see beforeTodayValidator()) when
-  // `year` is the current year, else Jan 1 of that year — a January default
+  // Today when `year` is the current year (the common case — logging
+  // something that just happened), else Jan 1 of that year — a January default
   // reads more naturally than "today's month/day in a past year" when the
   // user has deliberately switched to an older year before clicking +.
   // Created through the DateAdapter so it's the host adapter's own date

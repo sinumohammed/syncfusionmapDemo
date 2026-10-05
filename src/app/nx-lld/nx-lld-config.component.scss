@@ -1,0 +1,23 @@
+:host {
+  display: block;
+  height: 100%;
+}
+.nx-lld {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+  padding: 12px 16px;
+  box-sizing: border-box;
+  overflow: auto;
+}
+.nx-lld-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #14213d;
+}
+.nx-lld-placeholder {
+  font-size: 13px;
+  color: #4b5563;
+}

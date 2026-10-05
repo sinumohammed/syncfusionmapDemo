@@ -1,0 +1,8 @@
+<div class="nx-lld">
+  <h2 class="nx-lld-title">LLD Configuration</h2>
+  <div class="nx-lld-placeholder" *ngIf="loading">Loading…</div>
+  <div class="nx-lld-placeholder" *ngIf="!loading && lookups">
+    Mock data loaded: {{ views.length }} views, {{ lookups.subsurfaces.length }} subsurfaces,
+    {{ lookups.subGroupTypes.length }} sub-group types, {{ lookups.equipments.length }} equipments.
+  </div>
+</div>

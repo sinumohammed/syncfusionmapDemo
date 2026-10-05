@@ -60,8 +60,62 @@
   color: #1d4ed8;
   font-size: 12px;
 }
-.nx-lld-empty,
-.nx-lld-placeholder {
+.nx-lld-empty {
   font-size: 13px;
   color: #6b7280;
+}
+.nx-lld-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.nx-lld-section-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #14213d;
+}
+.nx-lld-groups {
+  display: block;
+}
+.nx-lld-group-title {
+  font-weight: 600;
+}
+.nx-lld-group-desc {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  font-size: 13px;
+}
+.nx-lld-count {
+  color: #6b7280;
+}
+.nx-lld-actions {
+  display: inline-flex;
+  margin-left: 8px;
+}
+.nx-lld-icon {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+.nx-lld-delete {
+  color: #d32f2f;
+}
+.nx-lld-subgroup {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 8px 12px;
+  font-size: 13px;
+  border-top: 1px solid #f0f0f0;
+
+  &:first-child {
+    border-top: none;
+  }
+}
+.nx-lld-subgroup-name {
+  min-width: 120px;
+  font-weight: 600;
 }

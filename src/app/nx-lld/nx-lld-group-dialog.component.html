@@ -1,0 +1,25 @@
+<h2 mat-dialog-title class="nx-lld-dialog-title">
+  {{ isEdit ? "Edit Group" : "Add Group" }}
+  <span class="nx-lld-dialog-id" *ngIf="isEdit" title="Group ID">ID {{ data.group?.id }}</span>
+</h2>
+<mat-progress-bar *ngIf="saving" mode="indeterminate"></mat-progress-bar>
+<div mat-dialog-content>
+  <div [formGroup]="form" class="nx-lld-dialog-form">
+    <div class="nx-lld-dialog-readonly">
+      <span class="nx-lld-dialog-readonly-label">View</span>
+      <span>{{ data.view.name }}</span>
+    </div>
+
+    <mat-form-field appearance="fill">
+      <mat-label>Group Name</mat-label>
+      <input matInput formControlName="name" (keydown.enter)="save()" />
+      <mat-error *ngIf="form.get('name')?.hasError('required')">Group name is required</mat-error>
+    </mat-form-field>
+
+    <div class="nx-lld-dialog-alert" role="alert" *ngIf="saveError">{{ saveError }}</div>
+  </div>
+</div>
+<div mat-dialog-actions align="end">
+  <button mat-button mat-dialog-close [disabled]="saving">Cancel</button>
+  <button mat-flat-button color="primary" (click)="save()" [disabled]="saving">Save</button>
+</div>

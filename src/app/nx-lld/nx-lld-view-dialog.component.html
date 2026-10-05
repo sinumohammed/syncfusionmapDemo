@@ -9,7 +9,6 @@
       <mat-label>View Name</mat-label>
       <input matInput formControlName="name" />
       <mat-error *ngIf="form.get('name')?.hasError('required')">View name is required</mat-error>
-      <mat-error *ngIf="form.get('name')?.hasError('duplicate')">A view with this name already exists</mat-error>
     </mat-form-field>
 
     <mat-form-field appearance="fill">
@@ -41,7 +40,7 @@
       <textarea matInput formControlName="description" rows="3"></textarea>
     </mat-form-field>
 
-    <div class="nx-lld-dialog-error" *ngIf="saveError">{{ saveError }}</div>
+    <div class="nx-lld-dialog-alert" role="alert" *ngIf="saveError">{{ saveError }}</div>
   </div>
 </div>
 <div mat-dialog-actions align="end">

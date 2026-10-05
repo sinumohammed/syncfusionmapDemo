@@ -1,10 +1,11 @@
-import { Component, OnInit } from "@angular/core";
+import { Component, OnDestroy, OnInit } from "@angular/core";
 import { MatDialog } from "@angular/material/dialog";
-import { forkJoin, Observable } from "rxjs";
-import { finalize } from "rxjs/operators";
-import { LLD_VIEW_STATUS_OPTIONS, LldLookups, LldOption, LldView } from "./model/nx-lld.model";
+import { forkJoin, Observable, of, Subject, Subscription } from "rxjs";
+import { finalize, switchMap } from "rxjs/operators";
+import { LLD_VIEW_STATUS_OPTIONS, LldGroup, LldGroupWithSubGroups, LldLookups, LldOption, LldView } from "./model/nx-lld.model";
 import { NxLldService } from "./services/nx-lld.service";
 import { LldViewDialogData, NxLldViewDialogComponent } from "./nx-lld-view-dialog.component";
+import { LldGroupDialogData, NxLldGroupDialogComponent } from "./nx-lld-group-dialog.component";
 import { LldConfirmDialogData, NxLldConfirmDialogComponent } from "./nx-lld-confirm-dialog.component";
 
 // TODO(host): replace with the logged-in user's API token (the host app
@@ -12,17 +13,22 @@ import { LldConfirmDialogData, NxLldConfirmDialogComponent } from "./nx-lld-conf
 const LLD_API_TOKEN = "";
 
 // The LLD Configuration screen: View dropdown (New/Edit/Delete) over the
-// grouped View -> Groups -> Sub-groups -> Equipments layout. Groups and
-// sub-groups come in the next steps.
+// grouped layout — one expansion panel per group of the selected view,
+// listing its sub-groups. Sub-group add/edit/delete and the equipment
+// toggle come next.
 @Component({
   selector: "app-nx-lld-config",
   templateUrl: "./nx-lld-config.component.html",
   styleUrls: ["./nx-lld-config.component.scss"]
 })
-export class NxLldConfigComponent implements OnInit {
+export class NxLldConfigComponent implements OnInit, OnDestroy {
   lookups: LldLookups | null = null;
   views: LldView[] = [];
   selectedViewId: number | null = null;
+  groups: LldGroupWithSubGroups[] = [];
+  // Which group panels are open — kept by id so a reload after a save
+  // doesn't collapse them.
+  readonly expandedGroupIds = new Set<number>();
 
   // A counter, not a boolean — overlapping calls (delete -> refetch) must
   // not switch the loader off while one is still running.
@@ -31,7 +37,17 @@ export class NxLldConfigComponent implements OnInit {
     return this.pendingRequests > 0;
   }
 
-  constructor(private lldService: NxLldService, private dialog: MatDialog) {}
+  // Each push fetches that view's groups; switchMap drops a still-running
+  // fetch for a view that's no longer selected, so a slow response can't
+  // land under the wrong view.
+  private readonly groupsRequest$ = new Subject<number | null>();
+  private readonly groupsSub: Subscription;
+
+  constructor(private lldService: NxLldService, private dialog: MatDialog) {
+    this.groupsSub = this.groupsRequest$
+      .pipe(switchMap(viewId => (viewId == null ? of([]) : this.track(this.lldService.getGroups(viewId, LLD_API_TOKEN)))))
+      .subscribe(groups => (this.groups = groups));
+  }
 
   get selectedView(): LldView | null {
     return this.views.find(v => v.id === this.selectedViewId) ?? null;
@@ -50,6 +66,14 @@ export class NxLldConfigComponent implements OnInit {
     return LLD_VIEW_STATUS_OPTIONS.find(o => o.value === this.selectedView?.status)?.label ?? "";
   }
 
+  typeName(typeId: string): string {
+    return this.lookups?.subGroupTypes.find(t => t.id === typeId)?.name ?? typeId;
+  }
+  templateLabel(typeId: string, templateId: string): string {
+    const template = this.lookups?.subGroupTypes.find(t => t.id === typeId)?.templates.find(t => t.id === templateId);
+    return template ? `${template.name} ${template.version}` : templateId;
+  }
+
   ngOnInit(): void {
     this.track(forkJoin([this.lldService.getLookups(LLD_API_TOKEN), this.lldService.getViews(LLD_API_TOKEN)])).subscribe(
       ([lookups, views]) => {
@@ -57,6 +81,17 @@ export class NxLldConfigComponent implements OnInit {
         this.setViews(views, null);
       }
     );
+  }
+
+  ngOnDestroy(): void {
+    this.groupsSub.unsubscribe();
+  }
+
+  // ------------------------------------------------------------- views
+  onViewChange(): void {
+    this.groups = [];
+    this.expandedGroupIds.clear();
+    this.groupsRequest$.next(this.selectedViewId);
   }
 
   newView(): void {
@@ -74,19 +109,13 @@ export class NxLldConfigComponent implements OnInit {
     if (!view || view.id == null) {
       return;
     }
-    this.dialog
-      .open<NxLldConfirmDialogComponent, LldConfirmDialogData, boolean>(NxLldConfirmDialogComponent, {
-        data: {
-          title: "Delete View",
-          message: `Delete view "${view.name}"? All its groups, sub-groups and equipments will be deleted too.`
-        }
-      })
-      .afterClosed()
-      .subscribe(confirmed => {
+    this.confirm("Delete View", `Delete view "${view.name}"? All its groups, sub-groups and equipments will be deleted too.`).subscribe(
+      confirmed => {
         if (confirmed) {
           this.track(this.lldService.deleteView(view.id!, LLD_API_TOKEN)).subscribe(() => this.reloadViews(null));
         }
-      });
+      }
+    );
   }
 
   private openViewDialog(view?: LldView): void {
@@ -96,11 +125,9 @@ export class NxLldConfigComponent implements OnInit {
     this.dialog
       .open<NxLldViewDialogComponent, LldViewDialogData, LldView>(NxLldViewDialogComponent, {
         width: "420px",
-        autoFocus: true,
         data: {
           view,
           lookups: this.lookups,
-          takenNames: this.views.filter(v => v.id !== view?.id).map(v => v.name),
           token: LLD_API_TOKEN
         }
       })
@@ -119,9 +146,75 @@ export class NxLldConfigComponent implements OnInit {
   }
 
   private setViews(views: LldView[], selectId: number | null): void {
+    const previousId = this.selectedViewId;
     this.views = views;
     const keep = [selectId, this.selectedViewId].find(id => id != null && views.some(v => v.id === id));
     this.selectedViewId = keep ?? views[0]?.id ?? null;
+    if (this.selectedViewId !== previousId || previousId == null) {
+      this.onViewChange();
+    }
+  }
+
+  // ------------------------------------------------------------ groups
+  addGroup(): void {
+    this.openGroupDialog();
+  }
+
+  editGroup(group: LldGroup, event: Event): void {
+    event.stopPropagation();
+    this.openGroupDialog(group);
+  }
+
+  deleteGroup(group: LldGroupWithSubGroups, event: Event): void {
+    event.stopPropagation();
+    const children = group.subGroups.length
+      ? ` Its ${group.subGroups.length} sub-group(s) and their equipments will be deleted too.`
+      : "";
+    this.confirm("Delete Group", `Delete group "${group.name}"?${children}`).subscribe(confirmed => {
+      if (confirmed) {
+        this.track(this.lldService.deleteGroup(group.id!, LLD_API_TOKEN)).subscribe(() => {
+          this.expandedGroupIds.delete(group.id!);
+          this.reloadGroups();
+        });
+      }
+    });
+  }
+
+  private openGroupDialog(group?: LldGroup): void {
+    const view = this.selectedView;
+    if (!view) {
+      return;
+    }
+    this.dialog
+      .open<NxLldGroupDialogComponent, LldGroupDialogData, LldGroup>(NxLldGroupDialogComponent, {
+        width: "380px",
+        data: {
+          group,
+          view,
+          token: LLD_API_TOKEN
+        }
+      })
+      .afterClosed()
+      .subscribe(saved => {
+        if (saved) {
+          // A new group opens straight away, ready for its sub-groups.
+          if (!group && saved.id != null) {
+            this.expandedGroupIds.add(saved.id);
+          }
+          this.reloadGroups();
+        }
+      });
+  }
+
+  private reloadGroups(): void {
+    this.groupsRequest$.next(this.selectedViewId);
+  }
+
+  // ------------------------------------------------------------ shared
+  private confirm(title: string, message: string): Observable<boolean | undefined> {
+    return this.dialog
+      .open<NxLldConfirmDialogComponent, LldConfirmDialogData, boolean>(NxLldConfirmDialogComponent, { data: { title, message } })
+      .afterClosed();
   }
 
   private track<T>(request: Observable<T>): Observable<T> {

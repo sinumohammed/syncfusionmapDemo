@@ -4,7 +4,7 @@
   <div class="nx-lld-toolbar">
     <mat-form-field appearance="outline" class="nx-lld-view-select">
       <mat-label>View</mat-label>
-      <mat-select [(value)]="selectedViewId" [disabled]="!views.length">
+      <mat-select [(value)]="selectedViewId" (selectionChange)="onViewChange()" [disabled]="!views.length">
         <mat-option *ngFor="let v of views" [value]="v.id">{{ v.name }}</mat-option>
       </mat-select>
     </mat-form-field>
@@ -17,17 +17,57 @@
 
   <div class="nx-lld-empty" *ngIf="!isLoading && lookups && !views.length">No views yet — click New to create one.</div>
 
-  <div class="nx-lld-view-summary" *ngIf="selectedView">
-    <div>
-      <span class="nx-lld-label">Subsurface:</span> {{ selectedSubsurfaceName }}
-      <span class="nx-lld-label nx-lld-label--gap">Status:</span> {{ selectedStatusLabel }}
+  <ng-container *ngIf="selectedView">
+    <div class="nx-lld-view-summary">
+      <div>
+        <span class="nx-lld-label">Subsurface:</span> {{ selectedSubsurfaceName }}
+        <span class="nx-lld-label nx-lld-label--gap">Status:</span> {{ selectedStatusLabel }}
+      </div>
+      <div class="nx-lld-chips">
+        <span class="nx-lld-label">Stations:</span>
+        <span class="nx-lld-chip" *ngFor="let station of selectedStations">{{ station.name }}</span>
+      </div>
+      <div *ngIf="selectedView.description"><span class="nx-lld-label">Description:</span> {{ selectedView.description }}</div>
     </div>
-    <div class="nx-lld-chips">
-      <span class="nx-lld-label">Stations:</span>
-      <span class="nx-lld-chip" *ngFor="let station of selectedStations">{{ station.name }}</span>
-    </div>
-    <div *ngIf="selectedView.description"><span class="nx-lld-label">Description:</span> {{ selectedView.description }}</div>
-  </div>
 
-  <div class="nx-lld-placeholder" *ngIf="selectedView">Groups and sub-groups for this view come in the next step.</div>
+    <div class="nx-lld-section-header">
+      <h3 class="nx-lld-section-title">Groups</h3>
+      <button mat-flat-button color="primary" (click)="addGroup()">+ Add Group</button>
+    </div>
+
+    <div class="nx-lld-empty" *ngIf="!isLoading && !groups.length">No groups in this view yet — click Add Group.</div>
+
+    <mat-accordion multi class="nx-lld-groups">
+      <mat-expansion-panel
+        *ngFor="let group of groups"
+        [expanded]="expandedGroupIds.has(group.id!)"
+        (opened)="expandedGroupIds.add(group.id!)"
+        (closed)="expandedGroupIds.delete(group.id!)"
+      >
+        <mat-expansion-panel-header>
+          <mat-panel-title class="nx-lld-group-title">{{ group.name }}</mat-panel-title>
+          <mat-panel-description class="nx-lld-group-desc">
+            <span>View: {{ selectedView.name }}</span>
+            <span class="nx-lld-count">{{ group.subGroups.length }} sub-group(s)</span>
+            <span class="nx-lld-actions">
+              <button mat-icon-button type="button" title="Edit group" aria-label="Edit group" (click)="editGroup(group, $event)" (keydown.enter)="$event.stopPropagation()">
+                <svg viewBox="0 0 24 24" class="nx-lld-icon"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" /></svg>
+              </button>
+              <button mat-icon-button type="button" class="nx-lld-delete" title="Delete group" aria-label="Delete group" (click)="deleteGroup(group, $event)" (keydown.enter)="$event.stopPropagation()">
+                <svg viewBox="0 0 24 24" class="nx-lld-icon"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" /></svg>
+              </button>
+            </span>
+          </mat-panel-description>
+        </mat-expansion-panel-header>
+
+        <div class="nx-lld-empty" *ngIf="!group.subGroups.length">No sub-groups yet.</div>
+        <div class="nx-lld-subgroup" *ngFor="let sub of group.subGroups">
+          <span class="nx-lld-subgroup-name">{{ sub.name }}</span>
+          <span>Type: {{ typeName(sub.typeId) }}</span>
+          <span>Template: {{ templateLabel(sub.typeId, sub.templateId) }}</span>
+          <span class="nx-lld-count">{{ sub.equipmentIds.length }} equipment(s)</span>
+        </div>
+      </mat-expansion-panel>
+    </mat-accordion>
+  </ng-container>
 </div>

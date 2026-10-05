@@ -1,5 +1,5 @@
 import { Injectable } from "@angular/core";
-import { HttpClient, HttpHeaders } from "@angular/common/http";
+import { HttpClient, HttpErrorResponse, HttpHeaders } from "@angular/common/http";
 import { forkJoin, Observable, of, throwError } from "rxjs";
 import { delay, map, mergeMap, shareReplay } from "rxjs/operators";
 import { LldGroup, LldGroupWithSubGroups, LldLookups, LldSubGroup, LldView, LldViewStatus } from "../model/nx-lld.model";
@@ -19,14 +19,29 @@ export const LLD_DELETE_SUBGROUP_URL = "PDOCustom/LLD/DeleteSubGroup";
 
 // Demo only: this repo has no backend, so every call is answered from an
 // in-memory store seeded from the mock JSON (the mock plays the server: it
-// assigns ids, upserts by id, cascades deletes and rejects invalid
-// sub-groups). The host app sets this to false (or removes the mock branch)
+// assigns ids, upserts by id, cascades deletes and rejects duplicate view
+// and group names and invalid sub-groups). The host app sets this to false (or removes the mock branch)
 // and replaces post() with its own httpService.
 const USE_MOCK = true;
 const MOCK_LOOKUPS_URL = "assets/mock-api/lld-lookups.json";
 const MOCK_DATA_URL = "assets/mock-api/lld-data.json";
 // Simulated network time for the mock, so loaders are visible.
 const MOCK_LATENCY_MS = 400;
+
+// The message to show for a failed call. A rejected save (e.g. "a view with
+// this name already exists") comes back as an HTTP error whose body carries
+// the server's own message — shown as-is.
+// TODO(host): match the real error body's shape once known.
+export function apiErrorMessage(err: unknown): string {
+  if (err instanceof HttpErrorResponse) {
+    const body = err.error;
+    if (typeof body === "string" && body.trim()) {
+      return body;
+    }
+    return body?.message || body?.Message || err.message || "Request failed";
+  }
+  return (err as Error)?.message || "Request failed";
+}
 
 interface LldMockData {
   views: LldView[];
@@ -56,9 +71,21 @@ export class NxLldService {
   }
 
   // Returns the saved view (with its server id) so the page can select it.
+  // The server rejects a duplicate name — the popup shows its message.
   saveView(view: LldView, token: string): Observable<LldView> {
     if (USE_MOCK) {
-      return this.mock(() => this.upsert("views", view));
+      return this.mockReady$.pipe(
+        delay(MOCK_LATENCY_MS),
+        mergeMap(() => {
+          const name = view.name.trim().toLowerCase();
+          const duplicate = this.store.views.some(
+            v => v.id !== view.id && v.status !== LldViewStatus.Deleted && v.name.trim().toLowerCase() === name
+          );
+          return duplicate
+            ? mockError(409, `A view named "${view.name}" already exists`)
+            : of(this.upsert("views", view));
+        })
+      );
     }
     return this.post<LldView>(LLD_SAVE_VIEW_URL, view, token);
   }
@@ -88,9 +115,21 @@ export class NxLldService {
     return this.post<LldGroupWithSubGroups[]>(LLD_GROUPS_URL, { viewId }, token);
   }
 
+  // The server rejects a name already used by another group of the same view.
   saveGroup(group: LldGroup, token: string): Observable<LldGroup> {
     if (USE_MOCK) {
-      return this.mock(() => this.upsert("groups", group));
+      return this.mockReady$.pipe(
+        delay(MOCK_LATENCY_MS),
+        mergeMap(() => {
+          const name = group.name.trim().toLowerCase();
+          const duplicate = this.store.groups.some(
+            g => g.id !== group.id && g.viewId === group.viewId && g.name.trim().toLowerCase() === name
+          );
+          return duplicate
+            ? mockError(409, `This view already has a group named "${group.name}"`)
+            : of(this.upsert("groups", group));
+        })
+      );
     }
     return this.post<LldGroup>(LLD_SAVE_GROUP_URL, group, token);
   }
@@ -113,7 +152,7 @@ export class NxLldService {
         delay(MOCK_LATENCY_MS),
         mergeMap(() => {
           const error = this.validateSubGroup(subGroup);
-          return error ? throwError(() => new Error(error)) : of(this.upsert("subGroups", subGroup));
+          return error ? mockError(400, error) : of(this.upsert("subGroups", subGroup));
         })
       );
     }
@@ -188,4 +227,10 @@ export class NxLldService {
     }
     return null;
   }
+}
+
+// A rejected call, shaped like the real server's: an HTTP error whose body
+// carries the message (see apiErrorMessage()).
+function mockError(status: number, message: string): Observable<never> {
+  return throwError(() => new HttpErrorResponse({ status, statusText: "Mock error", error: { message } }));
 }

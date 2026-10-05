@@ -17,7 +17,51 @@
   font-weight: 600;
   color: #14213d;
 }
+.nx-lld-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  // Pull the outline field's reserved hint space back so the buttons line
+  // up with its box.
+  .nx-lld-view-select {
+    width: 240px;
+    margin-bottom: -1.25em;
+  }
+}
+.nx-lld-view-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  font-size: 13px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #f9fafb;
+}
+.nx-lld-label {
+  font-weight: 600;
+  color: #4b5563;
+}
+.nx-lld-label--gap {
+  margin-left: 16px;
+}
+.nx-lld-chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.nx-lld-chip {
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #e0efff;
+  color: #1d4ed8;
+  font-size: 12px;
+}
+.nx-lld-empty,
 .nx-lld-placeholder {
   font-size: 13px;
-  color: #4b5563;
+  color: #6b7280;
 }

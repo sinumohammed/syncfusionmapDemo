@@ -1,8 +1,33 @@
 <div class="nx-lld">
   <h2 class="nx-lld-title">LLD Configuration</h2>
-  <div class="nx-lld-placeholder" *ngIf="loading">Loading…</div>
-  <div class="nx-lld-placeholder" *ngIf="!loading && lookups">
-    Mock data loaded: {{ views.length }} views, {{ lookups.subsurfaces.length }} subsurfaces,
-    {{ lookups.subGroupTypes.length }} sub-group types, {{ lookups.equipments.length }} equipments.
+
+  <div class="nx-lld-toolbar">
+    <mat-form-field appearance="outline" class="nx-lld-view-select">
+      <mat-label>View</mat-label>
+      <mat-select [(value)]="selectedViewId" [disabled]="!views.length">
+        <mat-option *ngFor="let v of views" [value]="v.id">{{ v.name }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+    <button mat-flat-button color="primary" (click)="newView()" [disabled]="!lookups">New</button>
+    <button mat-stroked-button (click)="editView()" [disabled]="!selectedView">Edit</button>
+    <button mat-stroked-button color="warn" (click)="deleteView()" [disabled]="!selectedView">Delete</button>
   </div>
+
+  <mat-progress-bar *ngIf="isLoading" mode="indeterminate"></mat-progress-bar>
+
+  <div class="nx-lld-empty" *ngIf="!isLoading && lookups && !views.length">No views yet — click New to create one.</div>
+
+  <div class="nx-lld-view-summary" *ngIf="selectedView">
+    <div>
+      <span class="nx-lld-label">Subsurface:</span> {{ selectedSubsurfaceName }}
+      <span class="nx-lld-label nx-lld-label--gap">Status:</span> {{ selectedStatusLabel }}
+    </div>
+    <div class="nx-lld-chips">
+      <span class="nx-lld-label">Stations:</span>
+      <span class="nx-lld-chip" *ngFor="let station of selectedStations">{{ station.name }}</span>
+    </div>
+    <div *ngIf="selectedView.description"><span class="nx-lld-label">Description:</span> {{ selectedView.description }}</div>
+  </div>
+
+  <div class="nx-lld-placeholder" *ngIf="selectedView">Groups and sub-groups for this view come in the next step.</div>
 </div>

@@ -1,0 +1,50 @@
+<h2 mat-dialog-title class="nx-lld-dialog-title">
+  {{ isEdit ? "Edit View" : "New View" }}
+  <span class="nx-lld-dialog-id" *ngIf="isEdit" title="View ID">ID {{ data.view?.id }}</span>
+</h2>
+<mat-progress-bar *ngIf="saving" mode="indeterminate"></mat-progress-bar>
+<div mat-dialog-content>
+  <div [formGroup]="form" class="nx-lld-dialog-form">
+    <mat-form-field appearance="fill">
+      <mat-label>View Name</mat-label>
+      <input matInput formControlName="name" />
+      <mat-error *ngIf="form.get('name')?.hasError('required')">View name is required</mat-error>
+      <mat-error *ngIf="form.get('name')?.hasError('duplicate')">A view with this name already exists</mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill">
+      <mat-label>Subsurface</mat-label>
+      <mat-select formControlName="subsurfaceId">
+        <mat-option *ngFor="let s of data.lookups.subsurfaces" [value]="s.id">{{ s.name }}</mat-option>
+      </mat-select>
+      <mat-error *ngIf="form.get('subsurfaceId')?.hasError('required')">Subsurface is required</mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill">
+      <mat-label>Stations</mat-label>
+      <mat-select formControlName="stationIds" multiple>
+        <mat-option *ngFor="let s of stations" [value]="s.id">{{ s.name }}</mat-option>
+      </mat-select>
+      <mat-hint *ngIf="!stations.length">Choose a subsurface first</mat-hint>
+      <mat-error *ngIf="form.get('stationIds')?.hasError('required')">Select at least one station</mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill">
+      <mat-label>Status</mat-label>
+      <mat-select formControlName="status">
+        <mat-option *ngFor="let s of statusOptions" [value]="s.value">{{ s.label }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill">
+      <mat-label>Description</mat-label>
+      <textarea matInput formControlName="description" rows="3"></textarea>
+    </mat-form-field>
+
+    <div class="nx-lld-dialog-error" *ngIf="saveError">{{ saveError }}</div>
+  </div>
+</div>
+<div mat-dialog-actions align="end">
+  <button mat-button mat-dialog-close [disabled]="saving">Cancel</button>
+  <button mat-flat-button color="primary" (click)="save()" [disabled]="saving">Save</button>
+</div>

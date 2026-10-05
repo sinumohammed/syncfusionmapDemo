@@ -3,29 +3,59 @@
     {
       "id": "SS-RES",
       "name": "Reservoir",
-      "items": [
-        { "id": "RES-PRS", "name": "Pressure" },
-        { "id": "RES-TMP", "name": "Temperature" },
-        { "id": "RES-PRM", "name": "Permeability" },
-        { "id": "RES-POR", "name": "Porosity" }
+      "stations": [
+        {
+          "id": "STN-N01",
+          "name": "North Station 01"
+        },
+        {
+          "id": "STN-N02",
+          "name": "North Station 02"
+        },
+        {
+          "id": "STN-N03",
+          "name": "North Station 03"
+        },
+        {
+          "id": "STN-N04",
+          "name": "North Station 04"
+        }
       ]
     },
     {
       "id": "SS-WBR",
       "name": "Wellbore",
-      "items": [
-        { "id": "WBR-CSG", "name": "Casing" },
-        { "id": "WBR-TBG", "name": "Tubing" },
-        { "id": "WBR-PKR", "name": "Packer" }
+      "stations": [
+        {
+          "id": "STN-S01",
+          "name": "South Station 01"
+        },
+        {
+          "id": "STN-S02",
+          "name": "South Station 02"
+        },
+        {
+          "id": "STN-S03",
+          "name": "South Station 03"
+        }
       ]
     },
     {
       "id": "SS-CMP",
       "name": "Completion",
-      "items": [
-        { "id": "CMP-PRF", "name": "Perforation" },
-        { "id": "CMP-SCR", "name": "Sand Screen" },
-        { "id": "CMP-ICD", "name": "Inflow Control Device" }
+      "stations": [
+        {
+          "id": "STN-E01",
+          "name": "East Station 01"
+        },
+        {
+          "id": "STN-E02",
+          "name": "East Station 02"
+        },
+        {
+          "id": "STN-E03",
+          "name": "East Station 03"
+        }
       ]
     }
   ],
@@ -34,34 +64,79 @@
       "id": "T-ESP",
       "name": "ESP",
       "templates": [
-        { "id": "ESP-V1", "name": "ESP", "version": "v1" },
-        { "id": "ESP-V2", "name": "ESP", "version": "v2" },
-        { "id": "ESP-V3", "name": "ESP", "version": "v3" }
+        {
+          "id": "ESP-V1",
+          "name": "ESP",
+          "version": "v1"
+        },
+        {
+          "id": "ESP-V2",
+          "name": "ESP",
+          "version": "v2"
+        },
+        {
+          "id": "ESP-V3",
+          "name": "ESP",
+          "version": "v3"
+        }
       ]
     },
     {
       "id": "T-BPU",
       "name": "Beam Pump",
       "templates": [
-        { "id": "BPU-V1", "name": "Beam Pump", "version": "v1" },
-        { "id": "BPU-V2", "name": "Beam Pump", "version": "v2" }
+        {
+          "id": "BPU-V1",
+          "name": "Beam Pump",
+          "version": "v1"
+        },
+        {
+          "id": "BPU-V2",
+          "name": "Beam Pump",
+          "version": "v2"
+        }
       ]
     },
     {
       "id": "T-PCP",
       "name": "PCP",
       "templates": [
-        { "id": "PCP-V1", "name": "PCP", "version": "v1" }
+        {
+          "id": "PCP-V1",
+          "name": "PCP",
+          "version": "v1"
+        }
       ]
     }
   ],
   "equipments": [
-    { "id": "EQ-MTR-01", "name": "Motor-01" },
-    { "id": "EQ-MTR-02", "name": "Motor-02" },
-    { "id": "EQ-PMP-07", "name": "Pump-07" },
-    { "id": "EQ-PMP-08", "name": "Pump-08" },
-    { "id": "EQ-CBL-03", "name": "Cable-03" },
-    { "id": "EQ-SEP-02", "name": "Separator-02" },
-    { "id": "EQ-SNS-11", "name": "Sensor-11" }
+    {
+      "id": "EQ-MTR-01",
+      "name": "Motor-01"
+    },
+    {
+      "id": "EQ-MTR-02",
+      "name": "Motor-02"
+    },
+    {
+      "id": "EQ-PMP-07",
+      "name": "Pump-07"
+    },
+    {
+      "id": "EQ-PMP-08",
+      "name": "Pump-08"
+    },
+    {
+      "id": "EQ-CBL-03",
+      "name": "Cable-03"
+    },
+    {
+      "id": "EQ-SEP-02",
+      "name": "Separator-02"
+    },
+    {
+      "id": "EQ-SNS-11",
+      "name": "Sensor-11"
+    }
   ]
 }

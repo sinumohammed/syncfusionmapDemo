@@ -2,10 +2,11 @@ import { Injectable } from "@angular/core";
 import { HttpClient, HttpHeaders } from "@angular/common/http";
 import { forkJoin, Observable, of, throwError } from "rxjs";
 import { delay, map, mergeMap, shareReplay } from "rxjs/operators";
-import { LldGroup, LldGroupWithSubGroups, LldLookups, LldSubGroup, LldView } from "../model/nx-lld.model";
+import { LldGroup, LldGroupWithSubGroups, LldLookups, LldSubGroup, LldView, LldViewStatus } from "../model/nx-lld.model";
 
 // TODO(host): real endpoints not known yet. Save = add (no id) AND edit
-// (with id), same URL; delete by id, the server removing every child too.
+// (with id), same URL; delete by id (a view's is a soft delete, see
+// deleteView()).
 export const LLD_LOOKUPS_URL = "PDOCustom/LLD/GetLookups";
 export const LLD_VIEWS_URL = "PDOCustom/LLD/GetViews";
 export const LLD_SAVE_VIEW_URL = "PDOCustom/LLD/SaveView";
@@ -46,9 +47,10 @@ export class NxLldService {
   }
 
   // ------------------------------------------------------------- views
+  // Soft-deleted views are never returned.
   getViews(token: string): Observable<LldView[]> {
     if (USE_MOCK) {
-      return this.mock(() => this.store.views);
+      return this.mock(() => this.store.views.filter(v => v.status !== LldViewStatus.Deleted));
     }
     return this.post<LldView[]>(LLD_VIEWS_URL, {}, token);
   }
@@ -61,14 +63,13 @@ export class NxLldService {
     return this.post<LldView>(LLD_SAVE_VIEW_URL, view, token);
   }
 
-  // Removes the view's groups, sub-groups and equipments too.
+  // Soft delete: the server only flips the view's status to Deleted — the
+  // row (and its groups/sub-groups) stays in the database, hidden from then
+  // on because getViews() skips it.
   deleteView(id: number, token: string): Observable<unknown> {
     if (USE_MOCK) {
       return this.mock(() => {
-        const groupIds = this.store.groups.filter(g => g.viewId === id).map(g => g.id);
-        this.store.subGroups = this.store.subGroups.filter(s => !groupIds.includes(s.groupId));
-        this.store.groups = this.store.groups.filter(g => g.viewId !== id);
-        this.store.views = this.store.views.filter(v => v.id !== id);
+        this.store.views = this.store.views.map(v => (v.id === id ? { ...v, status: LldViewStatus.Deleted } : v));
       });
     }
     return this.post<unknown>(LLD_DELETE_VIEW_URL, { id }, token);

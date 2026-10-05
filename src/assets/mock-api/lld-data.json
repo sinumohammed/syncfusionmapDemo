@@ -1,16 +1,79 @@
 {
   "views": [
-    { "id": 1, "name": "Well-A", "subsurfaceId": "SS-RES", "itemIds": ["RES-PRS", "RES-TMP"] },
-    { "id": 2, "name": "Well-B", "subsurfaceId": "SS-WBR", "itemIds": ["WBR-CSG", "WBR-TBG", "WBR-PKR"] }
+    {
+      "id": 1,
+      "name": "Well-A",
+      "subsurfaceId": "SS-RES",
+      "stationIds": [
+        "STN-N01",
+        "STN-N02"
+      ],
+      "status": 2,
+      "description": "Main reservoir layout for Well-A."
+    },
+    {
+      "id": 2,
+      "name": "Well-B",
+      "subsurfaceId": "SS-WBR",
+      "stationIds": [
+        "STN-S01",
+        "STN-S02",
+        "STN-S03"
+      ],
+      "status": 1,
+      "description": ""
+    }
   ],
   "groups": [
-    { "id": 1, "viewId": 1, "name": "Pumps" },
-    { "id": 2, "viewId": 1, "name": "Lifting" },
-    { "id": 3, "viewId": 2, "name": "Surface" }
+    {
+      "id": 1,
+      "viewId": 1,
+      "name": "Pumps"
+    },
+    {
+      "id": 2,
+      "viewId": 1,
+      "name": "Lifting"
+    },
+    {
+      "id": 3,
+      "viewId": 2,
+      "name": "Surface"
+    }
   ],
   "subGroups": [
-    { "id": 1, "groupId": 1, "name": "ESP-1", "typeId": "T-ESP", "templateId": "ESP-V2", "equipmentIds": ["EQ-MTR-01", "EQ-PMP-07", "EQ-CBL-03"] },
-    { "id": 2, "groupId": 1, "name": "ESP-2", "typeId": "T-ESP", "templateId": "ESP-V1", "equipmentIds": ["EQ-MTR-02", "EQ-PMP-08"] },
-    { "id": 3, "groupId": 2, "name": "BP-1", "typeId": "T-BPU", "templateId": "BPU-V1", "equipmentIds": ["EQ-SEP-02"] }
+    {
+      "id": 1,
+      "groupId": 1,
+      "name": "ESP-1",
+      "typeId": "T-ESP",
+      "templateId": "ESP-V2",
+      "equipmentIds": [
+        "EQ-MTR-01",
+        "EQ-PMP-07",
+        "EQ-CBL-03"
+      ]
+    },
+    {
+      "id": 2,
+      "groupId": 1,
+      "name": "ESP-2",
+      "typeId": "T-ESP",
+      "templateId": "ESP-V1",
+      "equipmentIds": [
+        "EQ-MTR-02",
+        "EQ-PMP-08"
+      ]
+    },
+    {
+      "id": 3,
+      "groupId": 2,
+      "name": "BP-1",
+      "typeId": "T-BPU",
+      "templateId": "BPU-V1",
+      "equipmentIds": [
+        "EQ-SEP-02"
+      ]
+    }
   ]
 }

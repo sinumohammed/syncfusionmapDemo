@@ -1,0 +1,27 @@
+// Shared by the LLD popups (View now; Group and Sub-group next).
+// Title on the left, the record's ID chip (Edit only) on the right.
+.nx-lld-dialog-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.nx-lld-dialog-id {
+  padding: 2px 10px;
+  border-radius: 12px;
+  background: #e0efff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.nx-lld-dialog-form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 320px;
+}
+.nx-lld-dialog-error {
+  font-size: 12px;
+  color: #d32f2f;
+}

@@ -153,6 +153,35 @@ export function parseCircularChartSize(raw: number | string | null | undefined):
   }
 }
 
+// Where the chart's name goes. Center (default): inside the ring — the
+// ShortName if set (hover shows the full Name), else the Name cut to fit
+// with "…" (hover shows it in full when cut). Bottom: the full Name on a
+// line under the ring, no hover. Set like ChartSize: collection-wide, a
+// chart's own LabelPosition wins.
+export enum CircularChartLabelPosition {
+  Center = 1,
+  Bottom = 2
+}
+
+// 1/2 or "Center"/"Bottom" (any case; "Inside"/"Outside"/"Below" too).
+// Anything else is undefined, so the caller can fall back.
+export function parseCircularChartLabelPosition(raw: number | string | null | undefined): CircularChartLabelPosition | undefined {
+  switch (String(raw ?? "").trim().toLowerCase()) {
+    case "1":
+    case "center":
+    case "centre":
+    case "inside":
+      return CircularChartLabelPosition.Center;
+    case "2":
+    case "bottom":
+    case "below":
+    case "outside":
+      return CircularChartLabelPosition.Bottom;
+    default:
+      return undefined;
+  }
+}
+
 export interface CircularChartSlice {
   // Slice label, also used as the pie's xName value and (absent `tooltip`
   // below) the tooltip text.
@@ -200,6 +229,9 @@ export interface CircularChartCardConfig {
   // Resolved size (chart override -> collection -> Small) — see
   // CircularChartSize's own comment.
   size?: CircularChartSize;
+  // Resolved label position (chart override -> collection -> Center) — see
+  // CircularChartLabelPosition's own comment.
+  labelPosition?: CircularChartLabelPosition;
   // e.g. "40%" — Syncfusion's own string-percentage format, unset renders a
   // solid pie instead of a circular chart.
   innerRadius?: string;
@@ -310,6 +342,9 @@ export interface RawCircularChartNode {
   // This chart's own size, overriding the collection's ChartSize — see
   // CircularChartSize. Absent/unrecognized uses the collection's.
   ChartSize?: number | string | null;
+  // This chart's own label position, overriding the collection's — see
+  // CircularChartLabelPosition. Absent/unrecognized uses the collection's.
+  LabelPosition?: number | string | null;
   // This circular chart's own hardcoded fallback slices, carried right on its config
   // node — used whenever the trend API response has no match (or nothing
   // usable) for this circular chart's Name. See buildCircularChartConfig()'s own comment for
@@ -395,6 +430,9 @@ export interface RawCircularChartCollectionNode {
   // wins) — see CircularChartSize. Absent/unrecognized keeps Small, the
   // original size.
   ChartSize?: number | string | null;
+  // Where every chart's name goes (a chart's own LabelPosition wins) — see
+  // CircularChartLabelPosition. Absent/unrecognized keeps Center.
+  LabelPosition?: number | string | null;
   // When set, NxCircularChartCollectionComponent fetches the trend response
   // from this URL itself (via NxCircularChartConfigService) and uses THAT
   // (ignoring the `trendResponse` @Input entirely) — see its own comment.

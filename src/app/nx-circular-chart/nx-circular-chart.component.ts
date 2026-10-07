@@ -16,6 +16,7 @@ import { AccumulationChart, AccumulationSeriesModel, AccumulationTooltip, PieSer
 import {
   CIRCULAR_CHART_SIZE_SPECS,
   CircularChartConfig,
+  CircularChartLabelPosition,
   CircularChartSize,
   CircularChartSizeSpec,
   CircularChartTypes,
@@ -36,6 +37,9 @@ AccumulationChart.Inject(PieSeries, AccumulationTooltip);
 // emptyRingSize() below (the CSS placeholder's diameter) — see
 // emptyRingSize()'s own comment for why both need to agree on this.
 const DEFAULT_RADIUS_PERCENT = 80;
+// The doughnut hole's default size, as a percentage of the ring — shared by
+// buildSeries() and centerTextMaxWidthPx (the centre text must fit it).
+const DEFAULT_INNER_RADIUS_PERCENT = 72;
 // .nx-circular-chart-empty-ring/the real <ejs-accumulationchart> both sit in
 // the same box (that chart's own height="130px" width="100%" in the
 // template, and .nx-circular-chart-empty-ring's own comment) — 130 is only
@@ -323,10 +327,42 @@ export class NxCircularChartComponent implements OnChanges, AfterViewInit, OnDes
     return Math.min(this.sizeSpec.boxPx, this.maxBoxPx ?? Number.POSITIVE_INFINITY);
   }
 
-  // The ring's centre text — the configured short name when there is one
-  // (a long Name doesn't fit inside the ring), else the full label.
-  get displayLabel(): string {
+  get isBottomLabel(): boolean {
+    return this.config?.labelPosition === CircularChartLabelPosition.Bottom;
+  }
+
+  // Inside the ring: the short name when configured, else the full Name
+  // (cut to fit with "…" by CSS). Under the ring the template shows the
+  // full Name instead — there's room for it there.
+  get centerText(): string {
     return this.config?.shortName || this.config?.label || "";
+  }
+
+  // The centre text's width limit — the ring's hole (innerRadius% of the
+  // ring, minus a little breathing room), or 70% of the ring for a Pie,
+  // which has no hole. This is what the "…" cut is measured against.
+  get centerTextMaxWidthPx(): number {
+    const holePercent = this.chartType === CircularChartTypes.Pie ? 70 : parseFloat(this.config?.innerRadius ?? "") || DEFAULT_INNER_RADIUS_PERCENT;
+    return Math.max(24, (this.emptyRingSizePx * holePercent) / 100 - 8);
+  }
+
+  // Empty/healthy cards have no chart to read a centre from. The card can
+  // be taller than its ring (a Bottom label under it, or stretched to a
+  // taller neighbour's row height), so centring on the card (CSS top: 50%)
+  // would drift below the ring — pin it to the ring's box instead: the
+  // card's 6px padding plus half the box (+3, see the empty box's comment).
+  get emptyCenterTopPx(): number {
+    return 6 + (this.boxPx + 3) / 2;
+  }
+
+  // Full-Name tooltip over the centre text — shown on hover when the text
+  // is a short name, or the Name itself was cut with "…". Never for the
+  // Bottom label, which always shows the Name in full.
+  nameTooltipVisible = false;
+
+  onCenterTextEnter(event: MouseEvent): void {
+    const el = event.target as HTMLElement;
+    this.nameTooltipVisible = !!this.config?.shortName || el.scrollWidth > el.clientWidth;
   }
 
   // The real chart (`<ejs-accumulationchart>`) — see DEFAULT_RADIUS_PERCENT's own
@@ -575,7 +611,7 @@ export class NxCircularChartComponent implements OnChanges, AfterViewInit, OnDes
         // then just displays as-is.
         tooltipMappingName: "tooltip",
         type: "Pie",
-        innerRadius: isPie ? "0%" : config.innerRadius ?? "72%",
+        innerRadius: isPie ? "0%" : config.innerRadius ?? `${DEFAULT_INNER_RADIUS_PERCENT}%`,
         // Per-circular-chart config.radius (CircularChartCardConfig, threaded from
         // RawCircularChartNode.Radius in real-circular-chart-parent-config.json) overrides
         // DEFAULT_RADIUS_PERCENT when set — see emptyRingSizePx()'s own

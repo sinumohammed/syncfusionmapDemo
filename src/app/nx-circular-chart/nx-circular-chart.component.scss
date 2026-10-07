@@ -1,5 +1,11 @@
+/* The collection's grid stretches every card's host to its row's tallest
+   card; filling that (height: 100% here and on the card) keeps every tile
+   in a row the same height — e.g. when one chart has LabelPosition Bottom
+   and its neighbours don't. The ring stays at the top of each tile, so
+   rings line up across the row. */
 :host {
   display: block;
+  height: 100%;
 }
 /* "Projected" card — raised off the panel's own white background via a
    real shadow + white fill + light blue border AT REST, not just on
@@ -9,6 +15,8 @@
    nx-circular-chart-collection.component.scss's own comment) throughout. */
 .nx-circular-chart-card {
   position: relative;
+  box-sizing: border-box;
+  height: 100%;
   cursor: pointer;
   border-radius: 10px;
   padding: 6px;
@@ -156,8 +164,49 @@
   color: #9aa0a6;
 }
 .nx-circular-chart-empty-text {
+  display: block;
   font-weight: 500;
   font-size: 11px;
+}
+/* The name inside the ring — one line, cut with "…" at the hole's width
+   (max-width is bound inline on .nx-circular-chart-center). The only part
+   of the centre overlay that takes the mouse, for the full-Name tooltip;
+   the rest stays pointer-events: none so slices keep their own tooltips. */
+.nx-circular-chart-center-text {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  pointer-events: auto;
+}
+/* Lifted above the value badges (z-index 0 siblings) while the full-Name
+   tooltip is open, so they can't paint over it. */
+.nx-circular-chart-center--tooltip {
+  z-index: 2;
+}
+.nx-circular-chart-name-tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(20, 33, 61, 0.92);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+}
+/* LabelPosition Bottom — the full Name under the ring, wrapping when long
+   (no "…", no tooltip). */
+.nx-circular-chart-bottom-label {
+  margin-top: 2px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  color: #222;
+  overflow-wrap: anywhere;
 }
 /* Dark green, readable against .nx-circular-chart-healthy-inner's own light
    green circular fill sitting behind it (a sibling element, not a

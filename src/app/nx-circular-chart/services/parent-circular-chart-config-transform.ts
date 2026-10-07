@@ -1,8 +1,10 @@
 import {
   CircularChartConfig,
+  CircularChartLabelPosition,
   CircularChartSize,
   CircularChartSlice,
   CircularChartTypes,
+  parseCircularChartLabelPosition,
   parseCircularChartSize,
   RawCircularChartCollectionNode,
   RawCircularChartNode,
@@ -98,12 +100,13 @@ function buildSlices(leaf: TrendLeaf | undefined): CircularChartSlice[] {
 // Both absent renders the existing empty-ring state (isEmpty), same as
 // before this fallback existed — no third "hardcoded zeros" tier needed.
 //
-// `collectionSize` is the collection's own ChartSize; the node's own
-// ChartSize wins over it, and with neither the chart stays Small.
+// `collection` carries the collection-wide ChartSize/LabelPosition; the
+// node's own values win over them, and with neither the chart stays Small
+// with its label in the centre.
 export function buildCircularChartConfig(
   node: RawCircularChartNode,
   leaf: TrendLeaf | undefined,
-  collectionSize?: CircularChartSize
+  collection: { size?: CircularChartSize; labelPosition?: CircularChartLabelPosition } = {}
 ): CircularChartConfig {
   const apiSlices = buildSlices(leaf);
   // Param1/Param2/Param3, in that order, skipping absent/null/empty ones —
@@ -116,7 +119,9 @@ export function buildCircularChartConfig(
     id: normalizeName(node.Name) || String(node.Id ?? ""),
     label: node.Name ?? "",
     shortName: node.ShortName?.trim() || undefined,
-    size: parseCircularChartSize(node.ChartSize) ?? collectionSize ?? CircularChartSize.Small,
+    size: parseCircularChartSize(node.ChartSize) ?? collection.size ?? CircularChartSize.Small,
+    labelPosition:
+      parseCircularChartLabelPosition(node.LabelPosition) ?? collection.labelPosition ?? CircularChartLabelPosition.Center,
     radius: node.Radius ?? undefined,
     innerRadius: node.InnerRadius ?? undefined,
     tooltipFormat: node.TooltipFormat ?? undefined,
@@ -173,9 +178,12 @@ export function buildCircularChartConfigs(
 ): CircularChartConfig[] {
   const isCollection = root.ComponentType === CIRCULAR_CHART_COLLECTION_COMPONENT_TYPE;
   const items = isCollection ? root.Configuration ?? [] : [root as RawCircularChartNode];
-  // A lone chart node's own ChartSize is read by buildCircularChartConfig()
-  // itself, so only a real collection contributes a collection-wide size.
-  const collectionSize = isCollection ? collectionChartSize(root) : undefined;
+  // A lone chart node's own ChartSize/LabelPosition are read by
+  // buildCircularChartConfig() itself, so only a real collection
+  // contributes collection-wide ones.
+  const collection = isCollection
+    ? { size: collectionChartSize(root), labelPosition: parseCircularChartLabelPosition(root.LabelPosition) }
+    : {};
   // Hide is a config-only kill switch (see RawCircularChartNode.Hide's own
   // comment) — dropped before trend-leaf matching/ordering, same as if the
   // node were never in Configuration[] at all, regardless of ApiUrl/
@@ -184,7 +192,7 @@ export function buildCircularChartConfigs(
   const ordered = [...visible].sort((a, b) => (a.Order ?? 0) - (b.Order ?? 0));
   const leaves = indexTrendLeaves(trendResponse);
   const matched = useConfigFallback ? ordered : ordered.filter(node => leaves.has(normalizeName(node.Name)));
-  return matched.map(node => buildCircularChartConfig(node, leaves.get(normalizeName(node.Name)), collectionSize));
+  return matched.map(node => buildCircularChartConfig(node, leaves.get(normalizeName(node.Name)), collection));
 }
 
 // The collection's own ChartSize — also what the collection component sizes

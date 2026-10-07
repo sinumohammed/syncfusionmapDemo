@@ -465,7 +465,14 @@ export class NxCircularChartCollectionComponent implements OnChanges, AfterViewI
     const available =
       contentBottom - viewport.getBoundingClientRect().top - below - px(viewportStyle.paddingTop) - px(viewportStyle.paddingBottom);
     const perRow = (available - px(getComputedStyle(track).rowGap) * (this.rows - 1)) / this.rows;
-    return Math.max(MIN_FIT_BOX_PX, Math.floor(perRow - CARD_CHROME_PX));
+    // LabelPosition Bottom adds the name's line(s) under the ring — the
+    // tallest one counts (its height follows the font/width, not the box).
+    let labelPx = 0;
+    track.querySelectorAll<HTMLElement>(".nx-circular-chart-bottom-label").forEach(label => {
+      const style = getComputedStyle(label);
+      labelPx = Math.max(labelPx, label.getBoundingClientRect().height + px(style.marginTop) + px(style.marginBottom));
+    });
+    return Math.max(MIN_FIT_BOX_PX, Math.floor(perRow - CARD_CHROME_PX - labelPx));
   }
 
   ngOnChanges(changes: SimpleChanges): void {

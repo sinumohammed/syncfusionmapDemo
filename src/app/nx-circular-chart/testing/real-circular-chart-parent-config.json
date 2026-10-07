@@ -33,7 +33,7 @@
   "Param2": null,
   "Param1": null,
   "GridRow": 2,
-  "GridColumn": 3,
+  "GridColumn": 2,
   "Gap": null,
   "CollectionCSSClass": null,
   "ApiUrl": "assets/mock-api/trend-response.json",
@@ -44,7 +44,8 @@
   "ComponentType": 7121,
   "ElementType": 7121,
   "Title": "DONUT COLLECTION",
-  "ChartSize": "Large",
+  "ChartSize": "s",
+  "LabelPosition": "inside",
   "Configuration": [
     {
       "SupportedIdentity": 144,
@@ -299,7 +300,8 @@
       "ElementName": "DONUT_OTHER",
       "ElementTemplateName": "COMPONENT_NXCIRCULAR_CHART"
     },
-    {
+    {      
+      "LabelPosition": "outside",
       "SupportedIdentity": 144,
       "Name": "SALT",
       "Columns": 24,

@@ -1,41 +1,70 @@
 <div class="nx-lld">
   <h2 class="nx-lld-title">LLD Configuration</h2>
 
-  <div class="nx-lld-toolbar">
-    <mat-form-field appearance="outline" class="nx-lld-view-select">
-      <mat-label>View</mat-label>
-      <mat-select [(value)]="selectedViewId" (selectionChange)="onViewChange()" [disabled]="!views.length">
-        <mat-option *ngFor="let v of views" [value]="v.id">{{ v.name }}</mat-option>
-      </mat-select>
-    </mat-form-field>
-    <button mat-flat-button color="primary" (click)="newView()" [disabled]="!lookups">New</button>
-    <button mat-stroked-button (click)="editView()" [disabled]="!selectedView">Edit</button>
-    <button mat-stroked-button color="warn" (click)="deleteView()" [disabled]="!selectedView">Delete</button>
-  </div>
+  <section class="nx-lld-view-card">
+    <mat-progress-bar *ngIf="isLoading" mode="indeterminate" class="nx-lld-loader"></mat-progress-bar>
 
-  <mat-progress-bar *ngIf="isLoading" mode="indeterminate"></mat-progress-bar>
+    <div class="nx-lld-view-card-head">
+      <mat-form-field appearance="outline" class="nx-lld-view-select">
+        <mat-label>View</mat-label>
+        <mat-select [(value)]="selectedViewId" (selectionChange)="onViewChange()" [disabled]="!views.length">
+          <mat-option *ngFor="let v of views" [value]="v.id">{{ v.name }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+      <button mat-icon-button class="nx-lld-icon-btn" matTooltip="Edit view" aria-label="Edit view" (click)="editView()" [disabled]="!selectedView">
+        <ng-container *ngTemplateOutlet="editIcon"></ng-container>
+      </button>
+      <button mat-icon-button class="nx-lld-icon-btn nx-lld-delete" matTooltip="Delete view" aria-label="Delete view" (click)="deleteView()" [disabled]="!selectedView">
+        <ng-container *ngTemplateOutlet="deleteIcon"></ng-container>
+      </button>
+      <span
+        *ngIf="selectedView"
+        class="nx-lld-status"
+        [class.nx-lld-status--public]="selectedView.status === ViewStatus.Public"
+        [matTooltip]="selectedView.status === ViewStatus.Public ? 'Visible to everyone' : 'Visible only to you'"
+      >
+        <svg *ngIf="selectedView.status === ViewStatus.Public" viewBox="0 0 24 24" class="nx-lld-icon nx-lld-icon--sm"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm6.93 6h-2.95a15.7 15.7 0 0 0-1.38-3.56A8.03 8.03 0 0 1 18.93 8zM12 4.04c.83 1.2 1.48 2.53 1.91 3.96h-3.82c.43-1.43 1.08-2.76 1.91-3.96zM4.26 14a7.9 7.9 0 0 1 0-4h3.38a16.5 16.5 0 0 0 0 4H4.26zm.81 2h2.95c.32 1.25.78 2.45 1.38 3.56A7.99 7.99 0 0 1 5.07 16zm2.95-8H5.07a7.99 7.99 0 0 1 4.33-3.56A15.7 15.7 0 0 0 8.02 8zM12 19.96A14.1 14.1 0 0 1 10.09 16h3.82A14.1 14.1 0 0 1 12 19.96zM14.34 14H9.66a14.7 14.7 0 0 1 0-4h4.68a14.7 14.7 0 0 1 0 4zm.25 5.56c.6-1.11 1.06-2.31 1.38-3.56h2.95a8.03 8.03 0 0 1-4.33 3.56zM16.36 14a16.5 16.5 0 0 0 0-4h3.38a7.9 7.9 0 0 1 0 4h-3.38z" /></svg>
+        <svg *ngIf="selectedView.status !== ViewStatus.Public" viewBox="0 0 24 24" class="nx-lld-icon nx-lld-icon--sm"><path d="M18 8h-1V6A5 5 0 0 0 7 6v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2zm-6 9a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm3.1-9H8.9V6a3.1 3.1 0 0 1 6.2 0v2z" /></svg>
+        {{ selectedStatusLabel }}
+      </span>
+      <button mat-flat-button color="primary" class="nx-lld-new-btn" (click)="newView()" [disabled]="!lookups">
+        <ng-container *ngTemplateOutlet="addIcon"></ng-container>
+        New View
+      </button>
+    </div>
 
-  <div class="nx-lld-empty" *ngIf="!isLoading && lookups && !views.length">No views yet — click New to create one.</div>
+    <div class="nx-lld-view-card-body" *ngIf="selectedView">
+      <div class="nx-lld-field">
+        <span class="nx-lld-field-label">Subsurface</span>
+        <span class="nx-lld-field-value">{{ selectedSubsurfaceName }}</span>
+      </div>
+      <div class="nx-lld-field">
+        <span class="nx-lld-field-label">Stations ({{ selectedStations.length }})</span>
+        <span class="nx-lld-chips">
+          <span class="nx-lld-chip" *ngFor="let station of selectedStations">{{ station.name }}</span>
+        </span>
+      </div>
+      <div class="nx-lld-field nx-lld-field--full" *ngIf="selectedView.description">
+        <span class="nx-lld-field-label">Description</span>
+        <span class="nx-lld-field-value nx-lld-description">{{ selectedView.description }}</span>
+      </div>
+    </div>
+
+    <div class="nx-lld-view-card-body nx-lld-empty" *ngIf="!isLoading && lookups && !views.length">
+      No views yet — click New View to create one.
+    </div>
+  </section>
 
   <ng-container *ngIf="selectedView">
-    <div class="nx-lld-view-summary">
-      <div>
-        <span class="nx-lld-label">Subsurface:</span> {{ selectedSubsurfaceName }}
-        <span class="nx-lld-label nx-lld-label--gap">Status:</span> {{ selectedStatusLabel }}
-      </div>
-      <div class="nx-lld-chips">
-        <span class="nx-lld-label">Stations:</span>
-        <span class="nx-lld-chip" *ngFor="let station of selectedStations">{{ station.name }}</span>
-      </div>
-      <div *ngIf="selectedView.description"><span class="nx-lld-label">Description:</span> {{ selectedView.description }}</div>
-    </div>
-
     <div class="nx-lld-section-header">
       <h3 class="nx-lld-section-title">Groups</h3>
-      <button mat-flat-button color="primary" (click)="addGroup()">+ Add Group</button>
+      <button mat-stroked-button color="primary" (click)="addGroup()">
+        <ng-container *ngTemplateOutlet="addIcon"></ng-container>
+        Add Group
+      </button>
     </div>
 
-    <div class="nx-lld-empty" *ngIf="!isLoading && !groups.length">No groups in this view yet — click Add Group.</div>
+    <div class="nx-lld-empty" *ngIf="!isLoading && !groups.length">No groups in this view yet — click Add Group to start.</div>
 
     <mat-accordion multi class="nx-lld-groups">
       <mat-expansion-panel
@@ -50,24 +79,80 @@
             <span>View: {{ selectedView.name }}</span>
             <span class="nx-lld-count">{{ group.subGroups.length }} sub-group(s)</span>
             <span class="nx-lld-actions">
-              <button mat-icon-button type="button" title="Edit group" aria-label="Edit group" (click)="editGroup(group, $event)" (keydown.enter)="$event.stopPropagation()">
-                <svg viewBox="0 0 24 24" class="nx-lld-icon"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" /></svg>
+              <button mat-icon-button type="button" matTooltip="Edit group" aria-label="Edit group" (click)="editGroup(group, $event)" (keydown.enter)="$event.stopPropagation()">
+                <ng-container *ngTemplateOutlet="editIcon"></ng-container>
               </button>
-              <button mat-icon-button type="button" class="nx-lld-delete" title="Delete group" aria-label="Delete group" (click)="deleteGroup(group, $event)" (keydown.enter)="$event.stopPropagation()">
-                <svg viewBox="0 0 24 24" class="nx-lld-icon"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" /></svg>
+              <button mat-icon-button type="button" class="nx-lld-delete" matTooltip="Delete group" aria-label="Delete group" (click)="deleteGroup(group, $event)" (keydown.enter)="$event.stopPropagation()">
+                <ng-container *ngTemplateOutlet="deleteIcon"></ng-container>
               </button>
             </span>
           </mat-panel-description>
         </mat-expansion-panel-header>
 
-        <div class="nx-lld-empty" *ngIf="!group.subGroups.length">No sub-groups yet.</div>
+        <div class="nx-lld-subgroups-header">
+          <span class="nx-lld-empty" *ngIf="!group.subGroups.length">No sub-groups yet.</span>
+          <button mat-button color="primary" (click)="addSubGroup(group)">
+            <ng-container *ngTemplateOutlet="addIcon"></ng-container>
+            Add Sub-group
+          </button>
+        </div>
+
         <div class="nx-lld-subgroup" *ngFor="let sub of group.subGroups">
-          <span class="nx-lld-subgroup-name">{{ sub.name }}</span>
-          <span>Type: {{ typeName(sub.typeId) }}</span>
-          <span>Template: {{ templateLabel(sub.typeId, sub.templateId) }}</span>
-          <span class="nx-lld-count">{{ sub.equipmentIds.length }} equipment(s)</span>
+          <div
+            class="nx-lld-subgroup-row"
+            role="button"
+            tabindex="0"
+            [attr.aria-expanded]="expandedSubGroupIds.has(sub.id!)"
+            (click)="toggleSubGroup(sub)"
+            (keydown.enter)="toggleSubGroup(sub)"
+          >
+            <svg viewBox="0 0 24 24" class="nx-lld-icon nx-lld-chevron" [class.nx-lld-chevron--open]="expandedSubGroupIds.has(sub.id!)">
+              <path d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z" />
+            </svg>
+            <span class="nx-lld-subgroup-name">{{ sub.name }}</span>
+            <span>Type: {{ typeName(sub.typeId) }}</span>
+            <span>Template: {{ templateLabel(sub.typeId, sub.templateId) }}</span>
+            <span class="nx-lld-count">{{ sub.equipments.length }} equipment(s)</span>
+            <span class="nx-lld-actions">
+              <button mat-icon-button type="button" matTooltip="Edit sub-group" aria-label="Edit sub-group" (click)="editSubGroup(group, sub, $event)" (keydown.enter)="$event.stopPropagation()">
+                <ng-container *ngTemplateOutlet="editIcon"></ng-container>
+              </button>
+              <button mat-icon-button type="button" class="nx-lld-delete" matTooltip="Delete sub-group" aria-label="Delete sub-group" (click)="deleteSubGroup(sub, $event)" (keydown.enter)="$event.stopPropagation()">
+                <ng-container *ngTemplateOutlet="deleteIcon"></ng-container>
+              </button>
+            </span>
+          </div>
+          <table class="nx-lld-equipments" *ngIf="expandedSubGroupIds.has(sub.id!)">
+            <thead>
+              <tr>
+                <th>Equipment</th>
+                <th>Name</th>
+                <th>Path</th>
+                <th>Attribute</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let e of sub.equipments">
+                <td>{{ equipmentName(e.equipmentId) }}</td>
+                <td>{{ e.name }}</td>
+                <td class="nx-lld-path">{{ e.path || "—" }}</td>
+                <td>{{ e.attribute || "—" }}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </mat-expansion-panel>
     </mat-accordion>
   </ng-container>
 </div>
+
+<!-- Shared icons (the app has no icon font). -->
+<ng-template #addIcon>
+  <svg viewBox="0 0 24 24" class="nx-lld-icon nx-lld-icon--btn"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" /></svg>
+</ng-template>
+<ng-template #editIcon>
+  <svg viewBox="0 0 24 24" class="nx-lld-icon"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" /></svg>
+</ng-template>
+<ng-template #deleteIcon>
+  <svg viewBox="0 0 24 24" class="nx-lld-icon"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" /></svg>
+</ng-template>

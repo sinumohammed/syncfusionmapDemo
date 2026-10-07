@@ -2,10 +2,11 @@ import { Component, OnDestroy, OnInit } from "@angular/core";
 import { MatDialog } from "@angular/material/dialog";
 import { forkJoin, Observable, of, Subject, Subscription } from "rxjs";
 import { finalize, switchMap } from "rxjs/operators";
-import { LLD_VIEW_STATUS_OPTIONS, LldGroup, LldGroupWithSubGroups, LldLookups, LldOption, LldView } from "./model/nx-lld.model";
+import { LLD_VIEW_STATUS_OPTIONS, LldGroup, LldGroupWithSubGroups, LldLookups, LldOption, LldSubGroup, LldView, LldViewStatus } from "./model/nx-lld.model";
 import { NxLldService } from "./services/nx-lld.service";
 import { LldViewDialogData, NxLldViewDialogComponent } from "./nx-lld-view-dialog.component";
 import { LldGroupDialogData, NxLldGroupDialogComponent } from "./nx-lld-group-dialog.component";
+import { LldSubGroupDialogData, NxLldSubGroupDialogComponent } from "./nx-lld-subgroup-dialog.component";
 import { LldConfirmDialogData, NxLldConfirmDialogComponent } from "./nx-lld-confirm-dialog.component";
 
 // TODO(host): replace with the logged-in user's API token (the host app
@@ -14,14 +15,14 @@ const LLD_API_TOKEN = "";
 
 // The LLD Configuration screen: View dropdown (New/Edit/Delete) over the
 // grouped layout — one expansion panel per group of the selected view,
-// listing its sub-groups. Sub-group add/edit/delete and the equipment
-// toggle come next.
+// listing its sub-groups; each sub-group row toggles its equipment list.
 @Component({
   selector: "app-nx-lld-config",
   templateUrl: "./nx-lld-config.component.html",
   styleUrls: ["./nx-lld-config.component.scss"]
 })
 export class NxLldConfigComponent implements OnInit, OnDestroy {
+  readonly ViewStatus = LldViewStatus;
   lookups: LldLookups | null = null;
   views: LldView[] = [];
   selectedViewId: number | null = null;
@@ -29,6 +30,8 @@ export class NxLldConfigComponent implements OnInit, OnDestroy {
   // Which group panels are open — kept by id so a reload after a save
   // doesn't collapse them.
   readonly expandedGroupIds = new Set<number>();
+  // Which sub-groups show their equipment list — same idea.
+  readonly expandedSubGroupIds = new Set<number>();
 
   // A counter, not a boolean — overlapping calls (delete -> refetch) must
   // not switch the loader off while one is still running.
@@ -91,6 +94,7 @@ export class NxLldConfigComponent implements OnInit, OnDestroy {
   onViewChange(): void {
     this.groups = [];
     this.expandedGroupIds.clear();
+    this.expandedSubGroupIds.clear();
     this.groupsRequest$.next(this.selectedViewId);
   }
 
@@ -200,6 +204,64 @@ export class NxLldConfigComponent implements OnInit, OnDestroy {
           // A new group opens straight away, ready for its sub-groups.
           if (!group && saved.id != null) {
             this.expandedGroupIds.add(saved.id);
+          }
+          this.reloadGroups();
+        }
+      });
+  }
+
+  // -------------------------------------------------------- sub-groups
+  toggleSubGroup(sub: LldSubGroup): void {
+    if (!this.expandedSubGroupIds.delete(sub.id!)) {
+      this.expandedSubGroupIds.add(sub.id!);
+    }
+  }
+
+  addSubGroup(group: LldGroup): void {
+    this.openSubGroupDialog(group);
+  }
+
+  editSubGroup(group: LldGroup, sub: LldSubGroup, event: Event): void {
+    event.stopPropagation();
+    this.openSubGroupDialog(group, sub);
+  }
+
+  deleteSubGroup(sub: LldSubGroup, event: Event): void {
+    event.stopPropagation();
+    this.confirm(
+      "Delete Sub-group",
+      `Delete sub-group "${sub.name}"? Its ${sub.equipments.length} equipment(s) will be removed too.`
+    ).subscribe(confirmed => {
+      if (confirmed) {
+        this.track(this.lldService.deleteSubGroup(sub.id!, LLD_API_TOKEN)).subscribe(() => {
+          this.expandedSubGroupIds.delete(sub.id!);
+          this.reloadGroups();
+        });
+      }
+    });
+  }
+
+  equipmentName(id: string): string {
+    return this.lookups?.equipments.find(e => e.id === id)?.name ?? id;
+  }
+
+  private openSubGroupDialog(group: LldGroup, subGroup?: LldSubGroup): void {
+    if (!this.lookups) {
+      return;
+    }
+    this.dialog
+      .open<NxLldSubGroupDialogComponent, LldSubGroupDialogData, LldSubGroup>(NxLldSubGroupDialogComponent, {
+        // Wide enough for each equipment's Name / Path / Attribute row.
+        width: "720px",
+        maxWidth: "95vw",
+        data: { subGroup, group, lookups: this.lookups, token: LLD_API_TOKEN }
+      })
+      .afterClosed()
+      .subscribe(saved => {
+        if (saved) {
+          // A new sub-group opens straight away to show its equipments.
+          if (!subGroup && saved.id != null) {
+            this.expandedSubGroupIds.add(saved.id);
           }
           this.reloadGroups();
         }

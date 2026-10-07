@@ -33,6 +33,77 @@
   font-size: 12px;
   color: #6b7280;
 }
+// Sub-group popup: equipment picker + the list of added equipments.
+.nx-lld-dialog-equipments {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.nx-lld-dialog-equipment-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  mat-form-field {
+    flex: 1 1 auto;
+  }
+  button {
+    margin-bottom: 1.25em;
+  }
+}
+.nx-lld-dialog-equipment-list {
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+}
+.nx-lld-dialog-equipment {
+  padding: 4px 12px 0;
+  border-top: 1px solid #f0f0f0;
+
+  &:first-child {
+    border-top: none;
+  }
+}
+.nx-lld-dialog-equipment-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+.nx-lld-dialog-equipment-name {
+  flex: 1 1 auto;
+  font-weight: 600;
+}
+.nx-lld-dialog-equipment-template {
+  color: #6b7280;
+}
+// Name / Path / Attribute side by side.
+.nx-lld-dialog-equipment-fields {
+  display: flex;
+  gap: 8px;
+
+  mat-form-field {
+    flex: 1 1 0;
+    min-width: 0;
+    font-size: 13px;
+  }
+}
+.nx-lld-dialog-remove svg {
+  width: 18px;
+  height: 18px;
+  fill: #d32f2f;
+}
+.nx-lld-dialog-lock {
+  padding: 6px 10px;
+  border-radius: 4px;
+  background: #fff7e6;
+  color: #92400e;
+  font-size: 12px;
+}
+.nx-lld-dialog-field-error {
+  color: #d32f2f;
+  font-size: 12px;
+}
 // The API's own message for a rejected save (e.g. a duplicate name).
 .nx-lld-dialog-alert {
   padding: 8px 12px;

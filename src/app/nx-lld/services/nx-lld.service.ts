@@ -207,7 +207,8 @@ export class NxLldService {
 
   // Server-side safety net for the popup's own rules: one type + one
   // template (of that type) per sub-group, at least one equipment, no
-  // duplicates.
+  // duplicate equipments — plus the name check only the server can do
+  // (unique within the group).
   private validateSubGroup(s: LldSubGroup): string | null {
     const type = this.mockLookups.subGroupTypes.find(t => t.id === s.typeId);
     if (!s.name?.trim()) {
@@ -219,11 +220,18 @@ export class NxLldService {
     if (!type.templates.some(t => t.id === s.templateId)) {
       return "Template does not belong to the selected type";
     }
-    if (!s.equipmentIds?.length) {
+    if (!s.equipments?.length) {
       return "Add at least one equipment";
     }
-    if (new Set(s.equipmentIds).size !== s.equipmentIds.length) {
+    if (new Set(s.equipments.map(e => e.equipmentId)).size !== s.equipments.length) {
       return "The same equipment is added more than once";
+    }
+    if (s.equipments.some(e => !e.name?.trim())) {
+      return "Every equipment needs a name";
+    }
+    const name = s.name.trim().toLowerCase();
+    if (this.store.subGroups.some(o => o.id !== s.id && o.groupId === s.groupId && o.name.trim().toLowerCase() === name)) {
+      return `This group already has a sub-group named "${s.name}"`;
     }
     return null;
   }

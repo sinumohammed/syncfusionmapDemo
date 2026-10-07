@@ -76,8 +76,18 @@ export interface LldSubGroup {
   name: string;
   typeId: string;
   templateId: string;
-  // At least one; no duplicates.
-  equipmentIds: string[];
+  // At least one; the same equipment never twice.
+  equipments: LldSubGroupEquipment[];
+}
+
+// One equipment in a sub-group, with the meta information entered for it.
+export interface LldSubGroupEquipment {
+  // Which lookup equipment this is.
+  equipmentId: string;
+  // Pre-filled from the equipment's own name, editable. Required.
+  name: string;
+  path: string;
+  attribute: string;
 }
 
 // What getGroups(viewId) returns: each group with its own sub-groups, so

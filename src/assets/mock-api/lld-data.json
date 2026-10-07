@@ -48,10 +48,25 @@
       "name": "ESP-1",
       "typeId": "T-ESP",
       "templateId": "ESP-V2",
-      "equipmentIds": [
-        "EQ-MTR-01",
-        "EQ-PMP-07",
-        "EQ-CBL-03"
+      "equipments": [
+        {
+          "equipmentId": "EQ-MTR-01",
+          "name": "Motor-01",
+          "path": "Field/ESP-1/Motor-01",
+          "attribute": "Speed"
+        },
+        {
+          "equipmentId": "EQ-PMP-07",
+          "name": "Pump-07",
+          "path": "Field/ESP-1/Pump-07",
+          "attribute": "Discharge Pressure"
+        },
+        {
+          "equipmentId": "EQ-CBL-03",
+          "name": "Cable-03",
+          "path": "Field/ESP-1/Cable-03",
+          "attribute": "Insulation Resistance"
+        }
       ]
     },
     {
@@ -60,9 +75,19 @@
       "name": "ESP-2",
       "typeId": "T-ESP",
       "templateId": "ESP-V1",
-      "equipmentIds": [
-        "EQ-MTR-02",
-        "EQ-PMP-08"
+      "equipments": [
+        {
+          "equipmentId": "EQ-MTR-02",
+          "name": "Motor-02",
+          "path": "Field/ESP-2/Motor-02",
+          "attribute": "Speed"
+        },
+        {
+          "equipmentId": "EQ-PMP-08",
+          "name": "Pump-08",
+          "path": "Field/ESP-2/Pump-08",
+          "attribute": "Discharge Pressure"
+        }
       ]
     },
     {
@@ -71,8 +96,13 @@
       "name": "BP-1",
       "typeId": "T-BPU",
       "templateId": "BPU-V1",
-      "equipmentIds": [
-        "EQ-SEP-02"
+      "equipments": [
+        {
+          "equipmentId": "EQ-SEP-02",
+          "name": "Separator-02",
+          "path": "Field/BP-1/Separator-02",
+          "attribute": "Level"
+        }
       ]
     }
   ]

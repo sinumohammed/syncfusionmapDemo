@@ -1,0 +1,89 @@
+<h2 mat-dialog-title class="nx-lld-dialog-title">
+  {{ isEdit ? "Edit Sub-group" : "Add Sub-group" }}
+  <span class="nx-lld-dialog-id" *ngIf="isEdit" title="Sub-group ID">ID {{ data.subGroup?.id }}</span>
+</h2>
+<mat-progress-bar *ngIf="saving" mode="indeterminate"></mat-progress-bar>
+<div mat-dialog-content>
+  <div [formGroup]="form" class="nx-lld-dialog-form">
+    <div class="nx-lld-dialog-readonly">
+      <span class="nx-lld-dialog-readonly-label">Group</span>
+      <span>{{ data.group.name }}</span>
+    </div>
+
+    <mat-form-field appearance="fill">
+      <mat-label>Sub-group Type</mat-label>
+      <mat-select formControlName="typeId">
+        <mat-option *ngFor="let t of data.lookups.subGroupTypes" [value]="t.id">{{ t.name }}</mat-option>
+      </mat-select>
+      <mat-error *ngIf="form.get('typeId')?.hasError('required')">Sub-group type is required</mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill">
+      <mat-label>Template</mat-label>
+      <mat-select formControlName="templateId">
+        <mat-option *ngFor="let t of templates" [value]="t.id">{{ templateLabel(t) }}</mat-option>
+      </mat-select>
+      <mat-hint *ngIf="!selectedType">Choose a sub-group type first</mat-hint>
+      <mat-error *ngIf="form.get('templateId')?.hasError('required')">Template is required</mat-error>
+    </mat-form-field>
+
+    <div class="nx-lld-dialog-equipments">
+      <div class="nx-lld-dialog-equipment-add">
+        <mat-form-field appearance="fill">
+          <mat-label>Equipment</mat-label>
+          <mat-select [(value)]="equipmentToAdd" [disabled]="!selectedTemplate">
+            <mat-option *ngFor="let e of availableEquipments" [value]="e.id">{{ e.name }}</mat-option>
+          </mat-select>
+          <mat-hint *ngIf="!selectedTemplate">Choose a type and template first</mat-hint>
+        </mat-form-field>
+        <button mat-stroked-button color="primary" type="button" (click)="addEquipment()" [disabled]="!canAdd">Add</button>
+      </div>
+
+      <div class="nx-lld-dialog-lock" *ngIf="isLocked">
+        Template is fixed to {{ selectedTemplate ? templateLabel(selectedTemplate) : "" }} while equipments exist — remove them
+        all to change it.
+      </div>
+
+      <div class="nx-lld-dialog-equipment-list" formArrayName="equipments" *ngIf="equipments.length">
+        <div class="nx-lld-dialog-equipment" *ngFor="let row of equipmentGroups; let i = index" [formGroupName]="i">
+          <div class="nx-lld-dialog-equipment-head">
+            <span class="nx-lld-dialog-equipment-name">{{ equipmentName(row.get('equipmentId')?.value) }}</span>
+            <span class="nx-lld-dialog-equipment-template">{{ selectedTemplate ? templateLabel(selectedTemplate) : "" }}</span>
+            <button mat-icon-button type="button" class="nx-lld-dialog-remove" title="Remove equipment" aria-label="Remove equipment" (click)="removeEquipment(i)">
+              <svg viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" /></svg>
+            </button>
+          </div>
+          <div class="nx-lld-dialog-equipment-fields">
+            <mat-form-field appearance="outline">
+              <mat-label>Name</mat-label>
+              <input matInput formControlName="name" />
+              <mat-error *ngIf="row.get('name')?.hasError('required')">Name is required</mat-error>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Path</mat-label>
+              <input matInput formControlName="path" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Attribute</mat-label>
+              <input matInput formControlName="attribute" />
+            </mat-form-field>
+          </div>
+        </div>
+      </div>
+
+      <div class="nx-lld-dialog-field-error" *ngIf="equipments.touched && !equipments.length">Add at least one equipment</div>
+    </div>
+
+    <mat-form-field appearance="fill">
+      <mat-label>Sub-group Name</mat-label>
+      <input matInput formControlName="name" />
+      <mat-error *ngIf="form.get('name')?.hasError('required')">Sub-group name is required</mat-error>
+    </mat-form-field>
+
+    <div class="nx-lld-dialog-alert" role="alert" *ngIf="saveError">{{ saveError }}</div>
+  </div>
+</div>
+<div mat-dialog-actions align="end">
+  <button mat-button mat-dialog-close [disabled]="saving">Cancel</button>
+  <button mat-flat-button color="primary" (click)="save()" [disabled]="saving">Save</button>
+</div>

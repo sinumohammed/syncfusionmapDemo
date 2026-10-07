@@ -9,9 +9,11 @@ import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatInputModule } from "@angular/material/input";
 import { MatProgressBarModule } from "@angular/material/progress-bar";
 import { MatSelectModule } from "@angular/material/select";
+import { MatTooltipModule } from "@angular/material/tooltip";
 import { NxLldConfigComponent } from "./nx-lld-config.component";
 import { NxLldConfirmDialogComponent } from "./nx-lld-confirm-dialog.component";
 import { NxLldGroupDialogComponent } from "./nx-lld-group-dialog.component";
+import { NxLldSubGroupDialogComponent } from "./nx-lld-subgroup-dialog.component";
 import { NxLldViewDialogComponent } from "./nx-lld-view-dialog.component";
 import { NxLldService } from "./services/nx-lld.service";
 
@@ -19,7 +21,7 @@ import { NxLldService } from "./services/nx-lld.service";
 // <app-nx-lld-config></app-nx-lld-config> where the LLD screen should render.
 // Needs BrowserAnimationsModule at the root for its Material dialogs.
 @NgModule({
-  declarations: [NxLldConfigComponent, NxLldConfirmDialogComponent, NxLldViewDialogComponent, NxLldGroupDialogComponent],
+  declarations: [NxLldConfigComponent, NxLldConfirmDialogComponent, NxLldViewDialogComponent, NxLldGroupDialogComponent, NxLldSubGroupDialogComponent],
   imports: [
     CommonModule,
     HttpClientModule,
@@ -30,7 +32,8 @@ import { NxLldService } from "./services/nx-lld.service";
     MatFormFieldModule,
     MatInputModule,
     MatProgressBarModule,
-    MatSelectModule
+    MatSelectModule,
+    MatTooltipModule
   ],
   providers: [NxLldService],
   exports: [NxLldConfigComponent]

@@ -1,4 +1,4 @@
-<div class="nx-circular-chart-panel" [ngClass]="theme">
+<div #panelEl class="nx-circular-chart-panel" [ngClass]="theme">
   <!-- Renders at all only when there's a title OR the comments feature is
        on (showComments — see its own comment) — with neither, this would
        just be an empty flex row taking up space for nothing. -->
@@ -32,8 +32,9 @@
        about to appear" rather than a single generic spinner. -->
   <div class="nx-circular-chart-grid-scroll" *ngIf="loading">
     <div class="nx-circular-chart-grid" [style.grid-template-columns]="'repeat(' + columns + ', minmax(0, 1fr))'">
-      <div class="nx-circular-chart-skeleton" *ngFor="let _ of skeletonItems">
-        <span class="nx-circular-chart-skeleton-ring"></span>
+      <div class="nx-circular-chart-skeleton" *ngFor="let _ of skeletonItems" [style.height.px]="skeletonBoxPx">
+        <!-- 60px at the Small (130px) box — scaled with it. -->
+        <span class="nx-circular-chart-skeleton-ring" [style.width.px]="skeletonBoxPx * 0.46" [style.height.px]="skeletonBoxPx * 0.46"></span>
         <span class="nx-circular-chart-skeleton-title"></span>
       </div>
     </div>
@@ -57,6 +58,7 @@
       [config]="circularChart"
       [selected]="selectedId === circularChart.id"
       [palette]="seriesPalette"
+      [maxBoxPx]="maxBoxPx"
       (select)="onCircularChartSelected(circularChart)"
     ></app-nx-circular-chart>
   </ng-template>

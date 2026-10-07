@@ -1,9 +1,23 @@
-import { ChangeDetectorRef, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from "@angular/core";
-import { buildCircularChartConfigs, visibleCircularChartCount } from "./services/parent-circular-chart-config-transform";
+import {
+  AfterViewInit,
+  ChangeDetectorRef,
+  Component,
+  ElementRef,
+  EventEmitter,
+  Input,
+  OnChanges,
+  OnDestroy,
+  Output,
+  SimpleChanges,
+  ViewChild
+} from "@angular/core";
+import { buildCircularChartConfigs, collectionChartSize, visibleCircularChartCount } from "./services/parent-circular-chart-config-transform";
 import { NxCircularChartConfigService } from "./services/nx-circular-chart-config.service";
 import {
+  CIRCULAR_CHART_SIZE_SPECS,
   CircularChartConfig,
   CircularChartSelectionEvent,
+  CircularChartSize,
   DEFAULT_SERIES_PALETTE,
   parseSeriesPalette,
   RawCircularChartCollectionNode,
@@ -11,6 +25,13 @@ import {
   TrendNode
 } from "./model/nx-circular-chart-model";
 import { MarkerShape } from "../nx-map-common/nx-map-common.model";
+
+// A card's height beyond its chart box: 6px padding + 1px border on each
+// side (nx-circular-chart.component.scss's .nx-circular-chart-card) plus
+// the 3px Syncfusion renders past its own height attribute.
+const CARD_CHROME_PX = 17;
+// Never shrink a chart below this, however little height is left.
+const MIN_FIT_BOX_PX = 80;
 
 // Iterates NxCircularChartComponent — one <app-nx-circular-chart> per circular chart buildCircularChartConfigs()
 // resolves from the two inputs below, purely off its own returned length,
@@ -35,7 +56,7 @@ import { MarkerShape } from "../nx-map-common/nx-map-common.model";
   templateUrl: "./nx-circular-chart-collection.component.html",
   styleUrls: ["./nx-circular-chart-collection.component.scss"]
 })
-export class NxCircularChartCollectionComponent implements OnChanges {
+export class NxCircularChartCollectionComponent implements OnChanges, AfterViewInit, OnDestroy {
   // The upstream widget payload's own collection node (ComponentType 7121,
   // COMPONENT_NXCIRCULAR_COLLECTION) — see parent-circular-chart-config-transform.ts
   // for the exact shape this reads. No bundled default (same reasoning as
@@ -347,6 +368,13 @@ export class NxCircularChartCollectionComponent implements OnChanges {
   // than as a getter re-run on every change-detection pass.
   skeletonItems: number[] = [];
 
+  // Skeleton cards match the collection's ChartSize (a chart's own override
+  // isn't known until its config is built), so the grid doesn't jump in
+  // height when the real cards replace them.
+  get skeletonBoxPx(): number {
+    return CIRCULAR_CHART_SIZE_SPECS[collectionChartSize(this.rawConfig) ?? CircularChartSize.Small].boxPx;
+  }
+
   // Bumped on every ngOnChanges run and captured per in-flight ApiUrl fetch
   // so a stale response from a superseded rawConfig can't overwrite a
   // newer one that resolved first.
@@ -371,7 +399,74 @@ export class NxCircularChartCollectionComponent implements OnChanges {
     return this.rows > 0 ? Math.min(totalCount, this.columns * this.rows) : totalCount;
   }
 
+  // Tallest chart box each card may use so `rows` rows of cards still fit
+  // the panel's height (passed to every card's [maxBoxPx]). Only the
+  // carousel (rows > 0) needs it: its viewport clips anything taller —
+  // that cut off the bottom of Extra Large cards on the half-height Trend
+  // page. The plain grid (rows <= 0) scrolls instead, so it stays null.
+  maxBoxPx: number | null = null;
+
+  @ViewChild("panelEl", { static: true }) private panelEl!: ElementRef<HTMLElement>;
+  private panelResizeObserver?: ResizeObserver;
+  private fitTimer?: ReturnType<typeof setTimeout>;
+
   constructor(private configService: NxCircularChartConfigService, private cdr: ChangeDetectorRef) {}
+
+  ngAfterViewInit(): void {
+    this.panelResizeObserver = new ResizeObserver(() => this.scheduleFit());
+    this.panelResizeObserver.observe(this.panelEl.nativeElement);
+  }
+
+  ngOnDestroy(): void {
+    this.panelResizeObserver?.disconnect();
+    if (this.fitTimer !== undefined) {
+      clearTimeout(this.fitTimer);
+    }
+  }
+
+  // After the panel resizes or new cards render — measured on the next tick
+  // so the pagination dots/legend below the carousel are already laid out.
+  private scheduleFit(): void {
+    if (this.fitTimer !== undefined) {
+      clearTimeout(this.fitTimer);
+    }
+    this.fitTimer = setTimeout(() => {
+      this.fitTimer = undefined;
+      const next = this.measureMaxBoxPx();
+      if (next !== this.maxBoxPx) {
+        this.maxBoxPx = next;
+        this.cdr.detectChanges();
+      }
+    }, 0);
+  }
+
+  // The panel's content height, minus what sits above the carousel (header)
+  // and below it (pagination dots, legend — their heights don't depend on
+  // the cards), split across `rows` rows, minus each card's own chrome.
+  // Measured from the panel rather than the viewport itself: the viewport
+  // shrinks to its content, so measuring it would never let cards grow back
+  // once the window gets taller.
+  private measureMaxBoxPx(): number | null {
+    const panel = this.panelEl?.nativeElement;
+    const viewport = panel?.querySelector<HTMLElement>(".nx-circular-chart-viewport");
+    const track = viewport?.firstElementChild as HTMLElement | null | undefined;
+    if (!panel || !viewport || !track || this.rows <= 0) {
+      return null;
+    }
+    const px = (value: string): number => parseFloat(value) || 0;
+    const panelStyle = getComputedStyle(panel);
+    const contentBottom = panel.getBoundingClientRect().bottom - px(panelStyle.borderBottomWidth) - px(panelStyle.paddingBottom);
+    let below = 0;
+    for (let el = viewport.nextElementSibling as HTMLElement | null; el; el = el.nextElementSibling as HTMLElement | null) {
+      const style = getComputedStyle(el);
+      below += el.getBoundingClientRect().height + px(style.marginTop) + px(style.marginBottom);
+    }
+    const viewportStyle = getComputedStyle(viewport);
+    const available =
+      contentBottom - viewport.getBoundingClientRect().top - below - px(viewportStyle.paddingTop) - px(viewportStyle.paddingBottom);
+    const perRow = (available - px(getComputedStyle(track).rowGap) * (this.rows - 1)) / this.rows;
+    return Math.max(MIN_FIT_BOX_PX, Math.floor(perRow - CARD_CHROME_PX));
+  }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (!changes.rawConfig && !changes.trendResponse) {
@@ -427,6 +522,8 @@ export class NxCircularChartCollectionComponent implements OnChanges {
 
   private applyConfigs(trendResponse: TrendNode[], useConfigFallback: boolean): void {
     this.circularCharts = this.rawConfig ? buildCircularChartConfigs(this.rawConfig, trendResponse, useConfigFallback) : [];
+    // New cards (and maybe pagination/legend) change what fits.
+    this.scheduleFit();
     // rawConfig.SeriesPalette when the host actually configured one (a
     // JSON-encoded string on a real upstream payload — see
     // parseSeriesPalette()'s own comment), else the shared

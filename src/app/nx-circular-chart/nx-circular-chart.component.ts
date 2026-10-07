@@ -13,7 +13,15 @@ import {
   ViewChild
 } from "@angular/core";
 import { AccumulationChart, AccumulationSeriesModel, AccumulationTooltip, PieSeries } from "@syncfusion/ej2-angular-charts";
-import { CircularChartConfig, CircularChartTypes, DEFAULT_SERIES_PALETTE, SeriesPaletteEntry } from "./model/nx-circular-chart-model";
+import {
+  CIRCULAR_CHART_SIZE_SPECS,
+  CircularChartConfig,
+  CircularChartSize,
+  CircularChartSizeSpec,
+  CircularChartTypes,
+  DEFAULT_SERIES_PALETTE,
+  SeriesPaletteEntry
+} from "./model/nx-circular-chart-model";
 
 // Same registration pattern as nx-map-demo.component.ts's Maps.Inject(...)
 // — only the pieces this component actually renders (pie series, its
@@ -44,16 +52,19 @@ const DEFAULT_RADIUS_PERCENT = 80;
 // 130 assumption instead, a narrow card (columns=4, ~97px wide) rendered
 // an ~104px ring that visibly overflowed past the card's own edges, while
 // every real (populated) chart alongside it had already shrunk to fit.
-const CHART_BOX_PX = 130;
+// The 130 above is the Small size's box; Medium/Large use their own
+// (CIRCULAR_CHART_SIZE_SPECS, read via `sizeSpec`) — same rules apply.
+
 // Delay before re-checking a chart's size after a resize/visibility change
 // (see NxCircularChartComponent.scheduleChartResync()).
 const RESYNC_DEBOUNCE_MS = 100;
 
-// Must match .nx-circular-chart-empty-ring's own CSS border-width exactly —
-// read by healthyInnerSizePx() below to size the healthy fill to this
-// ring's own actual hole, not an approximate percentage of it (see that
-// getter's own comment).
-const EMPTY_RING_BORDER_PX = 14;
+// The placeholder ring's band width is sizeSpec.ringBorderPx — bound inline
+// as .nx-circular-chart-empty-ring's border-width AND read by
+// healthyInnerSizePx() below, so the healthy fill matches the ring's own
+// actual hole, not an approximate percentage of it (see that getter's own
+// comment).
+
 // -135° = up-and-left — was -45°/up-and-right (the standard "notification
 // dot" position on a round avatar/ring) until confirmed live that a card
 // sitting near a clipping edge (nx-circular-chart-collection.component.scss's
@@ -163,6 +174,9 @@ export class NxCircularChartComponent implements OnChanges, AfterViewInit, OnDes
   // so a standalone <app-nx-circular-chart> (no collection wrapper) keeps
   // working exactly as before this existed.
   @Input() palette: SeriesPaletteEntry[] = DEFAULT_SERIES_PALETTE;
+  // Tallest chart box (px) that still fits the collection's available
+  // height — see `boxPx`. Null (standalone use, or no carousel) = no cap.
+  @Input() maxBoxPx: number | null = null;
 
   // Fired on a click anywhere on the card — no payload, since the
   // collection component already has this circular chart's own config/id in scope
@@ -289,13 +303,33 @@ export class NxCircularChartComponent implements OnChanges, AfterViewInit, OnDes
   // .nx-circular-chart-card's own actual rendered CONTENT width (i.e.
   // already excluding its own padding/border — ResizeObserver's
   // contentRect is defined that way) — kept live by the ResizeObserver set
-  // up in ngAfterViewInit(). Starts at CHART_BOX_PX, the same fixed value
-  // this class used unconditionally before measuring existed at all, so
-  // emptyRingSizePx below renders something reasonable for the one frame
-  // before the observer's first callback fires, instead of a 0px ring.
-  private measuredBoxPx = CHART_BOX_PX;
+  // up in ngAfterViewInit(). Starts unbounded, so emptyRingSizePx below
+  // (min of this and the size's own box) renders at the full box size for
+  // the one frame before the observer's first callback fires, instead of a
+  // 0px ring.
+  private measuredBoxPx = Number.POSITIVE_INFINITY;
 
-  // The real chart (`<ejs-accumulationchart>`) — see CHART_BOX_PX's own
+  // Box/font/ring dimensions for this card's configured size — Small (the
+  // original fixed 130px look) when unset.
+  get sizeSpec(): CircularChartSizeSpec {
+    return CIRCULAR_CHART_SIZE_SPECS[this.config?.size ?? CircularChartSize.Small];
+  }
+
+  // The chart box's actual height: the configured size's box, capped by
+  // `maxBoxPx` so a big size never outgrows the height its collection has
+  // (the width already shrinks on its own, see DEFAULT_RADIUS_PERCENT's own
+  // comment). Text keeps the configured size's fonts either way.
+  get boxPx(): number {
+    return Math.min(this.sizeSpec.boxPx, this.maxBoxPx ?? Number.POSITIVE_INFINITY);
+  }
+
+  // The ring's centre text — the configured short name when there is one
+  // (a long Name doesn't fit inside the ring), else the full label.
+  get displayLabel(): string {
+    return this.config?.shortName || this.config?.label || "";
+  }
+
+  // The real chart (`<ejs-accumulationchart>`) — see DEFAULT_RADIUS_PERCENT's own
   // comment for why the ResizeObserver watches THIS element specifically.
   @ViewChild("cardEl", { static: true }) private cardEl!: ElementRef<HTMLElement>;
   private resizeObserver?: ResizeObserver;
@@ -388,14 +422,14 @@ export class NxCircularChartComponent implements OnChanges, AfterViewInit, OnDes
   // default) as buildSeries() keeps them identical regardless of which one
   // a given card ends up rendering.
   //
-  // min(measuredBoxPx, CHART_BOX_PX), not measuredBoxPx alone — see
-  // CHART_BOX_PX's own comment: the real chart's radius is capped by
-  // whichever of width/height is smaller, and height stays fixed at 130px
-  // regardless of how wide the card gets, so this ring shouldn't grow past
-  // that either even on a card wide enough to allow it.
+  // min(measuredBoxPx, boxPx), not measuredBoxPx alone — see
+  // DEFAULT_RADIUS_PERCENT's own comment: the real chart's radius is capped
+  // by whichever of width/height is smaller, and height stays fixed at the
+  // size's box regardless of how wide the card gets, so this ring shouldn't
+  // grow past that either even on a card wide enough to allow it.
   get emptyRingSizePx(): number {
     const percent = parseFloat(this.config?.radius ?? "") || DEFAULT_RADIUS_PERCENT;
-    const boxPx = Math.min(this.measuredBoxPx, CHART_BOX_PX);
+    const boxPx = Math.min(this.measuredBoxPx, this.boxPx);
     return (boxPx * percent) / 100;
   }
 
@@ -407,13 +441,13 @@ export class NxCircularChartComponent implements OnChanges, AfterViewInit, OnDes
   // grey border — the two were never guaranteed to agree, and never do once
   // this ring's border stops being a round percentage of a round number).
   // Deriving it straight from the ring's own actual geometry — its outer
-  // diameter (emptyRingSizePx) minus its own fixed EMPTY_RING_BORDER_PX on
+  // diameter (emptyRingSizePx) minus its own band width (sizeSpec.ringBorderPx) on
   // each side, same value .nx-circular-chart-empty-ring's own CSS border-width
   // uses — instead guarantees the green fill exactly meets the grey border
   // with no gap, for every chart type alike (this placeholder ring is
   // always the same hollow shape now, Pie included — see its own comment).
   get healthyInnerSizePx(): number {
-    return this.emptyRingSizePx - 2 * EMPTY_RING_BORDER_PX;
+    return this.emptyRingSizePx - 2 * this.sizeSpec.ringBorderPx;
   }
 
   // Center point for the healthy checkmark badge, sitting right ON this
@@ -428,9 +462,9 @@ export class NxCircularChartComponent implements OnChanges, AfterViewInit, OnDes
   // NOT relative to the ring box's own top-left corner, despite `left`/
   // `top` being CSS pixels the template hands straight to a child of
   // .nx-circular-chart-empty-ring (position: relative) — that ring has a
-  // 14px border (EMPTY_RING_BORDER_PX), and CSS positions an absolutely
+  // band-width border (sizeSpec.ringBorderPx), and CSS positions an absolutely
   // positioned child relative to its containing block's PADDING box,
-  // which starts EMPTY_RING_BORDER_PX pixels INSIDE the ring's own outer
+  // which starts sizeSpec.ringBorderPx pixels INSIDE the ring's own outer
   // (border) edge, not at it. Confirmed live: without subtracting that
   // border width from the origin below, the badge rendered a full 14px
   // closer to the ring's center than intended on both axes — reading as
@@ -439,7 +473,7 @@ export class NxCircularChartComponent implements OnChanges, AfterViewInit, OnDes
   // changed; the angle change only made someone look closely enough to
   // notice). `radius * cos/sin` below still needs the FULL outer radius
   // (that's the actual target distance from the ring's true center) —
-  // only the ORIGIN this gets added to shifts, by -EMPTY_RING_BORDER_PX,
+  // only the ORIGIN this gets added to shifts, by -sizeSpec.ringBorderPx,
   // to land in the padding box's own local coordinate space.
   //
   // HEALTHY_CHECK_ANGLE_RAD (-135°, up-and-left — see its own comment)
@@ -450,7 +484,7 @@ export class NxCircularChartComponent implements OnChanges, AfterViewInit, OnDes
   // avatar" uses.
   get healthyCheckPosition(): { left: number; top: number } {
     const radius = this.emptyRingSizePx / 2;
-    const origin = radius - EMPTY_RING_BORDER_PX;
+    const origin = radius - this.sizeSpec.ringBorderPx;
     return {
       left: origin + radius * Math.cos(HEALTHY_CHECK_ANGLE_RAD),
       top: origin + radius * Math.sin(HEALTHY_CHECK_ANGLE_RAD)
@@ -614,8 +648,12 @@ export class NxCircularChartComponent implements OnChanges, AfterViewInit, OnDes
     // sits flush against the ring at some angles, its corner leaves more
     // visible gap at others), not a radius error — tightening the fixed
     // offset shrinks that gap everywhere without needing per-angle math.
+    // Syncfusion sizes the pie from the smaller of the chart's own width and
+    // height — the same min() emptyRingSizePx uses — so the badges follow
+    // the ring at every size, including a Large chart in a narrow column.
     const radiusPercent = parseFloat(this.config?.radius ?? "") || DEFAULT_RADIUS_PERCENT;
-    const radius = (CHART_BOX_PX * radiusPercent) / 200 + 2;
+    const boxPx = Math.min(chart.availableSize?.width || this.boxPx, this.boxPx);
+    const radius = (boxPx * radiusPercent) / 200 + 2;
 
     // Reported live: the center label sat slightly left/up of the ring's
     // actual visual center, not dead center. Root cause: center.x/y are

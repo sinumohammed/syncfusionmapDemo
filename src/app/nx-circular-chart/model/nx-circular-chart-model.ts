@@ -91,6 +91,68 @@ export enum CircularChartTypes {
   SemiCircle = 3
 }
 
+// How big each chart card renders — Small is the original fixed 130px box.
+// Set collection-wide via RawCircularChartCollectionNode.ChartSize, and
+// per chart via RawCircularChartNode.ChartSize (which wins). Numeric values
+// like CircularChartTypes; parseCircularChartSize() also accepts the names.
+export enum CircularChartSize {
+  Small = 1,
+  Medium = 2,
+  Large = 3,
+  ExtraLarge = 4
+}
+
+// Everything that scales with CircularChartSize: the chart box (Syncfusion's
+// own height, also the empty ring's sizing basis), the centre label and its
+// "No data"/healthy sub-text, the value badges around the ring, and the
+// placeholder ring's band width.
+export interface CircularChartSizeSpec {
+  boxPx: number;
+  centerFontPx: number;
+  subTextFontPx: number;
+  badgeFontPx: number;
+  ringBorderPx: number;
+}
+
+export const CIRCULAR_CHART_SIZE_SPECS: Record<CircularChartSize, CircularChartSizeSpec> = {
+  [CircularChartSize.Small]: { boxPx: 130, centerFontPx: 15, subTextFontPx: 11, badgeFontPx: 12, ringBorderPx: 14 },
+  [CircularChartSize.Medium]: { boxPx: 170, centerFontPx: 18, subTextFontPx: 12, badgeFontPx: 14, ringBorderPx: 18 },
+  [CircularChartSize.Large]: { boxPx: 210, centerFontPx: 22, subTextFontPx: 14, badgeFontPx: 16, ringBorderPx: 22 },
+  [CircularChartSize.ExtraLarge]: { boxPx: 270, centerFontPx: 28, subTextFontPx: 16, badgeFontPx: 20, ringBorderPx: 28 }
+};
+
+// 1/2/3/4 or "Small"/"Medium"/"Large"/"ExtraLarge" (any case; "S"/"M"/"L"/
+// "XL", "Extra Large" and "X-Large" too). Anything
+// else — absent, null, unrecognized — is undefined, so the caller can fall
+// back (chart -> collection -> Small).
+export function parseCircularChartSize(raw: number | string | null | undefined): CircularChartSize | undefined {
+  if (raw === null || raw === undefined || raw === "") {
+    return undefined;
+  }
+  const numeric = Number(raw);
+  if (numeric in CIRCULAR_CHART_SIZE_SPECS) {
+    return numeric as CircularChartSize;
+  }
+  // "Extra Large" / "X-Large" / "extra_large" all collapse to one spelling.
+  switch (String(raw).trim().toLowerCase().replace(/[\s_-]+/g, "")) {
+    case "small":
+    case "s":
+      return CircularChartSize.Small;
+    case "medium":
+    case "m":
+      return CircularChartSize.Medium;
+    case "large":
+    case "l":
+      return CircularChartSize.Large;
+    case "extralarge":
+    case "xlarge":
+    case "xl":
+      return CircularChartSize.ExtraLarge;
+    default:
+      return undefined;
+  }
+}
+
 export interface CircularChartSlice {
   // Slice label, also used as the pie's xName value and (absent `tooltip`
   // below) the tooltip text.
@@ -131,6 +193,13 @@ export interface CircularChartCardConfig {
   // ids break Syncfusion's chart instances).
   id: string;
   label: string;
+  // Shown in the ring's centre instead of `label` when set — for a long
+  // Name that doesn't fit. `label` (the full Name) is still what the card
+  // is matched and identified by.
+  shortName?: string;
+  // Resolved size (chart override -> collection -> Small) — see
+  // CircularChartSize's own comment.
+  size?: CircularChartSize;
   // e.g. "40%" — Syncfusion's own string-percentage format, unset renders a
   // solid pie instead of a circular chart.
   innerRadius?: string;
@@ -234,6 +303,13 @@ export interface RawCircularChartNode {
   // THIS when present, same API-wins-over-config precedence as
   // ChartType/ApplyGradient.
   Label?: string | null;
+  // Short display text for the ring's centre — used instead of Name when
+  // present (Name stays the trend-API join key). Absent/empty shows Name.
+  // Deliberately NOT Label, which already means the healthy badge's text.
+  ShortName?: string | null;
+  // This chart's own size, overriding the collection's ChartSize — see
+  // CircularChartSize. Absent/unrecognized uses the collection's.
+  ChartSize?: number | string | null;
   // This circular chart's own hardcoded fallback slices, carried right on its config
   // node — used whenever the trend API response has no match (or nothing
   // usable) for this circular chart's Name. See buildCircularChartConfig()'s own comment for
@@ -315,6 +391,10 @@ export interface RawCircularChartCollectionNode {
   // RawCircularChartNode already has its own Name for that). Absent/empty
   // renders no heading at all, same as today.
   Title?: string | null;
+  // Size of every chart card in the collection (a chart's own ChartSize
+  // wins) — see CircularChartSize. Absent/unrecognized keeps Small, the
+  // original size.
+  ChartSize?: number | string | null;
   // When set, NxCircularChartCollectionComponent fetches the trend response
   // from this URL itself (via NxCircularChartConfigService) and uses THAT
   // (ignoring the `trendResponse` @Input entirely) — see its own comment.

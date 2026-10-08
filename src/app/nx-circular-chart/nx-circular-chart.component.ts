@@ -16,12 +16,12 @@ import { AccumulationChart, AccumulationSeriesModel, AccumulationTooltip, PieSer
 import {
   CIRCULAR_CHART_SIZE_SPECS,
   CircularChartConfig,
-  CircularChartLabelPosition,
   CircularChartSize,
   CircularChartSizeSpec,
   CircularChartTypes,
   DEFAULT_SERIES_PALETTE,
-  SeriesPaletteEntry
+  SeriesPaletteEntry,
+  TextOrientation
 } from "./model/nx-circular-chart-model";
 
 // Same registration pattern as nx-map-demo.component.ts's Maps.Inject(...)
@@ -327,13 +327,26 @@ export class NxCircularChartComponent implements OnChanges, AfterViewInit, OnDes
     return Math.min(this.sizeSpec.boxPx, this.maxBoxPx ?? Number.POSITIVE_INFINITY);
   }
 
-  get isBottomLabel(): boolean {
-    return this.config?.labelPosition === CircularChartLabelPosition.Bottom;
+  // Any LabelPosition but center puts the full Name outside the ring.
+  get isOuterLabel(): boolean {
+    return (this.config?.labelPosition ?? TextOrientation.center) !== TextOrientation.center;
+  }
+
+  // left/right lay the card out as a row (label beside the ring) instead of
+  // a column.
+  get isSideLabel(): boolean {
+    const position = this.config?.labelPosition;
+    return position === TextOrientation.left || position === TextOrientation.right;
+  }
+
+  // "top" | "bottom" | "left" | "right" — the outside label's modifier class.
+  get outerLabelSide(): string {
+    return TextOrientation[this.config?.labelPosition ?? TextOrientation.center];
   }
 
   // Inside the ring: the short name when configured, else the full Name
-  // (cut to fit with "…" by CSS). Under the ring the template shows the
-  // full Name instead — there's room for it there.
+  // (cut to fit with "…" by CSS). Outside it the template shows the full
+  // Name instead — there's room for it there.
   get centerText(): string {
     return this.config?.shortName || this.config?.label || "";
   }
@@ -346,18 +359,9 @@ export class NxCircularChartComponent implements OnChanges, AfterViewInit, OnDes
     return Math.max(24, (this.emptyRingSizePx * holePercent) / 100 - 8);
   }
 
-  // Empty/healthy cards have no chart to read a centre from. The card can
-  // be taller than its ring (a Bottom label under it, or stretched to a
-  // taller neighbour's row height), so centring on the card (CSS top: 50%)
-  // would drift below the ring — pin it to the ring's box instead: the
-  // card's 6px padding plus half the box (+3, see the empty box's comment).
-  get emptyCenterTopPx(): number {
-    return 6 + (this.boxPx + 3) / 2;
-  }
-
   // Full-Name tooltip over the centre text — shown on hover when the text
-  // is a short name, or the Name itself was cut with "…". Never for the
-  // Bottom label, which always shows the Name in full.
+  // is a short name, or the Name itself was cut with "…". Never for an
+  // outside label, which always shows the Name in full.
   nameTooltipVisible = false;
 
   onCenterTextEnter(event: MouseEvent): void {
@@ -365,9 +369,11 @@ export class NxCircularChartComponent implements OnChanges, AfterViewInit, OnDes
     this.nameTooltipVisible = !!this.config?.shortName || el.scrollWidth > el.clientWidth;
   }
 
-  // The real chart (`<ejs-accumulationchart>`) — see DEFAULT_RADIUS_PERCENT's own
-  // comment for why the ResizeObserver watches THIS element specifically.
-  @ViewChild("cardEl", { static: true }) private cardEl!: ElementRef<HTMLElement>;
+  // The ring's own box (.nx-circular-chart-plot) — see DEFAULT_RADIUS_PERCENT's
+  // own comment for why the ResizeObserver watches it: its width is what the
+  // ring actually gets (narrower than the card with a left/right label).
+  // Also the origin the centre label and badges are positioned from.
+  @ViewChild("plotEl", { static: true }) private plotEl!: ElementRef<HTMLElement>;
   private resizeObserver?: ResizeObserver;
   // The live Syncfusion chart (captured in onChartLoaded()) and a pending
   // resync frame — see resyncChartSize().
@@ -397,7 +403,7 @@ export class NxCircularChartComponent implements OnChanges, AfterViewInit, OnDes
       }
       this.scheduleChartResync();
     });
-    this.resizeObserver.observe(this.cardEl.nativeElement);
+    this.resizeObserver.observe(this.plotEl.nativeElement);
     // A browser tab switch doesn't necessarily resize this card, but a zoom
     // done in ANOTHER tab of the same app (browser zoom is per-site) lands
     // while this one was in the background — re-check on return.
@@ -707,12 +713,19 @@ export class NxCircularChartComponent implements OnChanges, AfterViewInit, OnDes
     // of any future card style change) gives the real offset to add back,
     // for both the center label and the per-slice badges below (same
     // chart-relative center.x/y baseline, same bug).
+    // Measured against .nx-circular-chart-plot now (the overlays' positioned
+    // ancestor since the outside-label layouts) rather than the card.
     const chartEl = chart.element as HTMLElement | undefined;
-    const card = chartEl?.closest(".nx-circular-chart-card") as HTMLElement | null;
-    const offsetLeft = chartEl && card ? chartEl.getBoundingClientRect().left - card.getBoundingClientRect().left : 0;
-    const offsetTop = chartEl && card ? chartEl.getBoundingClientRect().top - card.getBoundingClientRect().top : 0;
+    const plot = chartEl?.closest(".nx-circular-chart-plot") as HTMLElement | null;
+    const offsetLeft = chartEl && plot ? chartEl.getBoundingClientRect().left - plot.getBoundingClientRect().left : 0;
+    const offsetTop = chartEl && plot ? chartEl.getBoundingClientRect().top - plot.getBoundingClientRect().top : 0;
 
     this.centerLabelPosition = { left: center.x + offsetLeft, top: center.y + offsetTop };
+    // ShowLegendValue: false — no value boxes at all.
+    if (this.config?.showLegendValue === false) {
+      this.badges = [];
+      return;
+    }
     this.badges = points.map((p: any) => {
       const radians = (p.midAngle * Math.PI) / 180;
       return {

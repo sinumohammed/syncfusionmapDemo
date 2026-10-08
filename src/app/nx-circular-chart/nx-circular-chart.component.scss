@@ -24,6 +24,27 @@
   border: 1px solid rgba(71, 161, 246, 0.18);
   box-shadow: 0 2px 6px rgba(20, 33, 61, 0.08);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  /* The ring's box (.nx-circular-chart-plot) and an outside label stack
+     top-to-bottom; left/right labels switch this to a row below. */
+  display: flex;
+  flex-direction: column;
+}
+.nx-circular-chart-card--row {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+/* Positioned origin for the centre text, value badges and empty ring. Its
+   own height is exactly the ring's box, so CSS top: 50% on the centre
+   overlay (empty/healthy cards) lands on the ring however tall the card is
+   stretched. In a row it takes whatever width the side label leaves. */
+.nx-circular-chart-plot {
+  position: relative;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+.nx-circular-chart-card--row .nx-circular-chart-plot {
+  flex: 1 1 0;
 }
 .nx-circular-chart-card:hover {
   border-color: #47a1f6;
@@ -198,15 +219,35 @@
   white-space: nowrap;
   pointer-events: none;
 }
-/* LabelPosition Bottom — the full Name under the ring, wrapping when long
-   (no "…", no tooltip). */
-.nx-circular-chart-bottom-label {
-  margin-top: 2px;
+/* Outside LabelPosition (top/bottom/left/right) — the full Name on that
+   side of the ring, wrapping when long (no "…", no tooltip). top/left come
+   before the ring via `order`; left/right sit beside it in the card's row
+   layout (.nx-circular-chart-card--row) and take at most 40% of its width. */
+.nx-circular-chart-outer-label {
   font-weight: 700;
   line-height: 1.2;
   text-align: center;
   color: #222;
   overflow-wrap: anywhere;
+}
+.nx-circular-chart-outer-label--top {
+  order: -1;
+  margin-bottom: 2px;
+}
+.nx-circular-chart-outer-label--bottom {
+  margin-top: 2px;
+}
+.nx-circular-chart-outer-label--left,
+.nx-circular-chart-outer-label--right {
+  flex: 0 1 auto;
+  max-width: 40%;
+}
+.nx-circular-chart-outer-label--left {
+  order: -1;
+  text-align: right;
+}
+.nx-circular-chart-outer-label--right {
+  text-align: left;
 }
 /* Dark green, readable against .nx-circular-chart-healthy-inner's own light
    green circular fill sitting behind it (a sibling element, not a

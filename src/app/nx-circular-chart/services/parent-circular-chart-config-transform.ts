@@ -1,13 +1,13 @@
 import {
   CircularChartConfig,
-  CircularChartLabelPosition,
   CircularChartSize,
   CircularChartSlice,
   CircularChartTypes,
-  parseCircularChartLabelPosition,
   parseCircularChartSize,
+  parseTextOrientation,
   RawCircularChartCollectionNode,
   RawCircularChartNode,
+  TextOrientation,
   TrendLeaf,
   TrendNode
 } from "../model/nx-circular-chart-model";
@@ -100,13 +100,13 @@ function buildSlices(leaf: TrendLeaf | undefined): CircularChartSlice[] {
 // Both absent renders the existing empty-ring state (isEmpty), same as
 // before this fallback existed — no third "hardcoded zeros" tier needed.
 //
-// `collection` carries the collection-wide ChartSize/LabelPosition; the
-// node's own values win over them, and with neither the chart stays Small
-// with its label in the centre.
+// `collection` carries the collection-wide ChartSize/LabelPosition/
+// ShowLegendValue; the node's own values win over them, and with neither
+// the chart stays Small, its label in the centre and its values shown.
 export function buildCircularChartConfig(
   node: RawCircularChartNode,
   leaf: TrendLeaf | undefined,
-  collection: { size?: CircularChartSize; labelPosition?: CircularChartLabelPosition } = {}
+  collection: { size?: CircularChartSize; labelPosition?: TextOrientation; showLegendValue?: boolean } = {}
 ): CircularChartConfig {
   const apiSlices = buildSlices(leaf);
   // Param1/Param2/Param3, in that order, skipping absent/null/empty ones —
@@ -120,8 +120,8 @@ export function buildCircularChartConfig(
     label: node.Name ?? "",
     shortName: node.ShortName?.trim() || undefined,
     size: parseCircularChartSize(node.ChartSize) ?? collection.size ?? CircularChartSize.Small,
-    labelPosition:
-      parseCircularChartLabelPosition(node.LabelPosition) ?? collection.labelPosition ?? CircularChartLabelPosition.Center,
+    labelPosition: parseTextOrientation(node.LabelPosition) ?? collection.labelPosition ?? TextOrientation.center,
+    showLegendValue: node.ShowLegendValue ?? collection.showLegendValue ?? true,
     radius: node.Radius ?? undefined,
     innerRadius: node.InnerRadius ?? undefined,
     tooltipFormat: node.TooltipFormat ?? undefined,
@@ -178,11 +178,15 @@ export function buildCircularChartConfigs(
 ): CircularChartConfig[] {
   const isCollection = root.ComponentType === CIRCULAR_CHART_COLLECTION_COMPONENT_TYPE;
   const items = isCollection ? root.Configuration ?? [] : [root as RawCircularChartNode];
-  // A lone chart node's own ChartSize/LabelPosition are read by
+  // A lone chart node's own ChartSize/LabelPosition/ShowLegendValue are read by
   // buildCircularChartConfig() itself, so only a real collection
   // contributes collection-wide ones.
   const collection = isCollection
-    ? { size: collectionChartSize(root), labelPosition: parseCircularChartLabelPosition(root.LabelPosition) }
+    ? {
+        size: collectionChartSize(root),
+        labelPosition: parseTextOrientation(root.LabelPosition),
+        showLegendValue: root.ShowLegendValue ?? undefined
+      }
     : {};
   // Hide is a config-only kill switch (see RawCircularChartNode.Hide's own
   // comment) — dropped before trend-leaf matching/ordering, same as if the

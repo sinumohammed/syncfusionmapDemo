@@ -1,123 +1,137 @@
 <div
-  #cardEl
   class="nx-circular-chart-card"
+  [class.nx-circular-chart-card--row]="isSideLabel"
   [class.nx-circular-chart-card--selected]="selected"
   [class.nx-circular-chart-card--disabled]="isNoData && !isHealthy"
   [class.nx-circular-chart-card--not-selectable]="!selectable"
   (click)="selectable && select.emit()"
 >
-  <!-- Gradient defs referenced from a point's own color as url(#id) — see
-       NxCircularChartComponent.buildSeries()'s own comment. Zero-sized/absolutely
-       positioned since it only exists to hold <linearGradient>s, not to render
-       anything itself; must sit ahead of the chart in the DOM for Syncfusion's
-       own SVG to resolve the url(#id) reference. -->
-  <svg *ngIf="gradients.length" width="0" height="0" style="position: absolute">
-    <defs>
-      <linearGradient *ngFor="let g of gradients" [attr.id]="g.id" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" [attr.stop-color]="g.from"></stop>
-        <stop offset="100%" [attr.stop-color]="g.to"></stop>
-      </linearGradient>
-    </defs>
-  </svg>
-  <ejs-accumulationchart
-    *ngIf="series.length"
-    [id]="chartElementId"
-    [series]="series"
-    [legendSettings]="legendSettings"
-    [margin]="margin"
-    [enableAnimation]="true"
-    (load)="onChartLoad($event)"
-    (loaded)="onChartLoaded($event)"
-    [height]="boxPx + 'px'"
-    width="100%"
-  ></ejs-accumulationchart>
-  <!-- isEmpty (isNoData OR isAllZero — see their own comments) — either way
-       a real Syncfusion pie has nothing to divide up, so this renders a
-       plain CSS ring instead of attempting one. Which of the two decides
-       what's INSIDE that ring below: isNoData (genuinely missing readings)
-       always shows "No data" and dims the card; isAllZero (real readings
-       that happen to sum to zero) shows the zeroAsHealthy badge when set,
-       otherwise just the plain label — no "No data" text, no dimming.
-       nx-circular-chart-card--disabled is a VISUAL cue only (dimmed) — the click
-       itself stays live and behaves exactly like any other circular chart. An
-       all-zero circular chart (e.g. no "high" readings at all) is still a real,
-       meaningful selection: the map still needs to show every one of its
-       markers, just all in the normal/green color, same as any other
-       metric's own "normal" readings — confirmed this needs to work
-       identically to a populated circular chart's click, not be blocked. -->
-  <!-- Fixed boxPx-tall box (130px at the Small size — the same
-       height <ejs-accumulationchart [height]> already reserves above) —
-       the ring itself only sizes to emptyRingSizePx (typically well under
-       130px), and without this wrapper the card's own content height (and so
-       its hover box) shrank to fit just the ring, ending up visibly shorter
-       than every populated neighbor's card. Centering the ring inside a
-       box of the SAME fixed height as the real chart keeps every card (empty,
-       healthy, or populated) the same height regardless of which of the
-       three renders. -->
-  <!-- +3: Syncfusion renders 3px taller than its own height attribute (see
-       .nx-circular-chart-empty-box's own comment). -->
-  <div class="nx-circular-chart-empty-box" *ngIf="isEmpty" [style.height.px]="boxPx + 3">
+  <!-- The ring and everything positioned on it (centre text, value badges,
+       empty ring) — its own positioned box, so an outside label (after it)
+       can sit above/below/beside it without shifting those overlays. -->
+  <div #plotEl class="nx-circular-chart-plot">
+    <!-- Gradient defs referenced from a point's own color as url(#id) — see
+         NxCircularChartComponent.buildSeries()'s own comment. Zero-sized/absolutely
+         positioned since it only exists to hold <linearGradient>s, not to render
+         anything itself; must sit ahead of the chart in the DOM for Syncfusion's
+         own SVG to resolve the url(#id) reference. -->
+    <svg *ngIf="gradients.length" width="0" height="0" style="position: absolute">
+      <defs>
+        <linearGradient *ngFor="let g of gradients" [attr.id]="g.id" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" [attr.stop-color]="g.from"></stop>
+          <stop offset="100%" [attr.stop-color]="g.to"></stop>
+        </linearGradient>
+      </defs>
+    </svg>
+    <ejs-accumulationchart
+      *ngIf="series.length"
+      [id]="chartElementId"
+      [series]="series"
+      [legendSettings]="legendSettings"
+      [margin]="margin"
+      [enableAnimation]="true"
+      (load)="onChartLoad($event)"
+      (loaded)="onChartLoaded($event)"
+      [height]="boxPx + 'px'"
+      width="100%"
+    ></ejs-accumulationchart>
+    <!-- isEmpty (isNoData OR isAllZero — see their own comments) — either way
+         a real Syncfusion pie has nothing to divide up, so this renders a
+         plain CSS ring instead of attempting one. Which of the two decides
+         what's INSIDE that ring below: isNoData (genuinely missing readings)
+         always shows "No data" and dims the card; isAllZero (real readings
+         that happen to sum to zero) shows the zeroAsHealthy badge when set,
+         otherwise just the plain label — no "No data" text, no dimming.
+         nx-circular-chart-card--disabled is a VISUAL cue only (dimmed) — the click
+         itself stays live and behaves exactly like any other circular chart. An
+         all-zero circular chart (e.g. no "high" readings at all) is still a real,
+         meaningful selection: the map still needs to show every one of its
+         markers, just all in the normal/green color, same as any other
+         metric's own "normal" readings — confirmed this needs to work
+         identically to a populated circular chart's click, not be blocked. -->
+    <!-- Fixed boxPx-tall box (130px at the Small size — the same
+         height <ejs-accumulationchart [height]> already reserves above) —
+         the ring itself only sizes to emptyRingSizePx (typically well under
+         130px), and without this wrapper the card's own content height (and so
+         its hover box) shrank to fit just the ring, ending up visibly shorter
+         than every populated neighbor's card. Centering the ring inside a
+         box of the SAME fixed height as the real chart keeps every card (empty,
+         healthy, or populated) the same height regardless of which of the
+         three renders. -->
+    <!-- +3: Syncfusion renders 3px taller than its own height attribute (see
+         .nx-circular-chart-empty-box's own comment). -->
+    <div class="nx-circular-chart-empty-box" *ngIf="isEmpty" [style.height.px]="boxPx + 3">
+      <div
+        class="nx-circular-chart-empty-ring"
+        [class.nx-circular-chart-empty-ring--semicircle]="chartType === CircularChartTypes.SemiCircle"
+        [style.width.px]="emptyRingSizePx"
+        [style.height.px]="emptyRingSizePx"
+        [style.border-width.px]="sizeSpec.ringBorderPx"
+      >
+        <!-- config.zeroAsHealthy's own opt-in reinterpretation of an all-zero
+             reading — see isHealthy's own comment. Kept INSIDE the same ring
+             markup/shape/color (doughnut/pie/semicircle, same grey as the
+             regular "no data" placeholder — deliberately NOT recolored,
+             per product decision) rather than swapping in a different shape,
+             so a healthy card still visually reads as "this circular chart",
+             not a generic icon. The green fill sits INSIDE the ring's own
+             hole (a circle, healthyInnerSizePx — see its own comment), not a
+             rectangular pill behind the label; the check is a small badge on
+             the ring's own outer edge, like a notification badge. -->
+        <ng-container *ngIf="isHealthy">
+          <span class="nx-circular-chart-healthy-inner" [style.width.px]="healthyInnerSizePx" [style.height.px]="healthyInnerSizePx"></span>
+          <span class="nx-circular-chart-healthy-check" [style.left.px]="healthyCheckPosition.left" [style.top.px]="healthyCheckPosition.top">
+            <svg viewBox="0 0 24 24" width="16" height="16">
+              <circle cx="12" cy="12" r="11" fill="#2f9e56"></circle>
+              <path d="M7 12.5l3 3 7-7" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+          </span>
+        </ng-container>
+      </div>
+    </div>
+    <!-- With an outside LabelPosition (top/bottom/left/right) the name moves
+         out of the ring, so this centre overlay only remains for the No data /
+         Healthy text. -->
     <div
-      class="nx-circular-chart-empty-ring"
-      [class.nx-circular-chart-empty-ring--semicircle]="chartType === CircularChartTypes.SemiCircle"
-      [style.width.px]="emptyRingSizePx"
-      [style.height.px]="emptyRingSizePx"
-      [style.border-width.px]="sizeSpec.ringBorderPx"
+      *ngIf="!isOuterLabel || isNoData || isHealthy"
+      class="nx-circular-chart-center"
+      [class.nx-circular-chart-center--empty]="isNoData && !isHealthy"
+      [class.nx-circular-chart-center--healthy]="isHealthy"
+      [class.nx-circular-chart-center--tooltip]="nameTooltipVisible"
+      [style.left.px]="centerLabelPosition?.left"
+      [style.top.px]="centerLabelPosition?.top"
+      [style.font-size.px]="sizeSpec.centerFontPx"
+      [style.max-width.px]="centerTextMaxWidthPx"
     >
-      <!-- config.zeroAsHealthy's own opt-in reinterpretation of an all-zero
-           reading — see isHealthy's own comment. Kept INSIDE the same ring
-           markup/shape/color (doughnut/pie/semicircle, same grey as the
-           regular "no data" placeholder — deliberately NOT recolored,
-           per product decision) rather than swapping in a different shape,
-           so a healthy card still visually reads as "this circular chart",
-           not a generic icon. The green fill sits INSIDE the ring's own
-           hole (a circle, healthyInnerSizePx — see its own comment), not a
-           rectangular pill behind the label; the check is a small badge on
-           the ring's own outer edge, like a notification badge. -->
-      <ng-container *ngIf="isHealthy">
-        <span class="nx-circular-chart-healthy-inner" [style.width.px]="healthyInnerSizePx" [style.height.px]="healthyInnerSizePx"></span>
-        <span class="nx-circular-chart-healthy-check" [style.left.px]="healthyCheckPosition.left" [style.top.px]="healthyCheckPosition.top">
-          <svg viewBox="0 0 24 24" width="16" height="16">
-            <circle cx="12" cy="12" r="11" fill="#2f9e56"></circle>
-            <path d="M7 12.5l3 3 7-7" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"></path>
-          </svg>
-        </span>
-      </ng-container>
+      <span
+        *ngIf="!isOuterLabel"
+        class="nx-circular-chart-center-text"
+        (mouseenter)="onCenterTextEnter($event)"
+        (mouseleave)="nameTooltipVisible = false"
+        >{{ centerText }}</span
+      >
+      <span class="nx-circular-chart-name-tooltip" *ngIf="nameTooltipVisible && !isOuterLabel">{{ config?.label }}</span>
+      <span class="nx-circular-chart-empty-text" *ngIf="isNoData && !isHealthy" [style.font-size.px]="sizeSpec.subTextFontPx">No data</span>
+      <span class="nx-circular-chart-empty-text nx-circular-chart-empty-text--healthy" *ngIf="isHealthy" [style.font-size.px]="sizeSpec.subTextFontPx">{{ healthyText }}</span>
+    </div>
+    <div
+      class="nx-circular-chart-badge"
+      *ngFor="let badge of badges"
+      [style.left.px]="badge.left"
+      [style.top.px]="badge.top"
+      [style.font-size.px]="sizeSpec.badgeFontPx"
+    >
+      {{ badge.text }}
     </div>
   </div>
-  <!-- With LabelPosition Bottom the name moves under the ring (below), so
-       this centre overlay only remains for the No data / Healthy text. -->
+  <!-- Outside LabelPosition: the full Name on that side of the ring,
+       wrapping if long — no tooltip. -->
   <div
-    *ngIf="!isBottomLabel || isNoData || isHealthy"
-    class="nx-circular-chart-center"
-    [class.nx-circular-chart-center--empty]="isNoData && !isHealthy"
-    [class.nx-circular-chart-center--healthy]="isHealthy"
-    [class.nx-circular-chart-center--tooltip]="nameTooltipVisible"
-    [style.left.px]="centerLabelPosition?.left"
-    [style.top.px]="centerLabelPosition?.top ?? emptyCenterTopPx"
+    *ngIf="isOuterLabel"
+    class="nx-circular-chart-outer-label"
+    [ngClass]="'nx-circular-chart-outer-label--' + outerLabelSide"
     [style.font-size.px]="sizeSpec.centerFontPx"
-    [style.max-width.px]="centerTextMaxWidthPx"
   >
-    <span
-      *ngIf="!isBottomLabel"
-      class="nx-circular-chart-center-text"
-      (mouseenter)="onCenterTextEnter($event)"
-      (mouseleave)="nameTooltipVisible = false"
-      >{{ centerText }}</span
-    >
-    <span class="nx-circular-chart-name-tooltip" *ngIf="nameTooltipVisible && !isBottomLabel">{{ config?.label }}</span>
-    <span class="nx-circular-chart-empty-text" *ngIf="isNoData && !isHealthy" [style.font-size.px]="sizeSpec.subTextFontPx">No data</span>
-    <span class="nx-circular-chart-empty-text nx-circular-chart-empty-text--healthy" *ngIf="isHealthy" [style.font-size.px]="sizeSpec.subTextFontPx">{{ healthyText }}</span>
-  </div>
-  <!-- LabelPosition Bottom: the full Name, wrapping if long — no tooltip. -->
-  <div class="nx-circular-chart-bottom-label" *ngIf="isBottomLabel" [style.font-size.px]="sizeSpec.centerFontPx">{{ config?.label }}</div>
-  <div
-    class="nx-circular-chart-badge"
-    *ngFor="let badge of badges"
-    [style.left.px]="badge.left"
-    [style.top.px]="badge.top"
-    [style.font-size.px]="sizeSpec.badgeFontPx"
-  >
-    {{ badge.text }}
+    {{ config?.label }}
   </div>
 </div>

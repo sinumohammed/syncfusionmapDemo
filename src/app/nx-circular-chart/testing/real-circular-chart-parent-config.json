@@ -45,7 +45,8 @@
   "ElementType": 7121,
   "Title": "DONUT COLLECTION",
   "ChartSize": "s",
-  "LabelPosition": "inside",
+  "LabelPosition": "right",
+  "ShowLegendValue": false,
   "Configuration": [
     {
       "SupportedIdentity": 144,

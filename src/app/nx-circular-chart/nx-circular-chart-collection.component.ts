@@ -465,10 +465,11 @@ export class NxCircularChartCollectionComponent implements OnChanges, AfterViewI
     const available =
       contentBottom - viewport.getBoundingClientRect().top - below - px(viewportStyle.paddingTop) - px(viewportStyle.paddingBottom);
     const perRow = (available - px(getComputedStyle(track).rowGap) * (this.rows - 1)) / this.rows;
-    // LabelPosition Bottom adds the name's line(s) under the ring — the
-    // tallest one counts (its height follows the font/width, not the box).
+    // A top/bottom LabelPosition adds the name's line(s) above/under the
+    // ring — the tallest one counts (its height follows the font/width, not
+    // the box). left/right labels sit beside the ring and add no height.
     let labelPx = 0;
-    track.querySelectorAll<HTMLElement>(".nx-circular-chart-bottom-label").forEach(label => {
+    track.querySelectorAll<HTMLElement>(".nx-circular-chart-outer-label--top, .nx-circular-chart-outer-label--bottom").forEach(label => {
       const style = getComputedStyle(label);
       labelPx = Math.max(labelPx, label.getBoundingClientRect().height + px(style.marginTop) + px(style.marginBottom));
     });

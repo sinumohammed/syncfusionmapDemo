@@ -153,30 +153,43 @@ export function parseCircularChartSize(raw: number | string | null | undefined):
   }
 }
 
-// Where the chart's name goes. Center (default): inside the ring — the
+// Where a chart's name goes (its LabelPosition) — the host app's own
+// shared enum, values as-is. center (default): inside the ring — the
 // ShortName if set (hover shows the full Name), else the Name cut to fit
-// with "…" (hover shows it in full when cut). Bottom: the full Name on a
-// line under the ring, no hover. Set like ChartSize: collection-wide, a
-// chart's own LabelPosition wins.
-export enum CircularChartLabelPosition {
-  Center = 1,
-  Bottom = 2
+// with "…" (hover shows it in full when cut). top/bottom/left/right: the
+// full Name outside the ring on that side, no hover. Set like ChartSize:
+// collection-wide, a chart's own LabelPosition wins.
+export enum TextOrientation {
+  left = 1,
+  right = 2,
+  center = 3,
+  top = 4,
+  bottom = 5
 }
 
-// 1/2 or "Center"/"Bottom" (any case; "Inside"/"Outside"/"Below" too).
-// Anything else is undefined, so the caller can fall back.
-export function parseCircularChartLabelPosition(raw: number | string | null | undefined): CircularChartLabelPosition | undefined {
+// 1-5 or the names (any case; "Inside"/"Above"/"Below" too). Anything else
+// is undefined, so the caller can fall back.
+export function parseTextOrientation(raw: number | string | null | undefined): TextOrientation | undefined {
   switch (String(raw ?? "").trim().toLowerCase()) {
     case "1":
+    case "left":
+      return TextOrientation.left;
+    case "2":
+    case "right":
+      return TextOrientation.right;
+    case "3":
     case "center":
     case "centre":
     case "inside":
-      return CircularChartLabelPosition.Center;
-    case "2":
+      return TextOrientation.center;
+    case "4":
+    case "top":
+    case "above":
+      return TextOrientation.top;
+    case "5":
     case "bottom":
     case "below":
-    case "outside":
-      return CircularChartLabelPosition.Bottom;
+      return TextOrientation.bottom;
     default:
       return undefined;
   }
@@ -229,9 +242,12 @@ export interface CircularChartCardConfig {
   // Resolved size (chart override -> collection -> Small) — see
   // CircularChartSize's own comment.
   size?: CircularChartSize;
-  // Resolved label position (chart override -> collection -> Center) — see
-  // CircularChartLabelPosition's own comment.
-  labelPosition?: CircularChartLabelPosition;
+  // Resolved label position (chart override -> collection -> center) — see
+  // TextOrientation's own comment.
+  labelPosition?: TextOrientation;
+  // Resolved ShowLegendValue (chart override -> collection -> true): false
+  // hides the value boxes around the ring.
+  showLegendValue?: boolean;
   // e.g. "40%" — Syncfusion's own string-percentage format, unset renders a
   // solid pie instead of a circular chart.
   innerRadius?: string;
@@ -343,8 +359,11 @@ export interface RawCircularChartNode {
   // CircularChartSize. Absent/unrecognized uses the collection's.
   ChartSize?: number | string | null;
   // This chart's own label position, overriding the collection's — see
-  // CircularChartLabelPosition. Absent/unrecognized uses the collection's.
+  // TextOrientation. Absent/unrecognized uses the collection's.
   LabelPosition?: number | string | null;
+  // This chart's own ShowLegendValue, overriding the collection's.
+  // Absent/null uses the collection's.
+  ShowLegendValue?: boolean | null;
   // This circular chart's own hardcoded fallback slices, carried right on its config
   // node — used whenever the trend API response has no match (or nothing
   // usable) for this circular chart's Name. See buildCircularChartConfig()'s own comment for
@@ -431,8 +450,11 @@ export interface RawCircularChartCollectionNode {
   // original size.
   ChartSize?: number | string | null;
   // Where every chart's name goes (a chart's own LabelPosition wins) — see
-  // CircularChartLabelPosition. Absent/unrecognized keeps Center.
+  // TextOrientation. Absent/unrecognized keeps center.
   LabelPosition?: number | string | null;
+  // Whether the value boxes around each ring show (a chart's own
+  // ShowLegendValue wins). Only an explicit false hides them.
+  ShowLegendValue?: boolean | null;
   // When set, NxCircularChartCollectionComponent fetches the trend response
   // from this URL itself (via NxCircularChartConfigService) and uses THAT
   // (ignoring the `trendResponse` @Input entirely) — see its own comment.

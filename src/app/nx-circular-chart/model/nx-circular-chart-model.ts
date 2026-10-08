@@ -121,11 +121,16 @@ export const CIRCULAR_CHART_SIZE_SPECS: Record<CircularChartSize, CircularChartS
   [CircularChartSize.ExtraLarge]: { boxPx: 270, centerFontPx: 28, subTextFontPx: 16, badgeFontPx: 20, ringBorderPx: 28 }
 };
 
-// Numeric only — the enum's own 1/2/3/4. Anything else (absent, null, a
+// Numeric only — the enum's own 1/2/3/4, as a number or a numeric string
+// ("2", as the real config sends it). Anything else (absent, null, empty, a
 // name, an out-of-range number) is undefined, so the caller can fall back
 // (chart -> collection -> Small).
-export function parseCircularChartSize(raw: CircularChartSize | null | undefined): CircularChartSize | undefined {
-  return typeof raw === "number" && raw in CIRCULAR_CHART_SIZE_SPECS ? raw : undefined;
+export function parseCircularChartSize(raw: CircularChartSize | string | null | undefined): CircularChartSize | undefined {
+  if (raw === null || raw === undefined || String(raw).trim() === "") {
+    return undefined;
+  }
+  const size = Number(raw);
+  return size in CIRCULAR_CHART_SIZE_SPECS ? (size as CircularChartSize) : undefined;
 }
 
 // Where a chart's name goes (its LabelPosition) — the host app's own
@@ -324,7 +329,7 @@ export interface RawCircularChartNode {
   ShortName?: string | null;
   // This chart's own size (CircularChartSize's number), overriding the
   // collection's ChartSize. Absent/unrecognized uses the collection's.
-  ChartSize?: CircularChartSize | null;
+  ChartSize?: CircularChartSize | string | null;
   // This chart's own label position, overriding the collection's —
   // TextOrientation's number. Absent uses the collection's.
   LabelPosition?: TextOrientation | null;
@@ -418,7 +423,7 @@ export interface RawCircularChartCollectionNode {
   // Size of every chart card in the collection (a chart's own ChartSize
   // wins) — CircularChartSize's number. Absent/unrecognized keeps Small,
   // the original size.
-  ChartSize?: CircularChartSize | null;
+  ChartSize?: CircularChartSize | string | null;
   // Where every chart's name goes (a chart's own LabelPosition wins) —
   // TextOrientation's number. Absent keeps center.
   LabelPosition?: TextOrientation | null;

@@ -33,6 +33,13 @@ const CARD_CHROME_PX = 17;
 // Never shrink a chart below this, however little height is left.
 const MIN_FIT_BOX_PX = 80;
 
+// `columns`/`rows` inputs: a whole number >= 1 (numeric strings included,
+// fractions rounded down), else `fallback`.
+function toPositiveInt(value: number | string | null | undefined, fallback: number): number {
+  const n = Math.floor(Number(value));
+  return Number.isFinite(n) && n >= 1 ? n : fallback;
+}
+
 // Iterates NxCircularChartComponent — one <app-nx-circular-chart> per circular chart buildCircularChartConfigs()
 // resolves from the two inputs below, purely off its own returned length,
 // not a fixed count.
@@ -74,18 +81,14 @@ export class NxCircularChartCollectionComponent implements OnChanges, AfterViewI
   // Grid column count — the template binds this straight onto
   // .nx-circular-chart-grid's own grid-template-columns (see the template
   // and nx-circular-chart-collection.component.scss's own comment on why
-  // the SCSS rule itself no longer hardcodes a column count). No default —
-  // unlike rows (0 has its own meaning: unlimited/no carousel), any
-  // fallback here would be an arbitrary fixed number baked into this
-  // component instead of left to the host, which is exactly what
-  // MapDashboardComponent's own circularChartColumns (config-driven, with
-  // its own auto/square-layout fallback when config leaves it unset) and
-  // TrendDashboardComponent's own hardcoded [columns]="6" both already do
-  // at the call site. The component picking a count from its own
-  // circularCharts.length instead isn't viable either — that count stays
-  // stable across a loading/empty transition, matching skeletonItems (the
-  // loading placeholder grid), which has no reliable final count to key
-  // off yet.
+  // the SCSS rule itself no longer hardcodes a column count). The host
+  // picks the real count — MapDashboardComponent's own circularChartColumns
+  // (config-driven) and TrendDashboardComponent's own hardcoded
+  // [columns]="6" both do so at the call site; this component only falls
+  // back to 1 (see below) so a missing/invalid value can't produce broken
+  // CSS. It doesn't derive a count from circularCharts.length — that count
+  // isn't known yet during loading, when skeletonItems already need a
+  // column count.
   //
   // Setter coerces to a real number — accepts `number | string` because a
   // host binding this straight off its own raw config (e.g. GridColumn,
@@ -104,14 +107,19 @@ export class NxCircularChartCollectionComponent implements OnChanges, AfterViewI
   // hit this — it already runs GridColumn through toPositiveInt() before
   // binding — but nothing forced every other host to do the same, so this
   // component now guarantees it itself.
+  //
+  // Anything that isn't a positive number (null, undefined, 0, "", "abc",
+  // negative) falls back to 1 — one full-width card per row, the same
+  // default MapDashboardComponent uses when GridColumn is unset. Bound as
+  // repeat(columns, ...) in the template, where 0/NaN is invalid CSS.
   @Input()
-  set columns(value: number | string) {
-    this._columns = Number(value);
+  set columns(value: number | string | null | undefined) {
+    this._columns = toPositiveInt(value, 1);
   }
   get columns(): number {
     return this._columns;
   }
-  private _columns!: number;
+  private _columns = 1;
 
   // Rows per COLUMN of the sliding carousel below (not a total row count
   // across every circular chart) — paired with `columns` (how many of
@@ -128,9 +136,14 @@ export class NxCircularChartCollectionComponent implements OnChanges, AfterViewI
   // Same string/number coercion as `columns` above, same reasoning
   // (RawCircularChartCollectionNode.GridRow has the identical
   // string-from-a-real-payload shape).
+  //
+  // Anything that isn't a positive number (null, undefined, 0, "", "abc",
+  // negative) is 0, the plain grid — previously undefined/"abc" became NaN,
+  // which matched neither the rows > 0 nor the rows <= 0 branch in the
+  // template, so no charts rendered at all.
   @Input()
-  set rows(value: number | string) {
-    this._rows = Number(value);
+  set rows(value: number | string | null | undefined) {
+    this._rows = toPositiveInt(value, 0);
   }
   get rows(): number {
     return this._rows;

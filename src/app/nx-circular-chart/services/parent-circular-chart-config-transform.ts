@@ -4,9 +4,7 @@ import {
   CircularChartSize,
   CircularChartSlice,
   CircularChartTypes,
-  parseActionCommand,
   parseCircularChartSize,
-  parseTextOrientation,
   RawCircularChartCollectionNode,
   RawCircularChartNode,
   TextOrientation,
@@ -94,7 +92,7 @@ function buildSlices(leaf: TrendLeaf | undefined): CircularChartSlice[] {
 // only NoAction turns clicks off (the other commands are still TODO, see
 // ActionCommand's own comment, and select like NavigateInSamePage).
 function resolveAction(node: RawCircularChartNode): { actionCommand: ActionCommand; selectable: boolean } {
-  const actionCommand = parseActionCommand(node.ActionCommand) ?? ActionCommand.NavigateInSamePage;
+  const actionCommand = node.ActionCommand ?? ActionCommand.NavigateInSamePage;
   return { actionCommand, selectable: actionCommand !== ActionCommand.NoAction };
 }
 
@@ -131,7 +129,7 @@ export function buildCircularChartConfig(
     label: node.Name ?? "",
     shortName: node.ShortName?.trim() || undefined,
     size: parseCircularChartSize(node.ChartSize) ?? collection.size ?? CircularChartSize.Small,
-    labelPosition: parseTextOrientation(node.LabelPosition) ?? collection.labelPosition ?? TextOrientation.center,
+    labelPosition: node.LabelPosition ?? collection.labelPosition ?? TextOrientation.center,
     showLegendValue: node.ShowLegendValue ?? collection.showLegendValue ?? true,
     ...resolveAction(node),
     radius: node.Radius ?? undefined,
@@ -196,7 +194,7 @@ export function buildCircularChartConfigs(
   const collection = isCollection
     ? {
         size: collectionChartSize(root),
-        labelPosition: parseTextOrientation(root.LabelPosition),
+        labelPosition: root.LabelPosition ?? undefined,
         showLegendValue: root.ShowLegendValue ?? undefined
       }
     : {};

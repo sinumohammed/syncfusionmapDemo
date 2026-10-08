@@ -44,8 +44,8 @@
   "ComponentType": 7121,
   "ElementType": 7121,
   "Title": "DONUT COLLECTION",
-  "ChartSize": "s",
-  "LabelPosition": "right",
+  "ChartSize": 1,
+  "LabelPosition": 2,
   "ShowLegendValue": false,
   "Configuration": [
     {
@@ -302,7 +302,7 @@
       "ElementTemplateName": "COMPONENT_NXCIRCULAR_CHART"
     },
     {      
-      "LabelPosition": "outside",
+      "LabelPosition": 5,
       "SupportedIdentity": 144,
       "Name": "SALT",
       "Columns": 24,

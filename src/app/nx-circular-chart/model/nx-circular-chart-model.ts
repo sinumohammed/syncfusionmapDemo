@@ -93,8 +93,8 @@ export enum CircularChartTypes {
 
 // How big each chart card renders — Small is the original fixed 130px box.
 // Set collection-wide via RawCircularChartCollectionNode.ChartSize, and
-// per chart via RawCircularChartNode.ChartSize (which wins). Numeric values
-// like CircularChartTypes; parseCircularChartSize() also accepts the names.
+// per chart via RawCircularChartNode.ChartSize (which wins). Config sends the
+// numeric value only, like CircularChartTypes.
 export enum CircularChartSize {
   Small = 1,
   Medium = 2,
@@ -121,36 +121,11 @@ export const CIRCULAR_CHART_SIZE_SPECS: Record<CircularChartSize, CircularChartS
   [CircularChartSize.ExtraLarge]: { boxPx: 270, centerFontPx: 28, subTextFontPx: 16, badgeFontPx: 20, ringBorderPx: 28 }
 };
 
-// 1/2/3/4 or "Small"/"Medium"/"Large"/"ExtraLarge" (any case; "S"/"M"/"L"/
-// "XL", "Extra Large" and "X-Large" too). Anything
-// else — absent, null, unrecognized — is undefined, so the caller can fall
-// back (chart -> collection -> Small).
-export function parseCircularChartSize(raw: number | string | null | undefined): CircularChartSize | undefined {
-  if (raw === null || raw === undefined || raw === "") {
-    return undefined;
-  }
-  const numeric = Number(raw);
-  if (numeric in CIRCULAR_CHART_SIZE_SPECS) {
-    return numeric as CircularChartSize;
-  }
-  // "Extra Large" / "X-Large" / "extra_large" all collapse to one spelling.
-  switch (String(raw).trim().toLowerCase().replace(/[\s_-]+/g, "")) {
-    case "small":
-    case "s":
-      return CircularChartSize.Small;
-    case "medium":
-    case "m":
-      return CircularChartSize.Medium;
-    case "large":
-    case "l":
-      return CircularChartSize.Large;
-    case "extralarge":
-    case "xlarge":
-    case "xl":
-      return CircularChartSize.ExtraLarge;
-    default:
-      return undefined;
-  }
+// Numeric only — the enum's own 1/2/3/4. Anything else (absent, null, a
+// name, an out-of-range number) is undefined, so the caller can fall back
+// (chart -> collection -> Small).
+export function parseCircularChartSize(raw: CircularChartSize | null | undefined): CircularChartSize | undefined {
+  return typeof raw === "number" && raw in CIRCULAR_CHART_SIZE_SPECS ? raw : undefined;
 }
 
 // Where a chart's name goes (its LabelPosition) — the host app's own
@@ -167,34 +142,6 @@ export enum TextOrientation {
   bottom = 5
 }
 
-// 1-5 or the names (any case; "Inside"/"Above"/"Below" too). Anything else
-// is undefined, so the caller can fall back.
-export function parseTextOrientation(raw: number | string | null | undefined): TextOrientation | undefined {
-  switch (String(raw ?? "").trim().toLowerCase()) {
-    case "1":
-    case "left":
-      return TextOrientation.left;
-    case "2":
-    case "right":
-      return TextOrientation.right;
-    case "3":
-    case "center":
-    case "centre":
-    case "inside":
-      return TextOrientation.center;
-    case "4":
-    case "top":
-    case "above":
-      return TextOrientation.top;
-    case "5":
-    case "bottom":
-    case "below":
-      return TextOrientation.bottom;
-    default:
-      return undefined;
-  }
-}
-
 // What clicking a chart does (a chart's own ActionCommand) — the host app's
 // own shared enum, values as-is. Implemented so far: NavigateInSamePage
 // (the default) selects the chart as before; NoAction makes a click do
@@ -207,21 +154,6 @@ export enum ActionCommand {
   NavigateInPopup = 3,
   NoAction = 4,
   FilterOutput = 5
-}
-
-// 0-5 or the enum's names (any case). Anything else — absent, null,
-// unrecognized — is undefined, so the caller can fall back.
-export function parseActionCommand(raw: number | string | null | undefined): ActionCommand | undefined {
-  if (raw === null || raw === undefined || String(raw).trim() === "") {
-    return undefined;
-  }
-  const numeric = Number(raw);
-  if (Number.isInteger(numeric) && ActionCommand[numeric] !== undefined) {
-    return numeric as ActionCommand;
-  }
-  const name = String(raw).trim().toLowerCase();
-  const match = Object.keys(ActionCommand).find(key => isNaN(Number(key)) && key.toLowerCase() === name);
-  return match ? ActionCommand[match as keyof typeof ActionCommand] : undefined;
 }
 
 export interface CircularChartSlice {
@@ -390,18 +322,18 @@ export interface RawCircularChartNode {
   // present (Name stays the trend-API join key). Absent/empty shows Name.
   // Deliberately NOT Label, which already means the healthy badge's text.
   ShortName?: string | null;
-  // This chart's own size, overriding the collection's ChartSize — see
-  // CircularChartSize. Absent/unrecognized uses the collection's.
-  ChartSize?: number | string | null;
-  // This chart's own label position, overriding the collection's — see
-  // TextOrientation. Absent/unrecognized uses the collection's.
-  LabelPosition?: number | string | null;
+  // This chart's own size (CircularChartSize's number), overriding the
+  // collection's ChartSize. Absent/unrecognized uses the collection's.
+  ChartSize?: CircularChartSize | null;
+  // This chart's own label position, overriding the collection's —
+  // TextOrientation's number. Absent uses the collection's.
+  LabelPosition?: TextOrientation | null;
   // This chart's own ShowLegendValue, overriding the collection's.
   // Absent/null uses the collection's.
   ShowLegendValue?: boolean | null;
-  // What clicking this chart does — see ActionCommand (number or name).
-  // Chart-level only. Absent/null/unrecognized = NavigateInSamePage.
-  ActionCommand?: number | string | null;
+  // What clicking this chart does — ActionCommand's number.
+  // Chart-level only. Absent/null = NavigateInSamePage.
+  ActionCommand?: ActionCommand | null;
   // This circular chart's own hardcoded fallback slices, carried right on its config
   // node — used whenever the trend API response has no match (or nothing
   // usable) for this circular chart's Name. See buildCircularChartConfig()'s own comment for
@@ -484,12 +416,12 @@ export interface RawCircularChartCollectionNode {
   // renders no heading at all, same as today.
   Title?: string | null;
   // Size of every chart card in the collection (a chart's own ChartSize
-  // wins) — see CircularChartSize. Absent/unrecognized keeps Small, the
-  // original size.
-  ChartSize?: number | string | null;
-  // Where every chart's name goes (a chart's own LabelPosition wins) — see
-  // TextOrientation. Absent/unrecognized keeps center.
-  LabelPosition?: number | string | null;
+  // wins) — CircularChartSize's number. Absent/unrecognized keeps Small,
+  // the original size.
+  ChartSize?: CircularChartSize | null;
+  // Where every chart's name goes (a chart's own LabelPosition wins) —
+  // TextOrientation's number. Absent keeps center.
+  LabelPosition?: TextOrientation | null;
   // Whether the value boxes around each ring show (a chart's own
   // ShowLegendValue wins). Only an explicit false hides them.
   ShowLegendValue?: boolean | null;  // When set, NxCircularChartCollectionComponent fetches the trend response

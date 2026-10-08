@@ -195,6 +195,35 @@ export function parseTextOrientation(raw: number | string | null | undefined): T
   }
 }
 
+// What clicking a chart does (a chart's own ActionCommand) — the host app's
+// own shared enum, values as-is. Implemented so far: NavigateInSamePage
+// (the default) selects the chart as before; NoAction makes a click do
+// nothing. TODO: NavigateInParentPage/NavigateInTab/NavigateInPopup/
+// FilterOutput — until then they behave like NavigateInSamePage.
+export enum ActionCommand {
+  NavigateInSamePage = 0,
+  NavigateInParentPage = 1,
+  NavigateInTab = 2,
+  NavigateInPopup = 3,
+  NoAction = 4,
+  FilterOutput = 5
+}
+
+// 0-5 or the enum's names (any case). Anything else — absent, null,
+// unrecognized — is undefined, so the caller can fall back.
+export function parseActionCommand(raw: number | string | null | undefined): ActionCommand | undefined {
+  if (raw === null || raw === undefined || String(raw).trim() === "") {
+    return undefined;
+  }
+  const numeric = Number(raw);
+  if (Number.isInteger(numeric) && ActionCommand[numeric] !== undefined) {
+    return numeric as ActionCommand;
+  }
+  const name = String(raw).trim().toLowerCase();
+  const match = Object.keys(ActionCommand).find(key => isNaN(Number(key)) && key.toLowerCase() === name);
+  return match ? ActionCommand[match as keyof typeof ActionCommand] : undefined;
+}
+
 export interface CircularChartSlice {
   // Slice label, also used as the pie's xName value and (absent `tooltip`
   // below) the tooltip text.
@@ -248,6 +277,12 @@ export interface CircularChartCardConfig {
   // Resolved ShowLegendValue (chart override -> collection -> true): false
   // hides the value boxes around the ring.
   showLegendValue?: boolean;
+  // This chart's own ActionCommand (NavigateInSamePage when unset) — see
+  // ActionCommand's own comment.
+  actionCommand?: ActionCommand;
+  // Derived from actionCommand: false (NoAction) makes a click on this card
+  // do nothing (no selection, no event).
+  selectable?: boolean;
   // e.g. "40%" — Syncfusion's own string-percentage format, unset renders a
   // solid pie instead of a circular chart.
   innerRadius?: string;
@@ -364,6 +399,9 @@ export interface RawCircularChartNode {
   // This chart's own ShowLegendValue, overriding the collection's.
   // Absent/null uses the collection's.
   ShowLegendValue?: boolean | null;
+  // What clicking this chart does — see ActionCommand (number or name).
+  // Chart-level only. Absent/null/unrecognized = NavigateInSamePage.
+  ActionCommand?: number | string | null;
   // This circular chart's own hardcoded fallback slices, carried right on its config
   // node — used whenever the trend API response has no match (or nothing
   // usable) for this circular chart's Name. See buildCircularChartConfig()'s own comment for
@@ -454,8 +492,7 @@ export interface RawCircularChartCollectionNode {
   LabelPosition?: number | string | null;
   // Whether the value boxes around each ring show (a chart's own
   // ShowLegendValue wins). Only an explicit false hides them.
-  ShowLegendValue?: boolean | null;
-  // When set, NxCircularChartCollectionComponent fetches the trend response
+  ShowLegendValue?: boolean | null;  // When set, NxCircularChartCollectionComponent fetches the trend response
   // from this URL itself (via NxCircularChartConfigService) and uses THAT
   // (ignoring the `trendResponse` @Input entirely) — see its own comment.
   // Absent/null keeps the existing host-supplies-trendResponse behavior.

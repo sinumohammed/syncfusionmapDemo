@@ -1,8 +1,10 @@
 import {
+  ActionCommand,
   CircularChartConfig,
   CircularChartSize,
   CircularChartSlice,
   CircularChartTypes,
+  parseActionCommand,
   parseCircularChartSize,
   parseTextOrientation,
   RawCircularChartCollectionNode,
@@ -88,6 +90,14 @@ function buildSlices(leaf: TrendLeaf | undefined): CircularChartSlice[] {
   }));
 }
 
+// The chart's own ActionCommand, and whether a click does anything at all —
+// only NoAction turns clicks off (the other commands are still TODO, see
+// ActionCommand's own comment, and select like NavigateInSamePage).
+function resolveAction(node: RawCircularChartNode): { actionCommand: ActionCommand; selectable: boolean } {
+  const actionCommand = parseActionCommand(node.ActionCommand) ?? ActionCommand.NavigateInSamePage;
+  return { actionCommand, selectable: actionCommand !== ActionCommand.NoAction };
+}
+
 // Converts one RawCircularChartNode + its matched trend leaf into the CircularChartConfig
 // shape NxCircularChartComponent already expects. Two independent sources for
 // `data`, in priority order:
@@ -103,6 +113,7 @@ function buildSlices(leaf: TrendLeaf | undefined): CircularChartSlice[] {
 // `collection` carries the collection-wide ChartSize/LabelPosition/
 // ShowLegendValue; the node's own values win over them, and with neither
 // the chart stays Small, its label in the centre and its values shown.
+// ActionCommand is chart-level only.
 export function buildCircularChartConfig(
   node: RawCircularChartNode,
   leaf: TrendLeaf | undefined,
@@ -122,6 +133,7 @@ export function buildCircularChartConfig(
     size: parseCircularChartSize(node.ChartSize) ?? collection.size ?? CircularChartSize.Small,
     labelPosition: parseTextOrientation(node.LabelPosition) ?? collection.labelPosition ?? TextOrientation.center,
     showLegendValue: node.ShowLegendValue ?? collection.showLegendValue ?? true,
+    ...resolveAction(node),
     radius: node.Radius ?? undefined,
     innerRadius: node.InnerRadius ?? undefined,
     tooltipFormat: node.TooltipFormat ?? undefined,

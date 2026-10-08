@@ -165,10 +165,10 @@ export class NxCircularChartComponent implements OnChanges, AfterViewInit, OnDes
   @Input() config?: CircularChartConfig;
   @Input() selected = false;
   // False makes a card look identical (same colors/content, no dimming) but
-  // ignore clicks and drop its hover lift. The collection no longer sets it
-  // — cards stay selectable with ShowComments on too (the comments "+"
-  // button and card selection now work side by side) — kept as an opt-out
-  // for a host that wants read-only cards.
+  // ignore clicks and drop its hover lift. The collection sets it from the
+  // chart's ActionCommand (CircularChartCardConfig.selectable — false for NoAction) — cards stay
+  // selectable with ShowComments on too (the comments "+" button and card
+  // selection work side by side).
   @Input() selectable = true;
   // NxCircularChartCollectionComponent's own resolved rawConfig.SeriesPalette
   // (or DEFAULT_SERIES_PALETTE when unset) — see buildSeries()'s own use of

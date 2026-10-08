@@ -59,6 +59,7 @@
       [selected]="selectedId === circularChart.id"
       [palette]="seriesPalette"
       [maxBoxPx]="maxBoxPx"
+      [selectable]="circularChart.selectable !== false"
       (select)="onCircularChartSelected(circularChart)"
     ></app-nx-circular-chart>
   </ng-template>

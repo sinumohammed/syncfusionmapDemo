@@ -356,6 +356,7 @@
     {
       "SupportedIdentity": 144,
       "Name": "FLOW",
+      "ActionCommand": 4,
       "ZeroAsHealthy": true,
       "Columns": 24,
       "Rows": 24,

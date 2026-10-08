@@ -602,6 +602,11 @@ export class NxCircularChartCollectionComponent implements OnChanges, AfterViewI
   }
 
   onCircularChartSelected(circularChart: CircularChartConfig): void {
+    // ActionCommand NoAction — the card already ignores clicks; guarded
+    // here too so nothing is ever emitted for it.
+    if (circularChart.selectable === false) {
+      return;
+    }
     const alreadySelected = this.selectedId === circularChart.id;
     this.selectedId = alreadySelected ? null : circularChart.id;
 

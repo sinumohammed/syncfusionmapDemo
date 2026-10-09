@@ -83,6 +83,11 @@ const HEALTHY_CHECK_ANGLE_RAD = (-3 * Math.PI) / 4;
 // syntax, used verbatim as AccumulationTooltipSettingsModel.format either way.
 const DEFAULT_TOOLTIP_FORMAT = "${point.x}: ${point.y}";
 
+// Tooltip hide delay after mouse-leave (Syncfusion's own default: 1000ms).
+// Short rather than 0 so crossing the thin gap between two slices doesn't
+// flicker the tooltip off and back on.
+const TOOLTIP_FADE_OUT_MS = 100;
+
 // Fallback when a healthy card's own config.healthyLabel (RawCircularChartNode.Label)
 // is unset/empty — see healthyText's own comment.
 const DEFAULT_HEALTHY_TEXT = "Healthy";
@@ -223,7 +228,17 @@ export class NxCircularChartComponent implements OnChanges, AfterViewInit, OnDes
   // tooltipMappingName below — this format string just has Syncfusion
   // display that already-resolved text verbatim.
   legendSettings = { visible: false };
-  tooltipSettings = { enable: true, format: "${point.tooltip}", enableTextWrap: false, header: "" };
+  //
+  // fadeOutDuration: how long the tooltip lingers after the mouse leaves the
+  // chart (or moves off a slice into the hole) — Syncfusion's default is
+  // 1000ms, which read as the tooltip "sticking"; see TOOLTIP_FADE_OUT_MS.
+  tooltipSettings = {
+    enable: true,
+    format: "${point.tooltip}",
+    enableTextWrap: false,
+    header: "",
+    fadeOutDuration: TOOLTIP_FADE_OUT_MS
+  };
   margin = { top: 0, bottom: 0, left: 0, right: 0 };
 
   get chartElementId(): string {

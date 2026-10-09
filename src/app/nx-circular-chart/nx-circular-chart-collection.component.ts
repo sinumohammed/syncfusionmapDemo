@@ -453,19 +453,46 @@ export class NxCircularChartCollectionComponent implements OnChanges, AfterViewI
     }, 0);
   }
 
+  // The cap only applies while it's actually needed:
+  //  - Uncapped: cap only if the cards are being clipped right now (the
+  //    track is taller than the viewport). A host whose panel has no fixed
+  //    height grows with its cards, so they're never clipped and never
+  //    capped. Measuring "available" height there would just read back the
+  //    cards' own current height — and capping to a reading taken while
+  //    charts were still rendering froze them small for good (seen in a
+  //    host integration: every size stuck at a ~146px box).
+  //  - Capped: recompute the fitting size, and drop the cap altogether once
+  //    the biggest configured size fits again.
+  private measureMaxBoxPx(): number | null {
+    const viewport = this.panelEl?.nativeElement.querySelector<HTMLElement>(".nx-circular-chart-viewport");
+    const track = viewport?.firstElementChild as HTMLElement | null | undefined;
+    if (!viewport || !track || this.rows <= 0) {
+      return null;
+    }
+    if (this.maxBoxPx === null) {
+      const style = getComputedStyle(viewport);
+      const innerHeight = viewport.clientHeight - (parseFloat(style.paddingTop) || 0) - (parseFloat(style.paddingBottom) || 0);
+      if (track.getBoundingClientRect().height <= innerHeight + 1) {
+        return null;
+      }
+    }
+    const fit = this.fittingBoxPx(viewport, track);
+    const largestBoxPx = Math.max(
+      ...this.circularCharts.map(c => CIRCULAR_CHART_SIZE_SPECS[c.size ?? CircularChartSize.Small].boxPx),
+      CIRCULAR_CHART_SIZE_SPECS[CircularChartSize.Small].boxPx
+    );
+    return fit >= largestBoxPx ? null : fit;
+  }
+
   // The panel's content height, minus what sits above the carousel (header)
   // and below it (pagination dots, legend — their heights don't depend on
   // the cards), split across `rows` rows, minus each card's own chrome.
   // Measured from the panel rather than the viewport itself: the viewport
   // shrinks to its content, so measuring it would never let cards grow back
-  // once the window gets taller.
-  private measureMaxBoxPx(): number | null {
-    const panel = this.panelEl?.nativeElement;
-    const viewport = panel?.querySelector<HTMLElement>(".nx-circular-chart-viewport");
-    const track = viewport?.firstElementChild as HTMLElement | null | undefined;
-    if (!panel || !viewport || !track || this.rows <= 0) {
-      return null;
-    }
+  // once the window gets taller. Only meaningful for a panel with a fixed
+  // height — see measureMaxBoxPx() for when it's used.
+  private fittingBoxPx(viewport: HTMLElement, track: HTMLElement): number {
+    const panel = this.panelEl.nativeElement;
     const px = (value: string): number => parseFloat(value) || 0;
     const panelStyle = getComputedStyle(panel);
     const contentBottom = panel.getBoundingClientRect().bottom - px(panelStyle.borderBottomWidth) - px(panelStyle.paddingBottom);

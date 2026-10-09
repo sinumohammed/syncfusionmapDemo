@@ -206,7 +206,13 @@ export function buildCircularChartConfigs(
   const ordered = [...visible].sort((a, b) => (a.Order ?? 0) - (b.Order ?? 0));
   const leaves = indexTrendLeaves(trendResponse);
   const matched = useConfigFallback ? ordered : ordered.filter(node => leaves.has(normalizeName(node.Name)));
-  return matched.map(node => buildCircularChartConfig(node, leaves.get(normalizeName(node.Name)), collection));
+  // The collection's SelectedChartName marks the chart to start selected —
+  // matched against Name the same way the trend join is.
+  const selectedKey = isCollection ? normalizeName(root.SelectedChartName) : "";
+  return matched.map(node => ({
+    ...buildCircularChartConfig(node, leaves.get(normalizeName(node.Name)), collection),
+    defaultSelected: !!selectedKey && normalizeName(node.Name) === selectedKey
+  }));
 }
 
 // The collection's own ChartSize — also what the collection component sizes

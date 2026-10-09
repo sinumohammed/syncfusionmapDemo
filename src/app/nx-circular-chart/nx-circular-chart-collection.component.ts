@@ -422,6 +422,7 @@ export class NxCircularChartCollectionComponent implements OnChanges, AfterViewI
   @ViewChild("panelEl", { static: true }) private panelEl!: ElementRef<HTMLElement>;
   private panelResizeObserver?: ResizeObserver;
   private fitTimer?: ReturnType<typeof setTimeout>;
+  private defaultSelectTimer?: ReturnType<typeof setTimeout>;
 
   constructor(private configService: NxCircularChartConfigService, private cdr: ChangeDetectorRef) {}
 
@@ -434,6 +435,9 @@ export class NxCircularChartCollectionComponent implements OnChanges, AfterViewI
     this.panelResizeObserver?.disconnect();
     if (this.fitTimer !== undefined) {
       clearTimeout(this.fitTimer);
+    }
+    if (this.defaultSelectTimer !== undefined) {
+      clearTimeout(this.defaultSelectTimer);
     }
   }
 
@@ -583,6 +587,7 @@ export class NxCircularChartCollectionComponent implements OnChanges, AfterViewI
     this.seriesPalette = parsedPalette?.length ? parsedPalette : DEFAULT_SERIES_PALETTE;
     this.selectedId = null;
     this.currentColumnOffset = 0;
+    this.applyDefaultSelection();
     // Legend is derived from the UNION of every circular chart's own slice
     // labels/colors, not just the first chart's — different charts in the
     // same collection can each carry their own subset of categories (e.g.
@@ -639,6 +644,30 @@ export class NxCircularChartCollectionComponent implements OnChanges, AfterViewI
   private toSwatchShape(shape: string | undefined | null): MarkerShape {
     const match = shape ? NxCircularChartCollectionComponent.KNOWN_SWATCH_SHAPES.find(s => s.toLowerCase() === shape.toLowerCase()) : undefined;
     return match ?? MarkerShape.Circle;
+  }
+
+  // SelectedChartName (rawConfig): the chart it names (marked
+  // defaultSelected by the transform) is selected as each set of charts
+  // loads (applyConfigs() has just cleared
+  // the selection), exactly as if clicked — so the host gets the same
+  // sublayersSelected event. Deferred a tick so the cards have rendered and
+  // the host's own state isn't changed mid change-detection. Skipped if the
+  // charts were replaced again meanwhile, or the user already picked one.
+  private applyDefaultSelection(): void {
+    if (this.defaultSelectTimer !== undefined) {
+      clearTimeout(this.defaultSelectTimer);
+      this.defaultSelectTimer = undefined;
+    }
+    const chart = this.circularCharts.find(c => c.defaultSelected && c.selectable !== false);
+    if (!chart) {
+      return;
+    }
+    this.defaultSelectTimer = setTimeout(() => {
+      this.defaultSelectTimer = undefined;
+      if (this.circularCharts.includes(chart) && this.selectedId === null) {
+        this.onCircularChartSelected(chart);
+      }
+    }, 0);
   }
 
   onCircularChartSelected(circularChart: CircularChartConfig): void {

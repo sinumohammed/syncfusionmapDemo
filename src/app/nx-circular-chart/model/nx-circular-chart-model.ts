@@ -220,6 +220,10 @@ export interface CircularChartCardConfig {
   // Derived from actionCommand: false (NoAction) makes a click on this card
   // do nothing (no selection, no event).
   selectable?: boolean;
+  // True for the chart RawCircularChartCollectionNode.SelectedChartName
+  // names — selected (and its click event fired) as the charts load. See
+  // the collection's applyDefaultSelection().
+  defaultSelected?: boolean;
   // e.g. "40%" — Syncfusion's own string-percentage format, unset renders a
   // solid pie instead of a circular chart.
   innerRadius?: string;
@@ -429,7 +433,13 @@ export interface RawCircularChartCollectionNode {
   LabelPosition?: TextOrientation | null;
   // Whether the value boxes around each ring show (a chart's own
   // ShowLegendValue wins). Only an explicit false hides them.
-  ShowLegendValue?: boolean | null;  // When set, NxCircularChartCollectionComponent fetches the trend response
+  ShowLegendValue?: boolean | null;
+  // The Name of the chart to start selected — as the charts load it's
+  // selected and its click event fires, as if the user had clicked it.
+  // Matched like the trend join (case/spacing-insensitive). Ignored when no
+  // chart has that Name, or that chart's ActionCommand is NoAction.
+  SelectedChartName?: string | null;
+  // When set, NxCircularChartCollectionComponent fetches the trend response
   // from this URL itself (via NxCircularChartConfigService) and uses THAT
   // (ignoring the `trendResponse` @Input entirely) — see its own comment.
   // Absent/null keeps the existing host-supplies-trendResponse behavior.

@@ -177,3 +177,47 @@ Syncfusion's accumulation chart here has no built-in gradient-fill property. Whe
 Syncfusion 29.2's `AccumulationDataLabel` module (Outside AND Inside) leaves `labelRegion` permanently `null` for roughly a 25%-32%/68%-75% two-point split (confirmed live, not an Angular-binding issue) — `NxCircularChartComponent` draws its own value badges instead, positioned from each point's own `midAngle`/`pieSeriesModule.center` (read in the `loaded` event's `onChartLoaded()`, which stay correct in every case tested). The DISTANCE from center is deliberately NOT read from Syncfusion (`pieModule.labelRadius`/`radius`) — confirmed live `labelRadius` sits much closer to center for a solid Pie (`innerRadius` forced `"0%"`) than for a Doughnut's ring, landing badges on top of (and unreadable against) the center label for Pie cards. It's derived instead from this card's own `config.radius` — the exact same percentage the pie/doughnut itself is drawn at — keeping every chart type's badges at an identical distance past the outer edge regardless of that Syncfusion-internal difference.
 
 The centered label (`.nx-circular-chart-center`) is positioned from that same `pieModule.center`, not a static CSS `50%/50%` — a SemiCircle's visible arc doesn't fill the box symmetrically and Syncfusion recenters it internally, so the CSS default left the label crowding the ring's own straight edge. Falls back to CSS `50%/50%` (via `centerLabelPosition: null`) until the chart's first `loaded` fires, or when empty (no chart rendered at all).
+
+## Config reference — sizes, labels, actions, selection
+
+Enum-backed fields take the enum's **number** (a numeric string such as `"2"` is also accepted for `ChartSize`; names are not). "Chart wins" means a chart node's own value overrides the collection's.
+
+| Field | Level | Values | Default | Effect |
+|---|---|---|---|---|
+| `ChartSize` | collection, chart wins | `CircularChartSize`: 1 Small, 2 Medium, 3 Large, 4 ExtraLarge | Small | Chart box 130/170/210/270px; centre label, value boxes, "No data"/healthy text and the empty ring's band all scale (`CIRCULAR_CHART_SIZE_SPECS`). |
+| `LabelPosition` | collection, chart wins | `TextOrientation`: 1 left, 2 right, 3 center, 4 top, 5 bottom | center | **center**: inside the ring — `ShortName` if set (hover shows the full `Name`), else `Name` cut with "…" at the hole's width (hover shows it when cut). **top/bottom/left/right**: the full `Name` outside the ring on that side, wrapping, no hover; left/right lay the card out as a row (label max 40% of the width). |
+| `ShortName` | chart | string | — | Text inside the ring instead of `Name` (`Name` stays the trend join key). |
+| `ShowLegendValue` | collection, chart wins | boolean | true | `false` hides the value boxes around the ring. |
+| `ActionCommand` | chart only | `ActionCommand`: 0 NavigateInSamePage … 4 NoAction, 5 FilterOutput | 0 | 0 selects on click as before; **4 NoAction** makes the card non-clickable (no selection, no event, no hover lift). 1/2/3/5 are TODO and behave like 0. |
+| `SelectedChartName` | collection | a chart's `Name` | — | That chart (matched like the trend join) is selected as the charts load and fires the same `sublayersSelected` event as a click; re-applied after each reload. Ignored if no chart matches or it is NoAction. |
+
+`Label` (unchanged) is still the healthy badge's text — not a display name.
+
+## Layout: `rows` / `columns`, equal tiles, fit-to-height
+
+- `columns`/`rows` inputs accept numbers or numeric strings; anything that isn't a positive number falls back to `columns` 1 / `rows` 0. `rows` 0 is the plain wrapping grid (scrolls); `rows` > 0 is the sliding carousel.
+- Every card fills its grid cell (`:host`/`.nx-circular-chart-card` `height: 100%`), so tiles in a row are equal height even when only some have an outside label; the ring stays at the top of each tile.
+- The ring and its overlays (centre text, value boxes, empty ring) live in `.nx-circular-chart-plot`, the positioned origin for that maths; the ResizeObserver watches it, so a left/right label's narrower ring sizes correctly.
+- **Fit-to-height (carousel only):** when the track is taller than the viewport (cards would be clipped), the collection computes the tallest box that fits (`maxBoxPx`, passed to every card) — panel content height minus header/pagination/legend and any top/bottom labels, split over `rows`. Fonts keep their configured size. The cap is dropped once the largest configured size fits again, and is never applied while nothing is clipped — so a host panel without a fixed height (grows with its cards) always gets full-size charts.
+
+## Tooltip
+
+Slice tooltips hide 100ms after the mouse leaves (`TOOLTIP_FADE_OUT_MS` → Syncfusion `tooltip.fadeOutDuration`, default 1000ms).
+
+# nx-lld
+
+LLD Configuration tab (`/lld`, `LldConfigComponent` page hosting `<app-nx-lld-config>`): **View → Groups → Sub-groups → Equipments**, all add/edit/delete, on an in-memory mock until real APIs exist.
+
+## Structure
+
+- `app/nx-lld/model/nx-lld.model.ts` — lookups (`LldLookups`: subsurfaces → stations, sub-group types → template versions, equipments), records (`LldView`, `LldGroup`, `LldSubGroup` + `LldSubGroupEquipment`), `LldViewStatus` (Private 1 / Public 2 / Deleted 3).
+- `app/nx-lld/services/nx-lld.service.ts` — one call for every lookup, then get/save/delete per level. Save = add (no id) or edit (with id), same URL. `USE_MOCK` answers from `assets/mock-api/lld-lookups.json` + `lld-data.json` held in memory (ids assigned by the mock); real URLs are `TODO(host)`. `apiErrorMessage()` turns a rejected call into the message shown in a popup.
+- `app/nx-lld/nx-lld-config.component.*` — the screen: view card (dropdown, edit/delete icons, status badge, details grid), group expansion panels, sub-group rows that expand to an equipment table.
+- `app/nx-lld/nx-lld-view-dialog.component.*`, `nx-lld-group-dialog.component.*`, `nx-lld-subgroup-dialog.component.*`, `nx-lld-confirm-dialog.component.ts` — Material dialogs; shared styles in `nx-lld-dialog.scss` (ID chip on Edit, API error box).
+
+## Rules
+
+- **View**: Name, Subsurface, Stations (multi-select of that subsurface's stations; changing subsurface clears them), Status (Private/Public), Description. Delete is a **soft delete** — status set to Deleted (3); deleted views are never listed.
+- **Duplicate names** (view; group within a view; sub-group within a group) are checked by the **API only** — its message shows in the popup, which stays open.
+- **Deleting** a group removes its sub-groups (mock: hard delete).
+- **Sub-group**: Type → Template (that type's versions) → Equipments → Name. One sub-group = one template: Type/Template lock once the first equipment is added and unlock only when all are removed. Each equipment has Name (pre-filled from the picked equipment, required), Path, Attribute. The mock re-checks these rules.

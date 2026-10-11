@@ -1,7 +1,7 @@
 import { Component, Inject, OnDestroy } from "@angular/core";
 import { FormBuilder, FormGroup, Validators } from "@angular/forms";
 import { MAT_DIALOG_DATA, MatDialogRef } from "@angular/material/dialog";
-import { of, Subject, Subscription } from "rxjs";
+import { Observable, of, Subject, Subscription } from "rxjs";
 import { catchError, finalize, switchMap } from "rxjs/operators";
 import { dcTag } from "./model/dc-tag.model";
 import { LLD_VIEW_STATUS_OPTIONS, LldView, LldViewStatus } from "./model/nx-lld.model";
@@ -58,7 +58,7 @@ export class NxLldViewDialogComponent implements OnDestroy {
     this.subscriptions.add(
       this.stationsRequest$
         .pipe(
-          switchMap(id => {
+          switchMap((id): Observable<dcTag[]> => {
             const subsurface = this.data.subsurfaces.find(s => s.ObjectID === id);
             this.stations = [];
             this.stationsError = "";
@@ -67,13 +67,13 @@ export class NxLldViewDialogComponent implements OnDestroy {
               ? this.lldService.getStations(subsurface, this.data.token).pipe(
                   catchError(err => {
                     this.stationsError = apiErrorMessage(err);
-                    return of([]);
+                    return of<dcTag[]>([]);
                   })
                 )
-              : of([]);
+              : of<dcTag[]>([]);
           })
         )
-        .subscribe(stations => {
+        .subscribe((stations: dcTag[]) => {
           this.stations = stations;
           this.stationsLoading = false;
         })

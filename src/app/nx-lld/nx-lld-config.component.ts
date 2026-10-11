@@ -84,11 +84,14 @@ export class NxLldConfigComponent implements OnInit, OnDestroy {
       .subscribe(groups => (this.groups = groups));
     this.stationsSub = this.stationsRequest$
       .pipe(
-        switchMap(subsurface =>
-          subsurface ? this.track(this.lldService.getStations(subsurface, LLD_API_TOKEN)).pipe(catchError(() => of([]))) : of([])
+        switchMap(
+          (subsurface): Observable<dcTag[]> =>
+            subsurface
+              ? this.track(this.lldService.getStations(subsurface, LLD_API_TOKEN)).pipe(catchError(() => of<dcTag[]>([])))
+              : of<dcTag[]>([])
         )
       )
-      .subscribe(stations => (this.viewStations = stations));
+      .subscribe((stations: dcTag[]) => (this.viewStations = stations));
   }
 
   get selectedView(): LldView | null {

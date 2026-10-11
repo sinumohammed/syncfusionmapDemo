@@ -1,8 +1,12 @@
 import { Injectable } from "@angular/core";
 import { HttpClient, HttpErrorResponse, HttpHeaders } from "@angular/common/http";
 import { forkJoin, Observable, of, throwError } from "rxjs";
-import { delay, map, mergeMap, shareReplay } from "rxjs/operators";
-import { LldGroup, LldGroupWithSubGroups, LldLookups, LldSubGroup, LldView, LldViewStatus } from "../model/nx-lld.model";
+import { catchError, delay, map, mergeMap, shareReplay } from "rxjs/operators";
+import { LldApiResult, LldElement, LldGroup, LldGroupWithSubGroups, LldLookups, LldSubGroup, LldView, LldViewStatus } from "../model/nx-lld.model";
+
+// Real host endpoints (see getSubsurfaces() / getStations()).
+export const LLD_SUBSURFACES_URL = "api/PDOCustom/GetSubSurfaceOperations";
+export const LLD_STATIONS_URL = "api/PreConfig/GetStations";
 
 // TODO(host): real endpoints not known yet. Save = add (no id) AND edit
 // (with id), same URL; delete by id (a view's is a soft delete, see
@@ -25,22 +29,37 @@ export const LLD_DELETE_SUBGROUP_URL = "PDOCustom/LLD/DeleteSubGroup";
 const USE_MOCK = true;
 const MOCK_LOOKUPS_URL = "assets/mock-api/lld-lookups.json";
 const MOCK_DATA_URL = "assets/mock-api/lld-data.json";
+// The real GetSubSurfaceOperations response (FAHUD) plus one made-up
+// subsurface ("MOCK FIELD 2"), so switching subsurface can be tried.
+const MOCK_SUBSURFACES_URL = "assets/mock-api/lld-subsurfaces.json";
+// GetStations responses, keyed by the subsurface's ElementVersionID.
+const MOCK_STATIONS_URL = "assets/mock-api/lld-stations.json";
 // Simulated network time for the mock, so loaders are visible.
 const MOCK_LATENCY_MS = 400;
 
 // The message to show for a failed call. A rejected save (e.g. "a view with
 // this name already exists") comes back as an HTTP error whose body carries
 // the server's own message — shown as-is.
-// TODO(host): match the real error body's shape once known.
+// TODO(host): match the real error body's shape once known (the host's
+// result envelope uses ErrorMessage / StatusMessage, read here too).
 export function apiErrorMessage(err: unknown): string {
   if (err instanceof HttpErrorResponse) {
     const body = err.error;
     if (typeof body === "string" && body.trim()) {
       return body;
     }
-    return body?.message || body?.Message || err.message || "Request failed";
+    return body?.message || body?.Message || body?.ErrorMessage || body?.StatusMessage || err.message || "Request failed";
   }
   return (err as Error)?.message || "Request failed";
+}
+
+// The payload of a host result envelope — or an error carrying the server's
+// message when the call "succeeded" (HTTP 200) with Status/IsValid false.
+function unwrapResult<T>(result: LldApiResult<T>): T {
+  if (!result?.Status || !result.IsValid) {
+    throw new Error(result?.ErrorMessage || result?.StatusMessage || "Request failed");
+  }
+  return result.Value;
 }
 
 interface LldMockData {
@@ -53,7 +72,42 @@ interface LldMockData {
 export class NxLldService {
   constructor(private http: HttpClient) {}
 
-  // Every dropdown/checklist value in one call.
+  // --------------------------------------------------------- elements
+  // The Subsurface dropdown. `tags` is the host's own tag selection, posted
+  // as-is.
+  getSubsurfaces(tags: unknown[], token: string): Observable<LldElement[]> {
+    if (USE_MOCK) {
+      return this.mock(() => unwrapResult(this.mockSubsurfaces));
+    }
+    return this.post<LldApiResult<LldElement[]>>(LLD_SUBSURFACES_URL, tags, token).pipe(map(unwrapResult));
+  }
+
+  // One subsurface's stations — a separate call per subsurface, which is
+  // posted back whole. Remembered per subsurface, so the page and the View
+  // popup share one fetch; a failed fetch isn't remembered.
+  getStations(subsurface: LldElement, token: string): Observable<LldElement[]> {
+    const id = subsurface.ElementVersionID;
+    let stations$ = this.stationsCache.get(id);
+    if (!stations$) {
+      const request$ = USE_MOCK
+        ? this.mock(() => this.mockStations[id] ?? [])
+        : this.post<LldElement[]>(LLD_STATIONS_URL, [subsurface], token);
+      stations$ = request$.pipe(
+        map(stations => stations ?? []),
+        catchError(err => {
+          this.stationsCache.delete(id);
+          return throwError(() => err);
+        }),
+        shareReplay(1)
+      );
+      this.stationsCache.set(id, stations$);
+    }
+    return stations$;
+  }
+  private readonly stationsCache = new Map<number, Observable<LldElement[]>>();
+
+  // ----------------------------------------------------------- lookups
+  // Every Sub-group dropdown/checklist value in one call.
   getLookups(token: string): Observable<LldLookups> {
     if (USE_MOCK) {
       return this.mockReady$.pipe(delay(MOCK_LATENCY_MS), map(() => this.mockLookups));
@@ -177,12 +231,21 @@ export class NxLldService {
   // Seeds loaded once; each call reads the store AFTER it's ready (never the
   // replayed seed value — that snapshot would miss later saves).
   private mockLookups!: LldLookups;
+  private mockSubsurfaces!: LldApiResult<LldElement[]>;
+  private mockStations: Record<number, LldElement[]> = {};
   private store: LldMockData = { views: [], groups: [], subGroups: [] };
   private readonly mockReady$: Observable<unknown> = USE_MOCK
-    ? forkJoin([this.http.get<LldLookups>(MOCK_LOOKUPS_URL), this.http.get<LldMockData>(MOCK_DATA_URL)]).pipe(
-        map(([lookups, data]) => {
+    ? forkJoin([
+        this.http.get<LldLookups>(MOCK_LOOKUPS_URL),
+        this.http.get<LldMockData>(MOCK_DATA_URL),
+        this.http.get<LldApiResult<LldElement[]>>(MOCK_SUBSURFACES_URL),
+        this.http.get<Record<number, LldElement[]>>(MOCK_STATIONS_URL)
+      ]).pipe(
+        map(([lookups, data, subsurfaces, stations]) => {
           this.mockLookups = lookups;
           this.store = data;
+          this.mockSubsurfaces = subsurfaces;
+          this.mockStations = stations;
         }),
         shareReplay(1)
       )

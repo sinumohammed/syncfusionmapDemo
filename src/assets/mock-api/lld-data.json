@@ -3,10 +3,10 @@
     {
       "id": 1,
       "name": "Well-A",
-      "subsurfaceId": "SS-RES",
+      "subsurfaceId": 1062841,
       "stationIds": [
-        "STN-N01",
-        "STN-N02"
+        76699,
+        76838
       ],
       "status": 2,
       "description": "Main reservoir layout for Well-A."
@@ -14,11 +14,11 @@
     {
       "id": 2,
       "name": "Well-B",
-      "subsurfaceId": "SS-WBR",
+      "subsurfaceId": 9000001,
       "stationIds": [
-        "STN-S01",
-        "STN-S02",
-        "STN-S03"
+        9000101,
+        9000102,
+        9000103
       ],
       "status": 1,
       "description": ""

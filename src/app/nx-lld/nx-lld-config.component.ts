@@ -1,8 +1,8 @@
 import { Component, OnDestroy, OnInit } from "@angular/core";
 import { MatDialog } from "@angular/material/dialog";
 import { forkJoin, Observable, of, Subject, Subscription } from "rxjs";
-import { finalize, switchMap } from "rxjs/operators";
-import { LLD_VIEW_STATUS_OPTIONS, LldGroup, LldGroupWithSubGroups, LldLookups, LldOption, LldSubGroup, LldView, LldViewStatus } from "./model/nx-lld.model";
+import { catchError, finalize, switchMap } from "rxjs/operators";
+import { LLD_VIEW_STATUS_OPTIONS, LldElement, LldGroup, LldGroupWithSubGroups, LldLookups, LldSubGroup, LldView, LldViewStatus } from "./model/nx-lld.model";
 import { NxLldService } from "./services/nx-lld.service";
 import { LldViewDialogData, NxLldViewDialogComponent } from "./nx-lld-view-dialog.component";
 import { LldGroupDialogData, NxLldGroupDialogComponent } from "./nx-lld-group-dialog.component";
@@ -12,6 +12,30 @@ import { LldConfirmDialogData, NxLldConfirmDialogComponent } from "./nx-lld-conf
 // TODO(host): replace with the logged-in user's API token (the host app
 // supplies its own); passed straight through to every LLD API call.
 const LLD_API_TOKEN = "";
+
+// TODO(host): replace with the host's own tag selection — posted as-is to
+// load the Subsurface dropdown (NxLldService.getSubsurfaces()). This one is
+// the sample request captured from the host (FAHUD).
+const LLD_SUBSURFACE_TAGS: unknown[] = [
+  {
+    TagID: 4251,
+    TagName: "FAHUD",
+    ElementTypeID: 6505,
+    SourceObjectID: 1062841,
+    ObjectID: 1062841,
+    IsLazyLoading: false,
+    IsShallowsearch: false,
+    isSelected: false,
+    dataStoreOptions: { getLastest: false, storeInClient: true },
+    isRemovable: false,
+    CategoryID: 1631,
+    SourceClassID: 28,
+    IsWildCard: false,
+    IsDeleted: false,
+    isDisabled: false,
+    borderColor: ""
+  }
+];
 
 // The LLD Configuration screen: View dropdown (New/Edit/Delete) over the
 // grouped layout — one expansion panel per group of the selected view,
@@ -24,6 +48,9 @@ const LLD_API_TOKEN = "";
 export class NxLldConfigComponent implements OnInit, OnDestroy {
   readonly ViewStatus = LldViewStatus;
   lookups: LldLookups | null = null;
+  subsurfaces: LldElement[] = [];
+  // The selected view's subsurface's stations — fetched per subsurface.
+  private viewStations: LldElement[] = [];
   views: LldView[] = [];
   selectedViewId: number | null = null;
   groups: LldGroupWithSubGroups[] = [];
@@ -45,11 +72,22 @@ export class NxLldConfigComponent implements OnInit, OnDestroy {
   // land under the wrong view.
   private readonly groupsRequest$ = new Subject<number | null>();
   private readonly groupsSub: Subscription;
+  // Same idea for the selected view's stations (a failed fetch just leaves
+  // the list empty).
+  private readonly stationsRequest$ = new Subject<LldElement | null>();
+  private readonly stationsSub: Subscription;
 
   constructor(private lldService: NxLldService, private dialog: MatDialog) {
     this.groupsSub = this.groupsRequest$
       .pipe(switchMap(viewId => (viewId == null ? of([]) : this.track(this.lldService.getGroups(viewId, LLD_API_TOKEN)))))
       .subscribe(groups => (this.groups = groups));
+    this.stationsSub = this.stationsRequest$
+      .pipe(
+        switchMap(subsurface =>
+          subsurface ? this.track(this.lldService.getStations(subsurface, LLD_API_TOKEN)).pipe(catchError(() => of([]))) : of([])
+        )
+      )
+      .subscribe(stations => (this.viewStations = stations));
   }
 
   get selectedView(): LldView | null {
@@ -57,13 +95,15 @@ export class NxLldConfigComponent implements OnInit, OnDestroy {
   }
 
   // The selected view's subsurface, stations and status, by name.
-  get selectedSubsurfaceName(): string {
-    return this.lookups?.subsurfaces.find(s => s.id === this.selectedView?.subsurfaceId)?.name ?? "";
+  private get selectedSubsurface(): LldElement | null {
+    return this.subsurfaces.find(s => s.ElementVersionID === this.selectedView?.subsurfaceId) ?? null;
   }
-  get selectedStations(): LldOption[] {
-    const view = this.selectedView;
-    const subsurface = this.lookups?.subsurfaces.find(s => s.id === view?.subsurfaceId);
-    return subsurface?.stations.filter(s => view!.stationIds.includes(s.id)) ?? [];
+  get selectedSubsurfaceName(): string {
+    return this.selectedSubsurface?.ElementName ?? "";
+  }
+  get selectedStations(): LldElement[] {
+    const ids = this.selectedView?.stationIds ?? [];
+    return this.viewStations.filter(s => ids.includes(s.ElementVersionID));
   }
   get selectedStatusLabel(): string {
     return LLD_VIEW_STATUS_OPTIONS.find(o => o.value === this.selectedView?.status)?.label ?? "";
@@ -78,16 +118,22 @@ export class NxLldConfigComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.track(forkJoin([this.lldService.getLookups(LLD_API_TOKEN), this.lldService.getViews(LLD_API_TOKEN)])).subscribe(
-      ([lookups, views]) => {
-        this.lookups = lookups;
-        this.setViews(views, null);
-      }
-    );
+    this.track(
+      forkJoin([
+        this.lldService.getLookups(LLD_API_TOKEN),
+        this.lldService.getSubsurfaces(LLD_SUBSURFACE_TAGS, LLD_API_TOKEN),
+        this.lldService.getViews(LLD_API_TOKEN)
+      ])
+    ).subscribe(([lookups, subsurfaces, views]) => {
+      this.lookups = lookups;
+      this.subsurfaces = subsurfaces;
+      this.setViews(views, null);
+    });
   }
 
   ngOnDestroy(): void {
     this.groupsSub.unsubscribe();
+    this.stationsSub.unsubscribe();
   }
 
   // ------------------------------------------------------------- views
@@ -96,6 +142,12 @@ export class NxLldConfigComponent implements OnInit, OnDestroy {
     this.expandedGroupIds.clear();
     this.expandedSubGroupIds.clear();
     this.groupsRequest$.next(this.selectedViewId);
+    this.loadViewStations();
+  }
+
+  private loadViewStations(): void {
+    this.viewStations = [];
+    this.stationsRequest$.next(this.selectedSubsurface);
   }
 
   newView(): void {
@@ -131,7 +183,7 @@ export class NxLldConfigComponent implements OnInit, OnDestroy {
         width: "420px",
         data: {
           view,
-          lookups: this.lookups,
+          subsurfaces: this.subsurfaces,
           token: LLD_API_TOKEN
         }
       })
@@ -156,6 +208,9 @@ export class NxLldConfigComponent implements OnInit, OnDestroy {
     this.selectedViewId = keep ?? views[0]?.id ?? null;
     if (this.selectedViewId !== previousId || previousId == null) {
       this.onViewChange();
+    } else {
+      // Same view, but an Edit may have changed its subsurface.
+      this.loadViewStations();
     }
   }
 

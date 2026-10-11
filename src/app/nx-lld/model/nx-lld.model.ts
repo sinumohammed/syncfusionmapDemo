@@ -1,13 +1,58 @@
 // LLD configuration: View -> Groups -> Sub-groups -> Equipments.
-// CamelCase throughout — there is no real upstream payload to mirror yet
-// (the service runs on a mock, see NxLldService).
+// CamelCase for everything this screen owns — those APIs aren't known yet
+// (the service runs on a mock, see NxLldService). The exception is
+// LldElement, which mirrors the host's real payload.
+
+// --------------------------------------------------------------- elements
+// A host element, exactly as the host APIs return it — the View popup's
+// Subsurface dropdown (getSubsurfaces()) and Stations multi-select
+// (getStations()) are both lists of these. Kept whole and PascalCase
+// because the selected subsurface is posted back as-is to load its stations.
+export interface LldElement {
+  // 0 on every row — ElementVersionID is the identity.
+  ElementID: number;
+  ElementTypeID: number;
+  ElementName: string;
+  ElementShortName: string;
+  ElementDescription: string;
+  ElementTypeName: string | null;
+  ElementVersionID: number;
+  ParentElementVersionID: number | null;
+  Security: number;
+  PreviousVersionID: number | null;
+  ElementTemplateID: number;
+  ElementTemplateName: string | null;
+  ReferenceElementVersionID: number | null;
+  ReferenceElementTemplateID: number | null;
+  TimeZoneID: number;
+  ActiveOn: string;
+  InActiveOn: string | null;
+  CreatedOn: string;
+  CreatedBy: number;
+  IsEditable: boolean | null;
+  VersionStatus: number;
+  ActionFlag: number;
+  ElementPath: string | null;
+  ModifiedOn: string | null;
+  IsStrongReference: boolean;
+}
+
+// The envelope some host APIs wrap their result in (GetSubSurfaceOperations
+// does, GetStations returns a bare array). A failed call can still be an
+// HTTP 200 — Status/IsValid say whether `Value` is usable.
+export interface LldApiResult<T> {
+  Value: T;
+  IsValid: boolean;
+  Status: boolean;
+  StatusMessage: string | null;
+  ErrorMessage: string | null;
+}
 
 // ---------------------------------------------------------------- lookups
-// Every dropdown/checklist value, delivered by ONE call (getLookups()) —
-// assets/mock-api/lld-lookups.json for now. Lookup ids are strings; record
-// ids (below) are server-assigned numbers.
+// The Sub-group popup's dropdown values, delivered by ONE call
+// (getLookups()) — assets/mock-api/lld-lookups.json for now. Lookup ids are
+// strings; record ids (below) are server-assigned numbers.
 export interface LldLookups {
-  subsurfaces: LldSubsurface[];
   subGroupTypes: LldSubGroupType[];
   equipments: LldOption[];
 }
@@ -15,12 +60,6 @@ export interface LldLookups {
 export interface LldOption {
   id: string;
   name: string;
-}
-
-// The View popup's Subsurface dropdown; picking one swaps the Stations
-// multi-select to that subsurface's own stations (one-to-many).
-export interface LldSubsurface extends LldOption {
-  stations: LldOption[];
 }
 
 // The Sub-group popup's Type dropdown; picking one loads its template
@@ -55,9 +94,11 @@ export const LLD_VIEW_STATUS_OPTIONS: { value: LldViewStatus; label: string }[] 
 export interface LldView {
   id?: number | null;
   name: string;
-  subsurfaceId: string;
-  // Selected stations — all belong to subsurfaceId's own `stations`.
-  stationIds: string[];
+  // The subsurface element's ElementVersionID.
+  subsurfaceId: number | null;
+  // Selected stations' ElementVersionIDs — all from that subsurface's own
+  // station list (getStations()).
+  stationIds: number[];
   status: LldViewStatus;
   description: string;
 }

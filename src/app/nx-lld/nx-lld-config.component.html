@@ -41,7 +41,7 @@
       <div class="nx-lld-field">
         <span class="nx-lld-field-label">Stations ({{ selectedStations.length }})</span>
         <span class="nx-lld-chips">
-          <span class="nx-lld-chip" *ngFor="let station of selectedStations">{{ station.name }}</span>
+          <span class="nx-lld-chip" *ngFor="let station of selectedStations" [title]="station.ElementDescription">{{ station.ElementName }}</span>
         </span>
       </div>
       <div class="nx-lld-field nx-lld-field--full" *ngIf="selectedView.description">

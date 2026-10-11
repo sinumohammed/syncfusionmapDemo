@@ -1,41 +1,7 @@
 // LLD configuration: View -> Groups -> Sub-groups -> Equipments.
 // CamelCase for everything this screen owns — those APIs aren't known yet
-// (the service runs on a mock, see NxLldService). The exception is
-// LldElement, which mirrors the host's real payload.
-
-// --------------------------------------------------------------- elements
-// A host element, exactly as the host APIs return it — the View popup's
-// Subsurface dropdown (getSubsurfaces()) and Stations multi-select
-// (getStations()) are both lists of these. Kept whole and PascalCase
-// because the selected subsurface is posted back as-is to load its stations.
-export interface LldElement {
-  // 0 on every row — ElementVersionID is the identity.
-  ElementID: number;
-  ElementTypeID: number;
-  ElementName: string;
-  ElementShortName: string;
-  ElementDescription: string;
-  ElementTypeName: string | null;
-  ElementVersionID: number;
-  ParentElementVersionID: number | null;
-  Security: number;
-  PreviousVersionID: number | null;
-  ElementTemplateID: number;
-  ElementTemplateName: string | null;
-  ReferenceElementVersionID: number | null;
-  ReferenceElementTemplateID: number | null;
-  TimeZoneID: number;
-  ActiveOn: string;
-  InActiveOn: string | null;
-  CreatedOn: string;
-  CreatedBy: number;
-  IsEditable: boolean | null;
-  VersionStatus: number;
-  ActionFlag: number;
-  ElementPath: string | null;
-  ModifiedOn: string | null;
-  IsStrongReference: boolean;
-}
+// (the service runs on a mock, see NxLldService). Subsurfaces and stations
+// are the host's own dcTag (model/dc-tag.model.ts).
 
 // The envelope some host APIs wrap their result in (GetSubSurfaceOperations
 // does, GetStations returns a bare array). A failed call can still be an
@@ -94,9 +60,9 @@ export const LLD_VIEW_STATUS_OPTIONS: { value: LldViewStatus; label: string }[] 
 export interface LldView {
   id?: number | null;
   name: string;
-  // The subsurface element's ElementVersionID.
+  // The subsurface tag's ObjectID.
   subsurfaceId: number | null;
-  // Selected stations' ElementVersionIDs — all from that subsurface's own
+  // Selected stations' ObjectIDs — all from that subsurface's own
   // station list (getStations()).
   stationIds: number[];
   status: LldViewStatus;

@@ -3,14 +3,15 @@ import { FormBuilder, FormGroup, Validators } from "@angular/forms";
 import { MAT_DIALOG_DATA, MatDialogRef } from "@angular/material/dialog";
 import { of, Subject, Subscription } from "rxjs";
 import { catchError, finalize, switchMap } from "rxjs/operators";
-import { LLD_VIEW_STATUS_OPTIONS, LldElement, LldView, LldViewStatus } from "./model/nx-lld.model";
+import { dcTag } from "./model/dc-tag.model";
+import { LLD_VIEW_STATUS_OPTIONS, LldView, LldViewStatus } from "./model/nx-lld.model";
 import { apiErrorMessage, NxLldService } from "./services/nx-lld.service";
 
 export interface LldViewDialogData {
   // Absent -> New; present -> Edit (same form, pre-filled).
   view?: LldView;
   // The Subsurface dropdown, already loaded by the page.
-  subsurfaces: LldElement[];
+  subsurfaces: dcTag[];
   token: string;
 }
 
@@ -32,7 +33,7 @@ export class NxLldViewDialogComponent implements OnDestroy {
   saving = false;
   saveError = "";
   // The picked subsurface's stations — empty until its fetch lands.
-  stations: LldElement[] = [];
+  stations: dcTag[] = [];
   stationsLoading = false;
   stationsError = "";
   // Each push fetches that subsurface's stations; switchMap drops a
@@ -58,7 +59,7 @@ export class NxLldViewDialogComponent implements OnDestroy {
       this.stationsRequest$
         .pipe(
           switchMap(id => {
-            const subsurface = this.data.subsurfaces.find(s => s.ElementVersionID === id);
+            const subsurface = this.data.subsurfaces.find(s => s.ObjectID === id);
             this.stations = [];
             this.stationsError = "";
             this.stationsLoading = !!subsurface;
@@ -110,7 +111,7 @@ export class NxLldViewDialogComponent implements OnDestroy {
       name: value.name.trim(),
       subsurfaceId: value.subsurfaceId,
       // Dropdown order, not click order.
-      stationIds: this.stations.map(s => s.ElementVersionID).filter(id => value.stationIds.includes(id)),
+      stationIds: this.stations.map(s => s.ObjectID!).filter(id => value.stationIds.includes(id)),
       status: value.status,
       description: (value.description ?? "").trim()
     };

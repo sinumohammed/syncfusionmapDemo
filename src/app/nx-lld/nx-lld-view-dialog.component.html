@@ -14,7 +14,7 @@
     <mat-form-field appearance="fill">
       <mat-label>Subsurface</mat-label>
       <mat-select formControlName="subsurfaceId">
-        <mat-option *ngFor="let s of data.subsurfaces" [value]="s.ElementVersionID">{{ s.ElementName }}</mat-option>
+        <mat-option *ngFor="let s of data.subsurfaces" [value]="s.ObjectID">{{ s.TagName }}</mat-option>
       </mat-select>
       <mat-error *ngIf="form.get('subsurfaceId')?.hasError('required')">Subsurface is required</mat-error>
     </mat-form-field>
@@ -22,7 +22,7 @@
     <mat-form-field appearance="fill">
       <mat-label>Stations</mat-label>
       <mat-select formControlName="stationIds" multiple>
-        <mat-option *ngFor="let s of stations" [value]="s.ElementVersionID" [title]="s.ElementDescription">{{ s.ElementName }}</mat-option>
+        <mat-option *ngFor="let s of stations" [value]="s.ObjectID">{{ s.TagName }}</mat-option>
       </mat-select>
       <mat-hint *ngIf="stationsLoading">Loading stations…</mat-hint>
       <mat-hint *ngIf="stationsError" class="nx-lld-dialog-field-error">{{ stationsError }}</mat-hint>

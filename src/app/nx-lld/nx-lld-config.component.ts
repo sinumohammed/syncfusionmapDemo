@@ -2,7 +2,8 @@ import { Component, OnDestroy, OnInit } from "@angular/core";
 import { MatDialog } from "@angular/material/dialog";
 import { forkJoin, Observable, of, Subject, Subscription } from "rxjs";
 import { catchError, finalize, switchMap } from "rxjs/operators";
-import { LLD_VIEW_STATUS_OPTIONS, LldElement, LldGroup, LldGroupWithSubGroups, LldLookups, LldSubGroup, LldView, LldViewStatus } from "./model/nx-lld.model";
+import { LLD_VIEW_STATUS_OPTIONS, LldGroup, LldGroupWithSubGroups, LldLookups, LldSubGroup, LldView, LldViewStatus } from "./model/nx-lld.model";
+import { dcTag } from "./model/dc-tag.model";
 import { NxLldService } from "./services/nx-lld.service";
 import { LldViewDialogData, NxLldViewDialogComponent } from "./nx-lld-view-dialog.component";
 import { LldGroupDialogData, NxLldGroupDialogComponent } from "./nx-lld-group-dialog.component";
@@ -16,7 +17,7 @@ const LLD_API_TOKEN = "";
 // TODO(host): replace with the host's own tag selection — posted as-is to
 // load the Subsurface dropdown (NxLldService.getSubsurfaces()). This one is
 // the sample request captured from the host (FAHUD).
-const LLD_SUBSURFACE_TAGS: unknown[] = [
+const LLD_SUBSURFACE_TAGS: dcTag[] = [
   {
     TagID: 4251,
     TagName: "FAHUD",
@@ -48,9 +49,9 @@ const LLD_SUBSURFACE_TAGS: unknown[] = [
 export class NxLldConfigComponent implements OnInit, OnDestroy {
   readonly ViewStatus = LldViewStatus;
   lookups: LldLookups | null = null;
-  subsurfaces: LldElement[] = [];
+  subsurfaces: dcTag[] = [];
   // The selected view's subsurface's stations — fetched per subsurface.
-  private viewStations: LldElement[] = [];
+  private viewStations: dcTag[] = [];
   views: LldView[] = [];
   selectedViewId: number | null = null;
   groups: LldGroupWithSubGroups[] = [];
@@ -74,7 +75,7 @@ export class NxLldConfigComponent implements OnInit, OnDestroy {
   private readonly groupsSub: Subscription;
   // Same idea for the selected view's stations (a failed fetch just leaves
   // the list empty).
-  private readonly stationsRequest$ = new Subject<LldElement | null>();
+  private readonly stationsRequest$ = new Subject<dcTag | null>();
   private readonly stationsSub: Subscription;
 
   constructor(private lldService: NxLldService, private dialog: MatDialog) {
@@ -95,15 +96,15 @@ export class NxLldConfigComponent implements OnInit, OnDestroy {
   }
 
   // The selected view's subsurface, stations and status, by name.
-  private get selectedSubsurface(): LldElement | null {
-    return this.subsurfaces.find(s => s.ElementVersionID === this.selectedView?.subsurfaceId) ?? null;
+  private get selectedSubsurface(): dcTag | null {
+    return this.subsurfaces.find(s => s.ObjectID === this.selectedView?.subsurfaceId) ?? null;
   }
   get selectedSubsurfaceName(): string {
-    return this.selectedSubsurface?.ElementName ?? "";
+    return this.selectedSubsurface?.TagName ?? "";
   }
-  get selectedStations(): LldElement[] {
+  get selectedStations(): dcTag[] {
     const ids = this.selectedView?.stationIds ?? [];
-    return this.viewStations.filter(s => ids.includes(s.ElementVersionID));
+    return this.viewStations.filter(s => ids.includes(s.ObjectID!));
   }
   get selectedStatusLabel(): string {
     return LLD_VIEW_STATUS_OPTIONS.find(o => o.value === this.selectedView?.status)?.label ?? "";

@@ -2,7 +2,8 @@ import { Injectable } from "@angular/core";
 import { HttpClient, HttpErrorResponse, HttpHeaders } from "@angular/common/http";
 import { forkJoin, Observable, of, throwError } from "rxjs";
 import { catchError, delay, map, mergeMap, shareReplay } from "rxjs/operators";
-import { LldApiResult, LldElement, LldGroup, LldGroupWithSubGroups, LldLookups, LldSubGroup, LldView, LldViewStatus } from "../model/nx-lld.model";
+import { dcTag } from "../model/dc-tag.model";
+import { LldApiResult, LldGroup, LldGroupWithSubGroups, LldLookups, LldSubGroup, LldView, LldViewStatus } from "../model/nx-lld.model";
 
 // Real host endpoints (see getSubsurfaces() / getStations()).
 export const LLD_SUBSURFACES_URL = "api/PDOCustom/GetSubSurfaceOperations";
@@ -62,6 +63,25 @@ function unwrapResult<T>(result: LldApiResult<T>): T {
   return result.Value;
 }
 
+// One item of the GetSubSurfaceOperations / GetStations responses — only
+// the fields read here; the rest ride along untouched.
+interface ElementResponse {
+  ElementName: string;
+  ElementTypeID: number;
+  // The identity (ElementID is 0 on every row).
+  ElementVersionID: number;
+  [key: string]: unknown;
+}
+
+// The host's tag for a response element: named after it, ObjectID = its
+// ElementVersionID. The element itself is kept whole in contextObject,
+// because GetStations wants the picked subsurface posted back as received.
+function toTag(element: ElementResponse): dcTag {
+  const tag = new dcTag(undefined, element.ElementName, element.ElementTypeID, element.ElementVersionID, element.ElementVersionID);
+  tag.contextObject = element;
+  return tag;
+}
+
 interface LldMockData {
   views: LldView[];
   groups: LldGroup[];
@@ -75,25 +95,25 @@ export class NxLldService {
   // --------------------------------------------------------- elements
   // The Subsurface dropdown. `tags` is the host's own tag selection, posted
   // as-is.
-  getSubsurfaces(tags: unknown[], token: string): Observable<LldElement[]> {
+  getSubsurfaces(tags: dcTag[], token: string): Observable<dcTag[]> {
     if (USE_MOCK) {
-      return this.mock(() => unwrapResult(this.mockSubsurfaces));
+      return this.mock(() => unwrapResult(this.mockSubsurfaces).map(toTag));
     }
-    return this.post<LldApiResult<LldElement[]>>(LLD_SUBSURFACES_URL, tags, token).pipe(map(unwrapResult));
+    return this.post<LldApiResult<ElementResponse[]>>(LLD_SUBSURFACES_URL, tags, token).pipe(map(result => unwrapResult(result).map(toTag)));
   }
 
-  // One subsurface's stations — a separate call per subsurface, which is
-  // posted back whole. Remembered per subsurface, so the page and the View
+  // One subsurface's stations — a separate call per subsurface, whose
+  // response element (kept in contextObject) is posted back whole. Remembered per subsurface, so the page and the View
   // popup share one fetch; a failed fetch isn't remembered.
-  getStations(subsurface: LldElement, token: string): Observable<LldElement[]> {
-    const id = subsurface.ElementVersionID;
+  getStations(subsurface: dcTag, token: string): Observable<dcTag[]> {
+    const id = subsurface.ObjectID!;
     let stations$ = this.stationsCache.get(id);
     if (!stations$) {
       const request$ = USE_MOCK
         ? this.mock(() => this.mockStations[id] ?? [])
-        : this.post<LldElement[]>(LLD_STATIONS_URL, [subsurface], token);
+        : this.post<ElementResponse[]>(LLD_STATIONS_URL, [subsurface.contextObject], token);
       stations$ = request$.pipe(
-        map(stations => stations ?? []),
+        map(stations => (stations ?? []).map(toTag)),
         catchError(err => {
           this.stationsCache.delete(id);
           return throwError(() => err);
@@ -104,7 +124,7 @@ export class NxLldService {
     }
     return stations$;
   }
-  private readonly stationsCache = new Map<number, Observable<LldElement[]>>();
+  private readonly stationsCache = new Map<number, Observable<dcTag[]>>();
 
   // ----------------------------------------------------------- lookups
   // Every Sub-group dropdown/checklist value in one call.
@@ -231,15 +251,15 @@ export class NxLldService {
   // Seeds loaded once; each call reads the store AFTER it's ready (never the
   // replayed seed value — that snapshot would miss later saves).
   private mockLookups!: LldLookups;
-  private mockSubsurfaces!: LldApiResult<LldElement[]>;
-  private mockStations: Record<number, LldElement[]> = {};
+  private mockSubsurfaces!: LldApiResult<ElementResponse[]>;
+  private mockStations: Record<number, ElementResponse[]> = {};
   private store: LldMockData = { views: [], groups: [], subGroups: [] };
   private readonly mockReady$: Observable<unknown> = USE_MOCK
     ? forkJoin([
         this.http.get<LldLookups>(MOCK_LOOKUPS_URL),
         this.http.get<LldMockData>(MOCK_DATA_URL),
-        this.http.get<LldApiResult<LldElement[]>>(MOCK_SUBSURFACES_URL),
-        this.http.get<Record<number, LldElement[]>>(MOCK_STATIONS_URL)
+        this.http.get<LldApiResult<ElementResponse[]>>(MOCK_SUBSURFACES_URL),
+        this.http.get<Record<number, ElementResponse[]>>(MOCK_STATIONS_URL)
       ]).pipe(
         map(([lookups, data, subsurfaces, stations]) => {
           this.mockLookups = lookups;

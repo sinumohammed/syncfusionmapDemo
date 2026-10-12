@@ -135,7 +135,7 @@ export function parseCircularChartSize(raw: CircularChartSize | string | null | 
 
 // Where a chart's name goes (its LabelPosition) — the host app's own
 // shared enum, values as-is. center (default): inside the ring — the
-// ShortName if set (hover shows the full Name), else the Name cut to fit
+// ShortName if set (hover shows the full Label/Name), else that cut to fit
 // with "…" (hover shows it in full when cut). top/bottom/left/right: the
 // full Name outside the ring on that side, no hover. Set like ChartSize:
 // collection-wide, a chart's own LabelPosition wins.
@@ -201,9 +201,13 @@ export interface CircularChartCardConfig {
   // ids break Syncfusion's chart instances).
   id: string;
   label: string;
-  // Shown in the ring's centre instead of `label` when set — for a long
-  // Name that doesn't fit. `label` (the full Name) is still what the card
-  // is matched and identified by.
+  // The chart's full display text (RawCircularChartNode.Label, else its
+  // Name) — the outside label and the centre text's hover tooltip, and the
+  // centre text itself when there's no shortName. `label` (the Name) is
+  // still what the card is matched and identified by.
+  displayName?: string;
+  // Shown in the ring's centre instead of `displayName` when set — for a
+  // long one that doesn't fit.
   shortName?: string;
   // Resolved size (chart override -> collection -> Small) — see
   // CircularChartSize's own comment.
@@ -261,12 +265,10 @@ export interface CircularChartCardConfig {
   // Overrides NxCircularChartComponent's own hardcoded "Healthy" default
   // text on the zeroAsHealthy all-clear badge. Two independent sources, in
   // priority order (buildCircularChartConfig()'s own comment) — the trend
-  // API's own TrendLeaf.Label wins outright when present (same
+  // API's own TrendLeaf.HealthyLabel wins outright when present (same
   // API-wins-over-config precedence as chartType/applyGradient above),
-  // else RawCircularChartNode.Label (see its own comment for why that
-  // generic field). Same field name on both sides deliberately — a host
-  // filling in either doesn't need to remember two different names for the
-  // same thing. Both absent/empty keeps the "Healthy" default.
+  // else RawCircularChartNode.HealthyLabel. Same field name on both sides
+  // deliberately. Both absent/empty keeps the "Healthy" default.
   healthyLabel?: string;
 }
 
@@ -314,22 +316,20 @@ export interface RawCircularChartNode {
   // (normalizeName()), same normalization nx-map's slugifyLayerFileName()
   // uses for its own name-matching.
   Name?: string | null;
-  // Real upstream widget node's own generic display-label field (present,
-  // usually null, on every ComponentType regardless of which one — nothing
-  // circular-chart-specific about it). Distinct from Name, which is only
-  // ever the trend API join key and this card's own title (label above).
-  // The one place this component reads it: overriding the hardcoded
-  // "Healthy" text on config.zeroAsHealthy's all-clear badge (see
-  // CircularChartCardConfig.healthyLabel's own comment) — a host that wants
-  // that badge to read e.g. "No incidents" or "All clear" instead sets
-  // Label to that text; absent/empty keeps the "Healthy" default. The trend
-  // API's own TrendLeaf.Label (same field name, deliberately) overrides
-  // THIS when present, same API-wins-over-config precedence as
-  // ChartType/ApplyGradient.
+  // This chart's display text — shown wherever the chart is named (inside
+  // the ring when there's no ShortName, the outside label, the hover
+  // tooltip). Absent/empty shows Name, which stays the trend API join key
+  // and the chart's identity either way.
   Label?: string | null;
-  // Short display text for the ring's centre — used instead of Name when
-  // present (Name stays the trend-API join key). Absent/empty shows Name.
-  // Deliberately NOT Label, which already means the healthy badge's text.
+  // Overrides the hardcoded "Healthy" text on config.zeroAsHealthy's
+  // all-clear badge (see CircularChartCardConfig.healthyLabel's own
+  // comment), e.g. "No incidents"; absent/empty keeps the "Healthy"
+  // default. The trend API's own TrendLeaf.HealthyLabel overrides THIS
+  // when present, same API-wins-over-config precedence as
+  // ChartType/ApplyGradient.
+  HealthyLabel?: string | null;
+  // Short display text for the ring's centre — used instead of Label/Name
+  // when present. Absent/empty shows Label, else Name.
   ShortName?: string | null;
   // This chart's own size (CircularChartSize's number), overriding the
   // collection's ChartSize. Absent/unrecognized uses the collection's.
@@ -546,14 +546,13 @@ export interface TrendLeaf {
   // RawCircularChartNode.ApplyGradient when present — see
   // CircularChartCardConfig.applyGradient's own comment for what it does.
   ApplyGradient?: boolean;
-  // Same field NAME as RawCircularChartNode.Label (deliberately, so a host
-  // filling in either config or API doesn't need to remember two different
-  // names for the same thing) and same API-wins-over-config precedence as
-  // ChartType/ApplyGradient above — overrides RawCircularChartNode.Label
-  // when present. See CircularChartCardConfig.healthyLabel's own comment
-  // for what it does (only ever read for the config.zeroAsHealthy all-clear
-  // badge's own text).
-  Label?: string;
+  // Same field NAME as RawCircularChartNode.HealthyLabel (deliberately, so
+  // a host filling in either config or API doesn't need to remember two
+  // different names for the same thing) and same API-wins-over-config
+  // precedence as ChartType/ApplyGradient above. See
+  // CircularChartCardConfig.healthyLabel's own comment for what it does
+  // (only ever read for the config.zeroAsHealthy all-clear badge's own text).
+  HealthyLabel?: string;
   Series?: TrendSeries[];
 }
 

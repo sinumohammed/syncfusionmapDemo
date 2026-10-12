@@ -110,7 +110,7 @@
         (mouseleave)="nameTooltipVisible = false"
         >{{ centerText }}</span
       >
-      <span class="nx-circular-chart-name-tooltip" *ngIf="nameTooltipVisible && !isOuterLabel">{{ config?.label }}</span>
+      <span class="nx-circular-chart-name-tooltip" *ngIf="nameTooltipVisible && !isOuterLabel">{{ fullName }}</span>
       <span class="nx-circular-chart-empty-text" *ngIf="isNoData && !isHealthy" [style.font-size.px]="sizeSpec.subTextFontPx">No data</span>
       <span class="nx-circular-chart-empty-text nx-circular-chart-empty-text--healthy" *ngIf="isHealthy" [style.font-size.px]="sizeSpec.subTextFontPx">{{ healthyText }}</span>
     </div>
@@ -124,7 +124,7 @@
       {{ badge.text }}
     </div>
   </div>
-  <!-- Outside LabelPosition: the full Name on that side of the ring,
+  <!-- Outside LabelPosition: the full name (Label, else Name) on that side of the ring,
        wrapping if long — no tooltip. -->
   <div
     *ngIf="isOuterLabel"
@@ -132,6 +132,6 @@
     [ngClass]="'nx-circular-chart-outer-label--' + outerLabelSide"
     [style.font-size.px]="sizeSpec.centerFontPx"
   >
-    {{ config?.label }}
+    {{ fullName }}
   </div>
 </div>

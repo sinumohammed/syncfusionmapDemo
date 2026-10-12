@@ -88,7 +88,7 @@ const DEFAULT_TOOLTIP_FORMAT = "${point.x}: ${point.y}";
 // flicker the tooltip off and back on.
 const TOOLTIP_FADE_OUT_MS = 100;
 
-// Fallback when a healthy card's own config.healthyLabel (RawCircularChartNode.Label)
+// Fallback when a healthy card's own config.healthyLabel (RawCircularChartNode.HealthyLabel)
 // is unset/empty — see healthyText's own comment.
 const DEFAULT_HEALTHY_TEXT = "Healthy";
 
@@ -301,7 +301,7 @@ export class NxCircularChartComponent implements OnChanges, AfterViewInit, OnDes
     return this.isAllZero && !!this.config?.zeroAsHealthy;
   }
 
-  // config.healthyLabel (RawCircularChartNode.Label — see its own comment
+  // config.healthyLabel (RawCircularChartNode.HealthyLabel — see its own comment
   // for why this generic field, not a new circular-chart-specific one)
   // overrides DEFAULT_HEALTHY_TEXT when set; trimmed/empty falls through to
   // that default, same as every other per-card text override in this
@@ -342,7 +342,7 @@ export class NxCircularChartComponent implements OnChanges, AfterViewInit, OnDes
     return Math.min(this.sizeSpec.boxPx, this.maxBoxPx ?? Number.POSITIVE_INFINITY);
   }
 
-  // Any LabelPosition but center puts the full Name outside the ring.
+  // Any LabelPosition but center puts the full name outside the ring.
   get isOuterLabel(): boolean {
     return (this.config?.labelPosition ?? TextOrientation.center) !== TextOrientation.center;
   }
@@ -359,11 +359,16 @@ export class NxCircularChartComponent implements OnChanges, AfterViewInit, OnDes
     return TextOrientation[this.config?.labelPosition ?? TextOrientation.center];
   }
 
-  // Inside the ring: the short name when configured, else the full Name
+  // The chart's full display text: its Label when configured, else its Name.
+  get fullName(): string {
+    return this.config?.displayName || this.config?.label || "";
+  }
+
+  // Inside the ring: the short name when configured, else the full name
   // (cut to fit with "…" by CSS). Outside it the template shows the full
-  // Name instead — there's room for it there.
+  // name instead — there's room for it there.
   get centerText(): string {
-    return this.config?.shortName || this.config?.label || "";
+    return this.config?.shortName || this.fullName;
   }
 
   // The centre text's width limit — the ring's hole (innerRadius% of the
@@ -374,9 +379,9 @@ export class NxCircularChartComponent implements OnChanges, AfterViewInit, OnDes
     return Math.max(24, (this.emptyRingSizePx * holePercent) / 100 - 8);
   }
 
-  // Full-Name tooltip over the centre text — shown on hover when the text
-  // is a short name, or the Name itself was cut with "…". Never for an
-  // outside label, which always shows the Name in full.
+  // Full-name tooltip over the centre text — shown on hover when the text
+  // is a short name, or the full name itself was cut with "…". Never for an
+  // outside label, which always shows it in full.
   nameTooltipVisible = false;
 
   onCenterTextEnter(event: MouseEvent): void {

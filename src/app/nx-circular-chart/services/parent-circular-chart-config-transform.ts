@@ -127,6 +127,7 @@ export function buildCircularChartConfig(
   return {
     id: normalizeName(node.Name) || String(node.Id ?? ""),
     label: node.Name ?? "",
+    displayName: node.Label?.trim() || node.Name || "",
     shortName: node.ShortName?.trim() || undefined,
     size: parseCircularChartSize(node.ChartSize) ?? collection.size ?? CircularChartSize.Small,
     labelPosition: node.LabelPosition ?? collection.labelPosition ?? TextOrientation.center,
@@ -144,11 +145,11 @@ export function buildCircularChartConfig(
     chartType: ((leaf?.ChartType ?? node.ChartType) as CircularChartTypes | null | undefined) ?? CircularChartTypes.Doughnut,
     applyGradient: leaf?.ApplyGradient ?? node.ApplyGradient ?? undefined,
     zeroAsHealthy: node.ZeroAsHealthy ?? undefined,
-    // leaf.Label (trend API) wins outright over node.Label (config) when
-    // present — same field name on both sides, same API-wins-over-config
-    // precedence as chartType/applyGradient above — see
-    // CircularChartCardConfig.healthyLabel's own comment.
-    healthyLabel: leaf?.Label || node.Label || undefined,
+    // leaf.HealthyLabel (trend API) wins outright over node.HealthyLabel
+    // (config) when present — same field name on both sides, same
+    // API-wins-over-config precedence as chartType/applyGradient above —
+    // see CircularChartCardConfig.healthyLabel's own comment.
+    healthyLabel: leaf?.HealthyLabel || node.HealthyLabel || undefined,
     data: apiSlices.length ? apiSlices : parseNodeData(node.Data)
   };
 }

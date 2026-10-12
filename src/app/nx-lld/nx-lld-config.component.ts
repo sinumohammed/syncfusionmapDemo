@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from "@angular/core";
+import { Component, Input, OnChanges, OnDestroy, OnInit, SimpleChanges } from "@angular/core";
 import { MatDialog } from "@angular/material/dialog";
 import { forkJoin, Observable, of, Subject, Subscription } from "rxjs";
 import { catchError, finalize, switchMap } from "rxjs/operators";
@@ -14,31 +14,8 @@ import { LldConfirmDialogData, NxLldConfirmDialogComponent } from "./nx-lld-conf
 // supplies its own); passed straight through to every LLD API call.
 const LLD_API_TOKEN = "";
 
-// TODO(host): replace with the host's own tag selection — posted as-is to
-// load the Subsurface dropdown (NxLldService.getSubsurfaces()). This one is
-// the sample request captured from the host (FAHUD).
-const LLD_SUBSURFACE_TAGS: dcTag[] = [
-  {
-    TagID: 4251,
-    TagName: "FAHUD",
-    ElementTypeID: 6505,
-    SourceObjectID: 1062841,
-    ObjectID: 1062841,
-    IsLazyLoading: false,
-    IsShallowsearch: false,
-    isSelected: false,
-    dataStoreOptions: { getLastest: false, storeInClient: true },
-    isRemovable: false,
-    CategoryID: 1631,
-    SourceClassID: 28,
-    IsWildCard: false,
-    IsDeleted: false,
-    isDisabled: false,
-    borderColor: ""
-  }
-];
-
-// The LLD Configuration screen: View dropdown (New/Edit/Delete) over the
+// The LLD Configuration screen (reloads its Subsurface list whenever the
+// host's hierarchy selection changes — see heirarchyTags): View dropdown (New/Edit/Delete) over the
 // grouped layout — one expansion panel per group of the selected view,
 // listing its sub-groups; each sub-group row toggles its equipment list.
 @Component({
@@ -46,7 +23,12 @@ const LLD_SUBSURFACE_TAGS: dcTag[] = [
   templateUrl: "./nx-lld-config.component.html",
   styleUrls: ["./nx-lld-config.component.scss"]
 })
-export class NxLldConfigComponent implements OnInit, OnDestroy {
+export class NxLldConfigComponent implements OnInit, OnChanges, OnDestroy {
+  // The host's current hierarchy selection — posted as-is to load the
+  // Subsurface dropdown. The host must pass a NEW array on every change
+  // (ngOnChanges doesn't see an in-place push/splice).
+  @Input() heirarchyTags: dcTag[] | null = null;
+
   readonly ViewStatus = LldViewStatus;
   lookups: LldLookups | null = null;
   subsurfaces: dcTag[] = [];
@@ -77,6 +59,9 @@ export class NxLldConfigComponent implements OnInit, OnDestroy {
   // the list empty).
   private readonly stationsRequest$ = new Subject<dcTag | null>();
   private readonly stationsSub: Subscription;
+  // And for the hierarchy's subsurfaces (no tags -> no call, empty list).
+  private readonly subsurfacesRequest$ = new Subject<dcTag[]>();
+  private readonly subsurfacesSub: Subscription;
 
   constructor(private lldService: NxLldService, private dialog: MatDialog) {
     this.groupsSub = this.groupsRequest$
@@ -92,6 +77,30 @@ export class NxLldConfigComponent implements OnInit, OnDestroy {
         )
       )
       .subscribe((stations: dcTag[]) => (this.viewStations = stations));
+    this.subsurfacesSub = this.subsurfacesRequest$
+      .pipe(
+        switchMap(
+          (tags): Observable<dcTag[]> =>
+            tags.length
+              ? this.track(this.lldService.getSubsurfaces(tags, LLD_API_TOKEN)).pipe(catchError(() => of<dcTag[]>([])))
+              : of<dcTag[]>([])
+        )
+      )
+      .subscribe((subsurfaces: dcTag[]) => {
+        this.subsurfaces = subsurfaces;
+        // The selected view's subsurface may only be known now.
+        this.loadViewStations();
+      });
+  }
+
+  // Fires before ngOnInit for the initial value, then on every new
+  // hierarchy selection.
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes["heirarchyTags"]) {
+      this.subsurfaces = [];
+      this.viewStations = [];
+      this.subsurfacesRequest$.next(this.heirarchyTags ?? []);
+    }
   }
 
   get selectedView(): LldView | null {
@@ -122,22 +131,18 @@ export class NxLldConfigComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.track(
-      forkJoin([
-        this.lldService.getLookups(LLD_API_TOKEN),
-        this.lldService.getSubsurfaces(LLD_SUBSURFACE_TAGS, LLD_API_TOKEN),
-        this.lldService.getViews(LLD_API_TOKEN)
-      ])
-    ).subscribe(([lookups, subsurfaces, views]) => {
-      this.lookups = lookups;
-      this.subsurfaces = subsurfaces;
-      this.setViews(views, null);
-    });
+    this.track(forkJoin([this.lldService.getLookups(LLD_API_TOKEN), this.lldService.getViews(LLD_API_TOKEN)])).subscribe(
+      ([lookups, views]) => {
+        this.lookups = lookups;
+        this.setViews(views, null);
+      }
+    );
   }
 
   ngOnDestroy(): void {
     this.groupsSub.unsubscribe();
     this.stationsSub.unsubscribe();
+    this.subsurfacesSub.unsubscribe();
   }
 
   // ------------------------------------------------------------- views

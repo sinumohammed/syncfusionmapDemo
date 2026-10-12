@@ -8,6 +8,8 @@ import { LldApiResult, LldGroup, LldGroupWithSubGroups, LldLookups, LldSubGroup,
 // Real host endpoints (see getSubsurfaces() / getStations()).
 export const LLD_SUBSURFACES_URL = "api/PDOCustom/GetSubSurfaceOperations";
 export const LLD_STATIONS_URL = "api/PreConfig/GetStations";
+// The category GetStations is always asked for.
+const LLD_STATIONS_CATEGORY_ID = 1631;
 
 // TODO(host): real endpoints not known yet. Save = add (no id) AND edit
 // (with id), same URL; delete by id (a view's is a soft delete, see
@@ -64,7 +66,7 @@ function unwrapResult<T>(result: LldApiResult<T>): T {
 }
 
 // One item of the GetSubSurfaceOperations / GetStations responses — only
-// the fields read here; the rest ride along untouched.
+// the fields read here.
 interface ElementResponse {
   ElementName: string;
   ElementTypeID: number;
@@ -74,12 +76,9 @@ interface ElementResponse {
 }
 
 // The host's tag for a response element: named after it, ObjectID = its
-// ElementVersionID. The element itself is kept whole in contextObject,
-// because GetStations wants the picked subsurface posted back as received.
+// ElementVersionID.
 function toTag(element: ElementResponse): dcTag {
-  const tag = new dcTag(undefined, element.ElementName, element.ElementTypeID, element.ElementVersionID, element.ElementVersionID);
-  tag.contextObject = element;
-  return tag;
+  return new dcTag(undefined, element.ElementName, element.ElementTypeID, element.ElementVersionID, element.ElementVersionID);
 }
 
 interface LldMockData {
@@ -102,16 +101,20 @@ export class NxLldService {
     return this.post<LldApiResult<ElementResponse[]>>(LLD_SUBSURFACES_URL, tags, token).pipe(map(result => unwrapResult(result).map(toTag)));
   }
 
-  // One subsurface's stations — a separate call per subsurface, whose
-  // response element (kept in contextObject) is posted back whole. Remembered per subsurface, so the page and the View
-  // popup share one fetch; a failed fetch isn't remembered.
+  // One subsurface's stations — a separate call per subsurface, asked for
+  // by its name and type only. Remembered per subsurface, so the page and
+  // the View popup share one fetch; a failed fetch isn't remembered.
   getStations(subsurface: dcTag, token: string): Observable<dcTag[]> {
     const id = subsurface.ObjectID!;
     let stations$ = this.stationsCache.get(id);
     if (!stations$) {
       const request$ = USE_MOCK
         ? this.mock(() => this.mockStations[id] ?? [])
-        : this.post<ElementResponse[]>(LLD_STATIONS_URL, [subsurface.contextObject], token);
+        : this.post<ElementResponse[]>(
+            LLD_STATIONS_URL,
+            { tagName: subsurface.TagName, elementTypeID: subsurface.ElementTypeID, categoryID: LLD_STATIONS_CATEGORY_ID },
+            token
+          );
       stations$ = request$.pipe(
         map(stations => (stations ?? []).map(toTag)),
         catchError(err => {

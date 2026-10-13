@@ -3,7 +3,7 @@ import { HttpClient, HttpErrorResponse, HttpHeaders } from "@angular/common/http
 import { forkJoin, Observable, of, throwError } from "rxjs";
 import { catchError, delay, map, mergeMap, shareReplay } from "rxjs/operators";
 import { dcTag } from "../model/dc-tag.model";
-import { LldApiResult, LldGroup, LldGroupWithSubGroups, LldLookups, LldSubGroup, LldView, LldViewStatus } from "../model/nx-lld.model";
+import { LldApiResult, LldApiStatus, LldGroup, LldGroupWithSubGroups, LldLookups, LldSaveViewRequest, LldSubGroup, LldView, LldViewStatus } from "../model/nx-lld.model";
 
 // Real host endpoints (see getSubsurfaces() / getStations()).
 export const LLD_SUBSURFACES_URL = "api/PDOCustom/GetSubSurfaceOperations";
@@ -11,12 +11,15 @@ export const LLD_STATIONS_URL = "api/PreConfig/GetStations";
 // The category GetStations is always asked for.
 const LLD_STATIONS_CATEGORY_ID = 1631;
 
+// TODO(host): confirm the full path — only "/SaveLD" is known. Save = add
+// (no LDID) AND edit (with LDID), same URL.
+export const LLD_SAVE_VIEW_URL = "api/PDOCustom/SaveLD";
+
 // TODO(host): real endpoints not known yet. Save = add (no id) AND edit
 // (with id), same URL; delete by id (a view's is a soft delete, see
 // deleteView()).
 export const LLD_LOOKUPS_URL = "PDOCustom/LLD/GetLookups";
 export const LLD_VIEWS_URL = "PDOCustom/LLD/GetViews";
-export const LLD_SAVE_VIEW_URL = "PDOCustom/LLD/SaveView";
 export const LLD_DELETE_VIEW_URL = "PDOCustom/LLD/DeleteView";
 export const LLD_GROUPS_URL = "PDOCustom/LLD/GetGroups";
 export const LLD_SAVE_GROUP_URL = "PDOCustom/LLD/SaveGroup";
@@ -56,13 +59,34 @@ export function apiErrorMessage(err: unknown): string {
   return (err as Error)?.message || "Request failed";
 }
 
-// The payload of a host result envelope — or an error carrying the server's
-// message when the call "succeeded" (HTTP 200) with Status/IsValid false.
-function unwrapResult<T>(result: LldApiResult<T>): T {
+// Throws the server's own message when a call "succeeded" (HTTP 200) with
+// Status/IsValid false — e.g. a rejected save.
+function assertOk<T extends LldApiStatus>(result: T): T {
   if (!result?.Status || !result.IsValid) {
     throw new Error(result?.ErrorMessage || result?.StatusMessage || "Request failed");
   }
-  return result.Value;
+  return result;
+}
+
+// The payload of a host result envelope.
+function unwrapResult<T>(result: LldApiResult<T>): T {
+  return assertOk(result).Value;
+}
+
+// A view as SaveLD wants it. `currentUser` is the logged-in user: the creator of
+// a new view, the modifier of an edited one (whose own creator is sent back
+// when known).
+function toSaveViewRequest(view: LldView, currentUser: string): LldSaveViewRequest {
+  const request: LldSaveViewRequest = {
+    LDViewName: view.name,
+    LDDescription: view.description,
+    SubSurfaceOperationId: view.subsurfaceId!,
+    SubSurfaceOperation: view.subsurfaceName,
+    Facility: view.stationNames.join(","),
+    Status: view.status,
+    CreatedBy: view.createdBy ?? currentUser
+  };
+  return view.id != null ? { LDID: view.id, ...request, ModifiedBy: currentUser } : request;
 }
 
 // One item of the GetSubSurfaceOperations / GetStations responses — only
@@ -147,9 +171,14 @@ export class NxLldService {
     return this.post<LldView[]>(LLD_VIEWS_URL, {}, token);
   }
 
-  // Returns the saved view (with its server id) so the page can select it.
-  // The server rejects a duplicate name — the popup shows its message.
-  saveView(view: LldView, token: string): Observable<LldView> {
+  // Returns the saved view so the page can select it — with its server id
+  // when the API reports one (SaveLD's ID can be 0; the page then finds a
+  // new view by name). A rejected save, e.g. a duplicate name, comes back
+  // with Status false — the popup shows its message.
+  saveView(view: LldView, currentUser: string, token: string): Observable<LldView> {
+    const request = toSaveViewRequest(view, currentUser);
+    // TEMP: to check the SaveLD payload while testing — remove afterwards.
+    console.log("[LLD] SaveLD payload", request);
     if (USE_MOCK) {
       return this.mockReady$.pipe(
         delay(MOCK_LATENCY_MS),
@@ -158,13 +187,22 @@ export class NxLldService {
           const duplicate = this.store.views.some(
             v => v.id !== view.id && v.status !== LldViewStatus.Deleted && v.name.trim().toLowerCase() === name
           );
-          return duplicate
-            ? mockError(409, `A view named "${view.name}" already exists`)
-            : of(this.upsert("views", view));
+          if (duplicate) {
+            return mockError(409, `A view named "${view.name}" already exists`);
+          }
+          // The server stamps who/when: created once, modified on each edit.
+          const now = new Date().toISOString();
+          const existing = this.store.views.find(v => v.id === view.id);
+          const stamped: LldView = existing
+            ? { ...existing, ...view, createdBy: existing.createdBy, modifiedBy: currentUser, modifiedOn: now }
+            : { ...view, createdBy: currentUser, createdOn: now };
+          return of(this.upsert("views", stamped));
         })
       );
     }
-    return this.post<LldView>(LLD_SAVE_VIEW_URL, view, token);
+    return this.post<LldApiStatus>(LLD_SAVE_VIEW_URL, request, token).pipe(
+      map(result => ({ ...view, id: assertOk(result).ID || view.id }))
+    );
   }
 
   // Soft delete: the server only flips the view's status to Deleted — the

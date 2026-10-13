@@ -28,12 +28,15 @@ export class NxLldConfigComponent implements OnInit, OnChanges, OnDestroy {
   // Subsurface dropdown. The host must pass a NEW array on every change
   // (ngOnChanges doesn't see an in-place push/splice).
   @Input() heirarchyTags: dcTag[] | null = null;
+  // The logged-in user, from the host — handed to the View popup and sent
+  // as a saved view's CreatedBy / ModifiedBy.
+  @Input() currentUser: string | null = null;
 
   readonly ViewStatus = LldViewStatus;
+  // How the view card shows Created on / Modified on.
+  readonly auditDateFormat = "dd MMM yyyy, HH:mm";
   lookups: LldLookups | null = null;
   subsurfaces: dcTag[] = [];
-  // The selected view's subsurface's stations — fetched per subsurface.
-  private viewStations: dcTag[] = [];
   views: LldView[] = [];
   selectedViewId: number | null = null;
   groups: LldGroupWithSubGroups[] = [];
@@ -55,11 +58,7 @@ export class NxLldConfigComponent implements OnInit, OnChanges, OnDestroy {
   // land under the wrong view.
   private readonly groupsRequest$ = new Subject<number | null>();
   private readonly groupsSub: Subscription;
-  // Same idea for the selected view's stations (a failed fetch just leaves
-  // the list empty).
-  private readonly stationsRequest$ = new Subject<dcTag | null>();
-  private readonly stationsSub: Subscription;
-  // And for the hierarchy's subsurfaces (no tags -> no call, empty list).
+  // Same idea for the hierarchy's subsurfaces (no tags -> no call, empty list).
   private readonly subsurfacesRequest$ = new Subject<dcTag[]>();
   private readonly subsurfacesSub: Subscription;
 
@@ -67,16 +66,6 @@ export class NxLldConfigComponent implements OnInit, OnChanges, OnDestroy {
     this.groupsSub = this.groupsRequest$
       .pipe(switchMap(viewId => (viewId == null ? of([]) : this.track(this.lldService.getGroups(viewId, LLD_API_TOKEN)))))
       .subscribe(groups => (this.groups = groups));
-    this.stationsSub = this.stationsRequest$
-      .pipe(
-        switchMap(
-          (subsurface): Observable<dcTag[]> =>
-            subsurface
-              ? this.track(this.lldService.getStations(subsurface, LLD_API_TOKEN)).pipe(catchError(() => of<dcTag[]>([])))
-              : of<dcTag[]>([])
-        )
-      )
-      .subscribe((stations: dcTag[]) => (this.viewStations = stations));
     this.subsurfacesSub = this.subsurfacesRequest$
       .pipe(
         switchMap(
@@ -86,11 +75,7 @@ export class NxLldConfigComponent implements OnInit, OnChanges, OnDestroy {
               : of<dcTag[]>([])
         )
       )
-      .subscribe((subsurfaces: dcTag[]) => {
-        this.subsurfaces = subsurfaces;
-        // The selected view's subsurface may only be known now.
-        this.loadViewStations();
-      });
+      .subscribe((subsurfaces: dcTag[]) => (this.subsurfaces = subsurfaces));
   }
 
   // Fires before ngOnInit for the initial value, then on every new
@@ -98,7 +83,6 @@ export class NxLldConfigComponent implements OnInit, OnChanges, OnDestroy {
   ngOnChanges(changes: SimpleChanges): void {
     if (changes["heirarchyTags"]) {
       this.subsurfaces = [];
-      this.viewStations = [];
       this.subsurfacesRequest$.next(this.heirarchyTags ?? []);
     }
   }
@@ -107,17 +91,6 @@ export class NxLldConfigComponent implements OnInit, OnChanges, OnDestroy {
     return this.views.find(v => v.id === this.selectedViewId) ?? null;
   }
 
-  // The selected view's subsurface, stations and status, by name.
-  private get selectedSubsurface(): dcTag | null {
-    return this.subsurfaces.find(s => s.ObjectID === this.selectedView?.subsurfaceId) ?? null;
-  }
-  get selectedSubsurfaceName(): string {
-    return this.selectedSubsurface?.TagName ?? "";
-  }
-  get selectedStations(): dcTag[] {
-    const ids = this.selectedView?.stationIds ?? [];
-    return this.viewStations.filter(s => ids.includes(s.ObjectID!));
-  }
   get selectedStatusLabel(): string {
     return LLD_VIEW_STATUS_OPTIONS.find(o => o.value === this.selectedView?.status)?.label ?? "";
   }
@@ -141,7 +114,6 @@ export class NxLldConfigComponent implements OnInit, OnChanges, OnDestroy {
 
   ngOnDestroy(): void {
     this.groupsSub.unsubscribe();
-    this.stationsSub.unsubscribe();
     this.subsurfacesSub.unsubscribe();
   }
 
@@ -151,12 +123,6 @@ export class NxLldConfigComponent implements OnInit, OnChanges, OnDestroy {
     this.expandedGroupIds.clear();
     this.expandedSubGroupIds.clear();
     this.groupsRequest$.next(this.selectedViewId);
-    this.loadViewStations();
-  }
-
-  private loadViewStations(): void {
-    this.viewStations = [];
-    this.stationsRequest$.next(this.selectedSubsurface);
   }
 
   newView(): void {
@@ -193,21 +159,25 @@ export class NxLldConfigComponent implements OnInit, OnChanges, OnDestroy {
         data: {
           view,
           subsurfaces: this.subsurfaces,
+          currentUser: this.currentUser ?? "",
           token: LLD_API_TOKEN
         }
       })
       .afterClosed()
       .subscribe(saved => {
         if (saved) {
-          this.reloadViews(saved.id ?? null);
+          this.reloadViews(saved.id ?? null, saved.name);
         }
       });
   }
 
   // Refetch after every save/delete (the server owns the list), then
-  // select `selectId` — or keep the current one, or fall back to the first.
-  private reloadViews(selectId: number | null): void {
-    this.track(this.lldService.getViews(LLD_API_TOKEN)).subscribe(views => this.setViews(views, selectId));
+  // select `selectId` — or, when the save didn't report an id, the view
+  // named `selectName` — or keep the current one, or fall back to the first.
+  private reloadViews(selectId: number | null, selectName?: string): void {
+    this.track(this.lldService.getViews(LLD_API_TOKEN)).subscribe(views =>
+      this.setViews(views, selectId ?? views.find(v => v.name === selectName)?.id ?? null)
+    );
   }
 
   private setViews(views: LldView[], selectId: number | null): void {
@@ -217,9 +187,6 @@ export class NxLldConfigComponent implements OnInit, OnChanges, OnDestroy {
     this.selectedViewId = keep ?? views[0]?.id ?? null;
     if (this.selectedViewId !== previousId || previousId == null) {
       this.onViewChange();
-    } else {
-      // Same view, but an Edit may have changed its subsurface.
-      this.loadViewStations();
     }
   }
 

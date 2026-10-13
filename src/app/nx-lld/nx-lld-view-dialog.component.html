@@ -21,15 +21,15 @@
 
     <mat-form-field appearance="fill">
       <mat-label>Stations</mat-label>
-      <mat-select formControlName="stationIds" multiple>
-        <mat-option *ngFor="let s of stations" [value]="s.ObjectID">{{ s.TagName }}</mat-option>
+      <mat-select formControlName="stationNames" multiple>
+        <mat-option *ngFor="let s of stations" [value]="s.TagName">{{ s.TagName }}</mat-option>
       </mat-select>
       <mat-hint *ngIf="stationsLoading">Loading stations…</mat-hint>
       <mat-hint *ngIf="stationsError" class="nx-lld-dialog-field-error">{{ stationsError }}</mat-hint>
       <mat-hint *ngIf="!stationsLoading && !stationsError && !stations.length">
         {{ form.get("subsurfaceId")?.value == null ? "Choose a subsurface first" : "This subsurface has no stations" }}
       </mat-hint>
-      <mat-error *ngIf="form.get('stationIds')?.hasError('required')">Select at least one station</mat-error>
+      <mat-error *ngIf="form.get('stationNames')?.hasError('required')">Select at least one station</mat-error>
     </mat-form-field>
 
     <mat-form-field appearance="fill">

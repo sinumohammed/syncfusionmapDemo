@@ -17,8 +17,8 @@
   font-weight: 600;
   color: #14213d;
 }
-// The selected view: dropdown + actions + status in the header, its
-// details in a labelled grid below.
+// The selected view: dropdown + actions in the header, its details in a
+// labelled grid below, then a footer with its visibility and who/when.
 .nx-lld-view-card {
   position: relative;
   overflow: hidden;
@@ -49,13 +49,30 @@
     margin-bottom: -1.25em;
   }
 }
+// New / Edit / Delete as one joined group of icon buttons.
+.nx-lld-view-actions {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+}
 .nx-lld-icon-btn {
   width: 36px;
   height: 36px;
   line-height: 36px;
-  border: 1px solid #e5e7eb;
+  border-radius: 0;
   color: #4b5563;
 
+  & + & {
+    border-left: 1px solid #e5e7eb;
+  }
+  &:hover:not([disabled]) {
+    background: #f3f4f6;
+  }
+  &.nx-lld-add {
+    color: #1d4ed8;
+  }
   &.nx-lld-delete {
     color: #d32f2f;
   }
@@ -63,14 +80,10 @@
     opacity: 0.4;
   }
 }
-.nx-lld-new-btn {
-  margin-left: auto;
-}
 .nx-lld-status {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-left: 4px;
   padding: 3px 10px;
   border-radius: 12px;
   background: #f3f4f6;
@@ -89,6 +102,26 @@
   padding: 12px 16px 14px;
   border-top: 1px solid #f0f0f0;
   background: #fafbfc;
+}
+.nx-lld-view-card-foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  padding: 8px 16px;
+  border-top: 1px solid #f0f0f0;
+  font-size: 12px;
+  color: #6b7280;
+}
+.nx-lld-audits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  margin-left: auto;
+}
+.nx-lld-audit strong {
+  font-weight: 600;
+  color: #374151;
 }
 .nx-lld-field {
   display: flex;

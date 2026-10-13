@@ -11,37 +11,28 @@
           <mat-option *ngFor="let v of views" [value]="v.id">{{ v.name }}</mat-option>
         </mat-select>
       </mat-form-field>
-      <button mat-icon-button class="nx-lld-icon-btn" matTooltip="Edit view" aria-label="Edit view" (click)="editView()" [disabled]="!selectedView">
-        <ng-container *ngTemplateOutlet="editIcon"></ng-container>
-      </button>
-      <button mat-icon-button class="nx-lld-icon-btn nx-lld-delete" matTooltip="Delete view" aria-label="Delete view" (click)="deleteView()" [disabled]="!selectedView">
-        <ng-container *ngTemplateOutlet="deleteIcon"></ng-container>
-      </button>
-      <span
-        *ngIf="selectedView"
-        class="nx-lld-status"
-        [class.nx-lld-status--public]="selectedView.status === ViewStatus.Public"
-        [matTooltip]="selectedView.status === ViewStatus.Public ? 'Visible to everyone' : 'Visible only to you'"
-      >
-        <svg *ngIf="selectedView.status === ViewStatus.Public" viewBox="0 0 24 24" class="nx-lld-icon nx-lld-icon--sm"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm6.93 6h-2.95a15.7 15.7 0 0 0-1.38-3.56A8.03 8.03 0 0 1 18.93 8zM12 4.04c.83 1.2 1.48 2.53 1.91 3.96h-3.82c.43-1.43 1.08-2.76 1.91-3.96zM4.26 14a7.9 7.9 0 0 1 0-4h3.38a16.5 16.5 0 0 0 0 4H4.26zm.81 2h2.95c.32 1.25.78 2.45 1.38 3.56A7.99 7.99 0 0 1 5.07 16zm2.95-8H5.07a7.99 7.99 0 0 1 4.33-3.56A15.7 15.7 0 0 0 8.02 8zM12 19.96A14.1 14.1 0 0 1 10.09 16h3.82A14.1 14.1 0 0 1 12 19.96zM14.34 14H9.66a14.7 14.7 0 0 1 0-4h4.68a14.7 14.7 0 0 1 0 4zm.25 5.56c.6-1.11 1.06-2.31 1.38-3.56h2.95a8.03 8.03 0 0 1-4.33 3.56zM16.36 14a16.5 16.5 0 0 0 0-4h3.38a7.9 7.9 0 0 1 0 4h-3.38z" /></svg>
-        <svg *ngIf="selectedView.status !== ViewStatus.Public" viewBox="0 0 24 24" class="nx-lld-icon nx-lld-icon--sm"><path d="M18 8h-1V6A5 5 0 0 0 7 6v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2zm-6 9a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm3.1-9H8.9V6a3.1 3.1 0 0 1 6.2 0v2z" /></svg>
-        {{ selectedStatusLabel }}
-      </span>
-      <button mat-flat-button color="primary" class="nx-lld-new-btn" (click)="newView()" [disabled]="!lookups">
-        <ng-container *ngTemplateOutlet="addIcon"></ng-container>
-        New View
-      </button>
+      <div class="nx-lld-view-actions" role="toolbar" aria-label="View actions">
+        <button mat-icon-button class="nx-lld-icon-btn nx-lld-add" matTooltip="New view" aria-label="New view" (click)="newView()" [disabled]="!lookups">
+          <ng-container *ngTemplateOutlet="addIcon"></ng-container>
+        </button>
+        <button mat-icon-button class="nx-lld-icon-btn" matTooltip="Edit view" aria-label="Edit view" (click)="editView()" [disabled]="!selectedView">
+          <ng-container *ngTemplateOutlet="editIcon"></ng-container>
+        </button>
+        <button mat-icon-button class="nx-lld-icon-btn nx-lld-delete" matTooltip="Delete view" aria-label="Delete view" (click)="deleteView()" [disabled]="!selectedView">
+          <ng-container *ngTemplateOutlet="deleteIcon"></ng-container>
+        </button>
+      </div>
     </div>
 
     <div class="nx-lld-view-card-body" *ngIf="selectedView">
       <div class="nx-lld-field">
         <span class="nx-lld-field-label">Subsurface</span>
-        <span class="nx-lld-field-value">{{ selectedSubsurfaceName }}</span>
+        <span class="nx-lld-field-value">{{ selectedView.subsurfaceName }}</span>
       </div>
       <div class="nx-lld-field">
-        <span class="nx-lld-field-label">Stations ({{ selectedStations.length }})</span>
+        <span class="nx-lld-field-label">Stations ({{ selectedView.stationNames.length }})</span>
         <span class="nx-lld-chips">
-          <span class="nx-lld-chip" *ngFor="let station of selectedStations">{{ station.TagName }}</span>
+          <span class="nx-lld-chip" *ngFor="let station of selectedView.stationNames">{{ station }}</span>
         </span>
       </div>
       <div class="nx-lld-field nx-lld-field--full" *ngIf="selectedView.description">
@@ -50,8 +41,31 @@
       </div>
     </div>
 
+    <!-- Visibility on the left, who/when on the right. -->
+    <div class="nx-lld-view-card-foot" *ngIf="selectedView">
+      <span
+        class="nx-lld-status"
+        [class.nx-lld-status--public]="selectedView.status === ViewStatus.Public"
+        [matTooltip]="selectedView.status === ViewStatus.Public ? 'Visible to everyone' : 'Visible only to you'"
+      >
+        <svg *ngIf="selectedView.status === ViewStatus.Public" viewBox="0 0 24 24" class="nx-lld-icon nx-lld-icon--sm"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm6.93 6h-2.95a15.7 15.7 0 0 0-1.38-3.56A8.03 8.03 0 0 1 18.93 8zM12 4.04c.83 1.2 1.48 2.53 1.91 3.96h-3.82c.43-1.43 1.08-2.76 1.91-3.96zM4.26 14a7.9 7.9 0 0 1 0-4h3.38a16.5 16.5 0 0 0 0 4H4.26zm.81 2h2.95c.32 1.25.78 2.45 1.38 3.56A7.99 7.99 0 0 1 5.07 16zm2.95-8H5.07a7.99 7.99 0 0 1 4.33-3.56A15.7 15.7 0 0 0 8.02 8zM12 19.96A14.1 14.1 0 0 1 10.09 16h3.82A14.1 14.1 0 0 1 12 19.96zM14.34 14H9.66a14.7 14.7 0 0 1 0-4h4.68a14.7 14.7 0 0 1 0 4zm.25 5.56c.6-1.11 1.06-2.31 1.38-3.56h2.95a8.03 8.03 0 0 1-4.33 3.56zM16.36 14a16.5 16.5 0 0 0 0-4h3.38a7.9 7.9 0 0 1 0 4h-3.38z" /></svg>
+        <svg *ngIf="selectedView.status !== ViewStatus.Public" viewBox="0 0 24 24" class="nx-lld-icon nx-lld-icon--sm"><path d="M18 8h-1V6A5 5 0 0 0 7 6v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2zm-6 9a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm3.1-9H8.9V6a3.1 3.1 0 0 1 6.2 0v2z" /></svg>
+        {{ selectedStatusLabel }}
+      </span>
+      <span class="nx-lld-audits">
+        <span class="nx-lld-audit" *ngIf="selectedView.createdBy || selectedView.createdOn">
+          Created<ng-container *ngIf="selectedView.createdBy"> by <strong>{{ selectedView.createdBy }}</strong></ng-container
+          ><ng-container *ngIf="selectedView.createdOn"> on <strong>{{ selectedView.createdOn | date: auditDateFormat }}</strong></ng-container>
+        </span>
+        <span class="nx-lld-audit" *ngIf="selectedView.modifiedBy || selectedView.modifiedOn">
+          Modified<ng-container *ngIf="selectedView.modifiedBy"> by <strong>{{ selectedView.modifiedBy }}</strong></ng-container
+          ><ng-container *ngIf="selectedView.modifiedOn"> on <strong>{{ selectedView.modifiedOn | date: auditDateFormat }}</strong></ng-container>
+        </span>
+      </span>
+    </div>
+
     <div class="nx-lld-view-card-body nx-lld-empty" *ngIf="!isLoading && lookups && !views.length">
-      No views yet — click New View to create one.
+      No views yet — use the + button above to create one.
     </div>
   </section>
 

@@ -3,15 +3,35 @@
 // (the service runs on a mock, see NxLldService). Subsurfaces and stations
 // are the host's own dcTag (model/dc-tag.model.ts).
 
-// The envelope some host APIs wrap their result in (GetSubSurfaceOperations
-// does, GetStations returns a bare array). A failed call can still be an
-// HTTP 200 — Status/IsValid say whether `Value` is usable.
-export interface LldApiResult<T> {
-  Value: T;
+// The host's result envelope. A failed call can still be an HTTP 200 —
+// Status/IsValid say whether it worked, ErrorMessage/StatusMessage why not.
+export interface LldApiStatus {
   IsValid: boolean;
   Status: boolean;
   StatusMessage: string | null;
   ErrorMessage: string | null;
+  // The saved record's id when the API reports one (0 otherwise).
+  ID?: number | null;
+}
+
+// An envelope carrying a payload (GetSubSurfaceOperations does; GetStations
+// returns a bare array, SaveLD an envelope with no Value).
+export interface LldApiResult<T> extends LldApiStatus {
+  Value: T;
+}
+
+// What SaveLD is posted — a new view has no LDID/ModifiedBy, an edit has both.
+export interface LldSaveViewRequest {
+  LDID?: number;
+  LDViewName: string;
+  LDDescription: string;
+  SubSurfaceOperationId: number;
+  SubSurfaceOperation: string;
+  // The selected stations' names, comma-separated.
+  Facility: string;
+  Status: LldViewStatus;
+  CreatedBy: string;
+  ModifiedBy?: string;
 }
 
 // ---------------------------------------------------------------- lookups
@@ -60,11 +80,19 @@ export const LLD_VIEW_STATUS_OPTIONS: { value: LldViewStatus; label: string }[] 
 export interface LldView {
   id?: number | null;
   name: string;
-  // The subsurface tag's ObjectID.
+  // The subsurface tag's ObjectID and TagName — both are saved.
   subsurfaceId: number | null;
-  // Selected stations' ObjectIDs — all from that subsurface's own
-  // station list (getStations()).
-  stationIds: number[];
+  subsurfaceName: string;
+  // Selected stations' names (their tags' TagName) — all from that
+  // subsurface's own station list (getStations()). Saved comma-separated.
+  stationNames: string[];
+  // Audit info, set by the server and shown on the view card. createdBy is
+  // also sent back on an edit. modifiedBy/modifiedOn stay empty until the
+  // view is first edited. Dates are ISO strings.
+  createdBy?: string | null;
+  createdOn?: string | null;
+  modifiedBy?: string | null;
+  modifiedOn?: string | null;
   status: LldViewStatus;
   description: string;
 }

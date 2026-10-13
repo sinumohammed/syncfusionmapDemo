@@ -12,14 +12,16 @@ export interface LldViewDialogData {
   view?: LldView;
   // The Subsurface dropdown, already loaded by the page.
   subsurfaces: dcTag[];
+  // The logged-in user — sent as CreatedBy / ModifiedBy.
+  currentUser: string;
   token: string;
 }
 
 // New/Edit View popup: View Name, Subsurface, Stations (multi-select of
 // that subsurface's own stations, fetched when it's picked), Status,
 // Description. Saves through
-// NxLldService itself and closes with the saved view (carrying its server
-// id) so the page can select it. Duplicate names are checked by the API
+// NxLldService itself and closes with the saved view so the page can
+// select it. Duplicate names are checked by the API
 // only (it also sees views this screen doesn't list); its message shows
 // above the buttons and the popup stays open.
 @Component({
@@ -51,7 +53,7 @@ export class NxLldViewDialogComponent implements OnDestroy {
     this.form = this.fb.group({
       name: [view?.name ?? "", Validators.required],
       subsurfaceId: [view?.subsurfaceId ?? null, Validators.required],
-      stationIds: [view?.stationIds ?? [], Validators.required],
+      stationNames: [view?.stationNames ?? [], Validators.required],
       status: [view?.status ?? LldViewStatus.Private, Validators.required],
       description: [view?.description ?? ""]
     });
@@ -83,7 +85,7 @@ export class NxLldViewDialogComponent implements OnDestroy {
     // Edit keeps its saved stations (loaded just below).
     this.subscriptions.add(
       this.form.get("subsurfaceId")!.valueChanges.subscribe(id => {
-        this.form.get("stationIds")!.setValue([]);
+        this.form.get("stationNames")!.setValue([]);
         this.stationsRequest$.next(id);
       })
     );
@@ -110,16 +112,18 @@ export class NxLldViewDialogComponent implements OnDestroy {
       id: this.data.view?.id ?? null,
       name: value.name.trim(),
       subsurfaceId: value.subsurfaceId,
+      subsurfaceName: this.data.subsurfaces.find(s => s.ObjectID === value.subsurfaceId)?.TagName ?? "",
       // Dropdown order, not click order.
-      stationIds: this.stations.map(s => s.ObjectID!).filter(id => value.stationIds.includes(id)),
+      stationNames: this.stations.map(s => s.TagName ?? "").filter(name => value.stationNames.includes(name)),
       status: value.status,
-      description: (value.description ?? "").trim()
+      description: (value.description ?? "").trim(),
+      createdBy: this.data.view?.createdBy
     };
     this.saving = true;
     this.saveError = "";
     this.dialogRef.disableClose = true;
     this.lldService
-      .saveView(payload, this.data.token)
+      .saveView(payload, this.data.currentUser, this.data.token)
       .pipe(
         finalize(() => {
           this.saving = false;

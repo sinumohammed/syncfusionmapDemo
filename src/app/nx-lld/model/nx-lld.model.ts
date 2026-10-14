@@ -34,6 +34,24 @@ export interface LldSaveViewRequest {
   ModifiedBy?: string;
 }
 
+// One row of GetLDViews' Value. Older rows can have SubSurfaceOperationId 0
+// and SubSurfaceOperation null; ModifiedBy is 0 until the view is edited.
+// CreatedOn/ModifiedOn weren't in the sample — read when the API sends them.
+export interface LldViewResponse {
+  LDID: number;
+  LDViewName: string;
+  LDDescription: string | null;
+  SubSurfaceOperationId: number | null;
+  SubSurfaceOperation: string | null;
+  Facility: string | null;
+  Status: LldViewStatus;
+  CreatedBy: number | string | null;
+  CreatedOn?: string | null;
+  ModifiedBy: number | string | null;
+  ModifiedOn?: string | null;
+  [key: string]: unknown;
+}
+
 // ---------------------------------------------------------------- lookups
 // The Sub-group popup's dropdown values, delivered by ONE call
 // (getLookups()) — assets/mock-api/lld-lookups.json for now. Lookup ids are

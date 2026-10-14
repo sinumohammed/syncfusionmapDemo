@@ -3,7 +3,18 @@ import { HttpClient, HttpErrorResponse, HttpHeaders } from "@angular/common/http
 import { forkJoin, Observable, of, throwError } from "rxjs";
 import { catchError, delay, map, mergeMap, shareReplay } from "rxjs/operators";
 import { dcTag } from "../model/dc-tag.model";
-import { LldApiResult, LldApiStatus, LldGroup, LldGroupWithSubGroups, LldLookups, LldSaveViewRequest, LldSubGroup, LldView, LldViewStatus } from "../model/nx-lld.model";
+import {
+  LldApiResult,
+  LldApiStatus,
+  LldGroup,
+  LldGroupWithSubGroups,
+  LldLookups,
+  LldSaveViewRequest,
+  LldSubGroup,
+  LldView,
+  LldViewResponse,
+  LldViewStatus
+} from "../model/nx-lld.model";
 
 // Real host endpoints (see getSubsurfaces() / getStations()).
 export const LLD_SUBSURFACES_URL = "api/PDOCustom/GetSubSurfaceOperations";
@@ -14,12 +25,13 @@ const LLD_STATIONS_CATEGORY_ID = 1631;
 // TODO(host): confirm the full path — only "/SaveLD" is known. Save = add
 // (no LDID) AND edit (with LDID), same URL.
 export const LLD_SAVE_VIEW_URL = "api/PDOCustom/SaveLD";
+// The View dropdown, posted the same tag array as GetSubSurfaceOperations.
+export const LLD_VIEWS_URL = "LimitDiagram/GetLDViews";
 
 // TODO(host): real endpoints not known yet. Save = add (no id) AND edit
 // (with id), same URL; delete by id (a view's is a soft delete, see
 // deleteView()).
 export const LLD_LOOKUPS_URL = "PDOCustom/LLD/GetLookups";
-export const LLD_VIEWS_URL = "PDOCustom/LLD/GetViews";
 export const LLD_DELETE_VIEW_URL = "PDOCustom/LLD/DeleteView";
 export const LLD_GROUPS_URL = "PDOCustom/LLD/GetGroups";
 export const LLD_SAVE_GROUP_URL = "PDOCustom/LLD/SaveGroup";
@@ -87,6 +99,29 @@ function toSaveViewRequest(view: LldView, currentUser: string): LldSaveViewReque
     CreatedBy: view.createdBy ?? currentUser
   };
   return view.id != null ? { LDID: view.id, ...request, ModifiedBy: currentUser } : request;
+}
+
+// A GetLDViews row as the page's view. 0 / null user ids mean "nobody"
+// (ModifiedBy is 0 on a never-edited view); Facility is the comma-separated
+// station names SaveLD was given.
+function toView(row: LldViewResponse): LldView {
+  const user = (id: number | string | null) => (id ? String(id) : null);
+  return {
+    id: row.LDID,
+    name: row.LDViewName,
+    description: row.LDDescription ?? "",
+    subsurfaceId: row.SubSurfaceOperationId || null,
+    subsurfaceName: row.SubSurfaceOperation ?? "",
+    stationNames: (row.Facility ?? "")
+      .split(",")
+      .map(s => s.trim())
+      .filter(s => s),
+    status: row.Status,
+    createdBy: user(row.CreatedBy),
+    createdOn: row.CreatedOn ?? null,
+    modifiedBy: user(row.ModifiedBy),
+    modifiedOn: row.ModifiedOn ?? null
+  };
 }
 
 // One item of the GetSubSurfaceOperations / GetStations responses — only
@@ -163,12 +198,16 @@ export class NxLldService {
   }
 
   // ------------------------------------------------------------- views
-  // Soft-deleted views are never returned.
-  getViews(token: string): Observable<LldView[]> {
+  // The views of the host's hierarchy selection — `tags` posted as-is, like
+  // getSubsurfaces(). Soft-deleted views are never shown (filtered here too,
+  // in case the API ever returns them). The mock ignores `tags`.
+  getViews(tags: dcTag[], token: string): Observable<LldView[]> {
     if (USE_MOCK) {
       return this.mock(() => this.store.views.filter(v => v.status !== LldViewStatus.Deleted));
     }
-    return this.post<LldView[]>(LLD_VIEWS_URL, {}, token);
+    return this.post<LldApiResult<LldViewResponse[]>>(LLD_VIEWS_URL, tags, token).pipe(
+      map(result => (unwrapResult(result) ?? []).map(toView).filter(v => v.status !== LldViewStatus.Deleted))
+    );
   }
 
   // Returns the saved view so the page can select it — with its server id

@@ -1,7 +1,7 @@
 import { Component, Input, OnChanges, OnDestroy, OnInit, SimpleChanges } from "@angular/core";
 import { MatDialog } from "@angular/material/dialog";
-import { forkJoin, Observable, of, Subject, Subscription } from "rxjs";
-import { catchError, finalize, switchMap } from "rxjs/operators";
+import { Observable, of, Subject, Subscription } from "rxjs";
+import { catchError, finalize, map, switchMap } from "rxjs/operators";
 import { LLD_VIEW_STATUS_OPTIONS, LldGroup, LldGroupWithSubGroups, LldLookups, LldSubGroup, LldView, LldViewStatus } from "./model/nx-lld.model";
 import { dcTag } from "./model/dc-tag.model";
 import { NxLldService } from "./services/nx-lld.service";
@@ -61,6 +61,11 @@ export class NxLldConfigComponent implements OnInit, OnChanges, OnDestroy {
   // Same idea for the hierarchy's subsurfaces (no tags -> no call, empty list).
   private readonly subsurfacesRequest$ = new Subject<dcTag[]>();
   private readonly subsurfacesSub: Subscription;
+  // And for the hierarchy's views — a reload after a save/delete, or a new
+  // hierarchy selection, drops a still-running fetch. Each push says which
+  // view to select once the list arrives (see reloadViews()).
+  private readonly viewsRequest$ = new Subject<{ selectId: number | null; selectName?: string }>();
+  private readonly viewsSub: Subscription;
 
   constructor(private lldService: NxLldService, private dialog: MatDialog) {
     this.groupsSub = this.groupsRequest$
@@ -76,14 +81,29 @@ export class NxLldConfigComponent implements OnInit, OnChanges, OnDestroy {
         )
       )
       .subscribe((subsurfaces: dcTag[]) => (this.subsurfaces = subsurfaces));
+    this.viewsSub = this.viewsRequest$
+      .pipe(
+        switchMap(({ selectId, selectName }) => {
+          const tags = this.heirarchyTags ?? [];
+          const views$: Observable<LldView[]> = tags.length
+            ? this.track(this.lldService.getViews(tags, LLD_API_TOKEN)).pipe(catchError(() => of<LldView[]>([])))
+            : of<LldView[]>([]);
+          return views$.pipe(map(views => ({ views, selectId: selectId ?? views.find(v => v.name === selectName)?.id ?? null })));
+        })
+      )
+      .subscribe(({ views, selectId }) => this.setViews(views, selectId));
   }
 
   // Fires before ngOnInit for the initial value, then on every new
-  // hierarchy selection.
+  // hierarchy selection: its subsurfaces and its views are fetched afresh.
   ngOnChanges(changes: SimpleChanges): void {
     if (changes["heirarchyTags"]) {
       this.subsurfaces = [];
       this.subsurfacesRequest$.next(this.heirarchyTags ?? []);
+      this.views = [];
+      this.selectedViewId = null;
+      this.onViewChange();
+      this.reloadViews(null);
     }
   }
 
@@ -104,17 +124,14 @@ export class NxLldConfigComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.track(forkJoin([this.lldService.getLookups(LLD_API_TOKEN), this.lldService.getViews(LLD_API_TOKEN)])).subscribe(
-      ([lookups, views]) => {
-        this.lookups = lookups;
-        this.setViews(views, null);
-      }
-    );
+    // The views come with the hierarchy (ngOnChanges).
+    this.track(this.lldService.getLookups(LLD_API_TOKEN)).subscribe(lookups => (this.lookups = lookups));
   }
 
   ngOnDestroy(): void {
     this.groupsSub.unsubscribe();
     this.subsurfacesSub.unsubscribe();
+    this.viewsSub.unsubscribe();
   }
 
   // ------------------------------------------------------------- views
@@ -175,9 +192,7 @@ export class NxLldConfigComponent implements OnInit, OnChanges, OnDestroy {
   // select `selectId` — or, when the save didn't report an id, the view
   // named `selectName` — or keep the current one, or fall back to the first.
   private reloadViews(selectId: number | null, selectName?: string): void {
-    this.track(this.lldService.getViews(LLD_API_TOKEN)).subscribe(views =>
-      this.setViews(views, selectId ?? views.find(v => v.name === selectName)?.id ?? null)
-    );
+    this.viewsRequest$.next({ selectId, selectName });
   }
 
   private setViews(views: LldView[], selectId: number | null): void {

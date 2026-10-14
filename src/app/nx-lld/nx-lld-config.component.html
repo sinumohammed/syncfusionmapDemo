@@ -27,7 +27,7 @@
     <div class="nx-lld-view-card-body" *ngIf="selectedView">
       <div class="nx-lld-field">
         <span class="nx-lld-field-label">Subsurface</span>
-        <span class="nx-lld-field-value">{{ selectedView.subsurfaceName }}</span>
+        <span class="nx-lld-field-value">{{ selectedView.subsurfaceName || "—" }}</span>
       </div>
       <div class="nx-lld-field">
         <span class="nx-lld-field-label">Stations ({{ selectedView.stationNames.length }})</span>

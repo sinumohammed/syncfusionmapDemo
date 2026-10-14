@@ -14,6 +14,17 @@ import { LldConfirmDialogData, NxLldConfirmDialogComponent } from "./nx-lld-conf
 // supplies its own); passed straight through to every LLD API call.
 const LLD_API_TOKEN = "";
 
+// A views reload: which view to select once the list arrives — by id, or
+// by name when the save didn't report one.
+interface LldViewsRequest {
+  selectId: number | null;
+  selectName?: string;
+}
+interface LldViewsResult {
+  views: LldView[];
+  selectId: number | null;
+}
+
 // The LLD Configuration screen (reloads its Subsurface list whenever the
 // host's hierarchy selection changes — see heirarchyTags): View dropdown (New/Edit/Delete) over the
 // grouped layout — one expansion panel per group of the selected view,
@@ -64,7 +75,7 @@ export class NxLldConfigComponent implements OnInit, OnChanges, OnDestroy {
   // And for the hierarchy's views — a reload after a save/delete, or a new
   // hierarchy selection, drops a still-running fetch. Each push says which
   // view to select once the list arrives (see reloadViews()).
-  private readonly viewsRequest$ = new Subject<{ selectId: number | null; selectName?: string }>();
+  private readonly viewsRequest$ = new Subject<LldViewsRequest>();
   private readonly viewsSub: Subscription;
 
   constructor(private lldService: NxLldService, private dialog: MatDialog) {
@@ -83,15 +94,22 @@ export class NxLldConfigComponent implements OnInit, OnChanges, OnDestroy {
       .subscribe((subsurfaces: dcTag[]) => (this.subsurfaces = subsurfaces));
     this.viewsSub = this.viewsRequest$
       .pipe(
-        switchMap(({ selectId, selectName }) => {
-          const tags = this.heirarchyTags ?? [];
+        switchMap(({ selectId, selectName }: LldViewsRequest): Observable<LldViewsResult> => {
+          const tags: dcTag[] = this.heirarchyTags ?? [];
           const views$: Observable<LldView[]> = tags.length
             ? this.track(this.lldService.getViews(tags, LLD_API_TOKEN)).pipe(catchError(() => of<LldView[]>([])))
             : of<LldView[]>([]);
-          return views$.pipe(map(views => ({ views, selectId: selectId ?? views.find(v => v.name === selectName)?.id ?? null })));
+          return views$.pipe(
+            map(
+              (views: LldView[]): LldViewsResult => ({
+                views,
+                selectId: selectId ?? views.find((v: LldView) => v.name === selectName)?.id ?? null
+              })
+            )
+          );
         })
       )
-      .subscribe(({ views, selectId }) => this.setViews(views, selectId));
+      .subscribe((result: LldViewsResult) => this.setViews(result.views, result.selectId));
   }
 
   // Fires before ngOnInit for the initial value, then on every new

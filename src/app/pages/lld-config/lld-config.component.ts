@@ -16,7 +16,7 @@ export class LldConfigComponent {
   // captured sample save request.
   currentUser = "1337";
 
-  heirarchyTags: dcTag[] = [
+  hierarchyTags: dcTag[] = [
     {
       TagID: 4251,
       TagName: "FAHUD",

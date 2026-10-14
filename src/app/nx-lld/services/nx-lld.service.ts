@@ -1,7 +1,7 @@
 import { Injectable } from "@angular/core";
 import { HttpClient, HttpErrorResponse, HttpHeaders } from "@angular/common/http";
 import { forkJoin, Observable, of, throwError } from "rxjs";
-import { catchError, delay, map, mergeMap, shareReplay } from "rxjs/operators";
+import { catchError, delay, map, mergeMap, shareReplay, tap } from "rxjs/operators";
 import { dcTag } from "../model/dc-tag.model";
 import {
   LldApiResult,
@@ -124,6 +124,12 @@ function toView(row: LldViewResponse): LldView {
   };
 }
 
+// What identifies a hierarchy selection — the cache key for its
+// subsurfaces and views, and how the page spots a changed selection.
+export function hierarchyKey(tags: dcTag[] | null): string {
+  return (tags ?? []).map((t: dcTag) => `${t.TagID}|${t.ObjectID}|${t.TagName}`).join(",");
+}
+
 // One item of the GetSubSurfaceOperations / GetStations responses — only
 // the fields read here.
 interface ElementResponse {
@@ -152,39 +158,32 @@ export class NxLldService {
 
   // --------------------------------------------------------- elements
   // The Subsurface dropdown. `tags` is the host's own tag selection, posted
-  // as-is.
+  // as-is. Remembered per selection, so going back to an earlier one makes
+  // no call.
   getSubsurfaces(tags: dcTag[], token: string): Observable<dcTag[]> {
-    if (USE_MOCK) {
-      return this.mock(() => unwrapResult(this.mockSubsurfaces).map(toTag));
-    }
-    return this.post<LldApiResult<ElementResponse[]>>(LLD_SUBSURFACES_URL, tags, token).pipe(map(result => unwrapResult(result).map(toTag)));
+    return this.cached(this.subsurfacesCache, hierarchyKey(tags), () =>
+      USE_MOCK
+        ? this.mock(() => unwrapResult(this.mockSubsurfaces).map(toTag))
+        : this.post<LldApiResult<ElementResponse[]>>(LLD_SUBSURFACES_URL, tags, token).pipe(map(result => unwrapResult(result).map(toTag)))
+    );
   }
+  private readonly subsurfacesCache = new Map<string, Observable<dcTag[]>>();
 
   // One subsurface's stations — a separate call per subsurface, asked for
   // by its name and type only. Remembered per subsurface, so the page and
   // the View popup share one fetch; a failed fetch isn't remembered.
   getStations(subsurface: dcTag, token: string): Observable<dcTag[]> {
     const id = subsurface.ObjectID!;
-    let stations$ = this.stationsCache.get(id);
-    if (!stations$) {
-      const request$ = USE_MOCK
+    return this.cached(this.stationsCache, id, () =>
+      (USE_MOCK
         ? this.mock(() => this.mockStations[id] ?? [])
         : this.post<ElementResponse[]>(
             LLD_STATIONS_URL,
             { tagName: subsurface.TagName, elementTypeID: subsurface.ElementTypeID, categoryID: LLD_STATIONS_CATEGORY_ID },
             token
-          );
-      stations$ = request$.pipe(
-        map(stations => (stations ?? []).map(toTag)),
-        catchError(err => {
-          this.stationsCache.delete(id);
-          return throwError(() => err);
-        }),
-        shareReplay(1)
-      );
-      this.stationsCache.set(id, stations$);
-    }
-    return stations$;
+          )
+      ).pipe(map((stations: ElementResponse[]) => (stations ?? []).map(toTag)))
+    );
   }
   private readonly stationsCache = new Map<number, Observable<dcTag[]>>();
 
@@ -201,14 +200,18 @@ export class NxLldService {
   // The views of the host's hierarchy selection — `tags` posted as-is, like
   // getSubsurfaces(). Soft-deleted views are never shown (filtered here too,
   // in case the API ever returns them). The mock ignores `tags`.
+  // Remembered per selection like the subsurfaces; a save or delete forgets
+  // every remembered list, so the reload after it reaches the server.
   getViews(tags: dcTag[], token: string): Observable<LldView[]> {
-    if (USE_MOCK) {
-      return this.mock(() => this.store.views.filter(v => v.status !== LldViewStatus.Deleted));
-    }
-    return this.post<LldApiResult<LldViewResponse[]>>(LLD_VIEWS_URL, tags, token).pipe(
-      map(result => (unwrapResult(result) ?? []).map(toView).filter(v => v.status !== LldViewStatus.Deleted))
+    return this.cached(this.viewsCache, hierarchyKey(tags), () =>
+      USE_MOCK
+        ? this.mock(() => this.store.views.filter(v => v.status !== LldViewStatus.Deleted))
+        : this.post<LldApiResult<LldViewResponse[]>>(LLD_VIEWS_URL, tags, token).pipe(
+            map(result => (unwrapResult(result) ?? []).map(toView).filter(v => v.status !== LldViewStatus.Deleted))
+          )
     );
   }
+  private readonly viewsCache = new Map<string, Observable<LldView[]>>();
 
   // Returns the saved view so the page can select it — with its server id
   // when the API reports one (SaveLD's ID can be 0; the page then finds a
@@ -218,6 +221,7 @@ export class NxLldService {
     const request = toSaveViewRequest(view, currentUser);
     // TEMP: to check the SaveLD payload while testing — remove afterwards.
     console.log("[LLD] SaveLD payload", request);
+    const forgetViews = tap<LldView>(() => this.viewsCache.clear());
     if (USE_MOCK) {
       return this.mockReady$.pipe(
         delay(MOCK_LATENCY_MS),
@@ -236,11 +240,13 @@ export class NxLldService {
             ? { ...existing, ...view, createdBy: existing.createdBy, modifiedBy: currentUser, modifiedOn: now }
             : { ...view, createdBy: currentUser, createdOn: now };
           return of(this.upsert("views", stamped));
-        })
+        }),
+        forgetViews
       );
     }
     return this.post<LldApiStatus>(LLD_SAVE_VIEW_URL, request, token).pipe(
-      map(result => ({ ...view, id: assertOk(result).ID || view.id }))
+      map(result => ({ ...view, id: assertOk(result).ID || view.id })),
+      forgetViews
     );
   }
 
@@ -248,12 +254,12 @@ export class NxLldService {
   // row (and its groups/sub-groups) stays in the database, hidden from then
   // on because getViews() skips it.
   deleteView(id: number, token: string): Observable<unknown> {
-    if (USE_MOCK) {
-      return this.mock(() => {
-        this.store.views = this.store.views.map(v => (v.id === id ? { ...v, status: LldViewStatus.Deleted } : v));
-      });
-    }
-    return this.post<unknown>(LLD_DELETE_VIEW_URL, { id }, token);
+    const request$: Observable<unknown> = USE_MOCK
+      ? this.mock(() => {
+          this.store.views = this.store.views.map(v => (v.id === id ? { ...v, status: LldViewStatus.Deleted } : v));
+        })
+      : this.post<unknown>(LLD_DELETE_VIEW_URL, { id }, token);
+    return request$.pipe(tap(() => this.viewsCache.clear()));
   }
 
   // ------------------------------------------------------------ groups
@@ -318,6 +324,23 @@ export class NxLldService {
       return this.mock(() => (this.store.subGroups = this.store.subGroups.filter(s => s.id !== id)));
     }
     return this.post<unknown>(LLD_DELETE_SUBGROUP_URL, { id }, token);
+  }
+
+  // One shared fetch per key: later callers get the same answer without a
+  // new call. A failed fetch isn't remembered, so the next call retries.
+  private cached<K, T>(cache: Map<K, Observable<T>>, key: K, fetch: () => Observable<T>): Observable<T> {
+    let result$ = cache.get(key);
+    if (!result$) {
+      result$ = fetch().pipe(
+        catchError(err => {
+          cache.delete(key);
+          return throwError(() => err);
+        }),
+        shareReplay(1)
+      );
+      cache.set(key, result$);
+    }
+    return result$;
   }
 
   // Same signature as the host app's httpService.post(url, body, token) —

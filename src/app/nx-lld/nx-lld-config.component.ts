@@ -1,10 +1,10 @@
-import { Component, Input, OnChanges, OnDestroy, OnInit, SimpleChanges } from "@angular/core";
+import { Component, DoCheck, Input, OnDestroy, OnInit } from "@angular/core";
 import { MatDialog } from "@angular/material/dialog";
 import { Observable, of, Subject, Subscription } from "rxjs";
 import { catchError, finalize, map, switchMap } from "rxjs/operators";
 import { LLD_VIEW_STATUS_OPTIONS, LldGroup, LldGroupWithSubGroups, LldLookups, LldSubGroup, LldView, LldViewStatus } from "./model/nx-lld.model";
 import { dcTag } from "./model/dc-tag.model";
-import { NxLldService } from "./services/nx-lld.service";
+import { hierarchyKey, NxLldService } from "./services/nx-lld.service";
 import { LldViewDialogData, NxLldViewDialogComponent } from "./nx-lld-view-dialog.component";
 import { LldGroupDialogData, NxLldGroupDialogComponent } from "./nx-lld-group-dialog.component";
 import { LldSubGroupDialogData, NxLldSubGroupDialogComponent } from "./nx-lld-subgroup-dialog.component";
@@ -26,7 +26,7 @@ interface LldViewsResult {
 }
 
 // The LLD Configuration screen (reloads its Subsurface list whenever the
-// host's hierarchy selection changes — see heirarchyTags): View dropdown (New/Edit/Delete) over the
+// host's hierarchy selection changes — see hierarchyTags): View dropdown (New/Edit/Delete) over the
 // grouped layout — one expansion panel per group of the selected view,
 // listing its sub-groups; each sub-group row toggles its equipment list.
 @Component({
@@ -34,11 +34,11 @@ interface LldViewsResult {
   templateUrl: "./nx-lld-config.component.html",
   styleUrls: ["./nx-lld-config.component.scss"]
 })
-export class NxLldConfigComponent implements OnInit, OnChanges, OnDestroy {
+export class NxLldConfigComponent implements OnInit, DoCheck, OnDestroy {
   // The host's current hierarchy selection — posted as-is to load the
-  // Subsurface dropdown. The host must pass a NEW array on every change
-  // (ngOnChanges doesn't see an in-place push/splice).
-  @Input() heirarchyTags: dcTag[] | null = null;
+  // Subsurface dropdown and the views. Any change reloads both, whether the
+  // host passes a new array or edits this one in place (see ngDoCheck()).
+  @Input() hierarchyTags: dcTag[] | null = null;
   // The logged-in user, from the host — handed to the View popup and sent
   // as a saved view's CreatedBy / ModifiedBy.
   @Input() currentUser: string | null = null;
@@ -95,7 +95,7 @@ export class NxLldConfigComponent implements OnInit, OnChanges, OnDestroy {
     this.viewsSub = this.viewsRequest$
       .pipe(
         switchMap(({ selectId, selectName }: LldViewsRequest): Observable<LldViewsResult> => {
-          const tags: dcTag[] = this.heirarchyTags ?? [];
+          const tags: dcTag[] = this.hierarchyTags ?? [];
           const views$: Observable<LldView[]> = tags.length
             ? this.track(this.lldService.getViews(tags, LLD_API_TOKEN)).pipe(catchError(() => of<LldView[]>([])))
             : of<LldView[]>([]);
@@ -112,18 +112,27 @@ export class NxLldConfigComponent implements OnInit, OnChanges, OnDestroy {
       .subscribe((result: LldViewsResult) => this.setViews(result.views, result.selectId));
   }
 
-  // Fires before ngOnInit for the initial value, then on every new
-  // hierarchy selection: its subsurfaces and its views are fetched afresh.
-  ngOnChanges(changes: SimpleChanges): void {
-    if (changes["heirarchyTags"]) {
+  // Runs on every change detection: when the hierarchy selection differs
+  // from the last one loaded (by content, so an in-place push/splice counts
+  // too), its subsurfaces and its views are loaded — from the server the
+  // first time, from the service's cache when going back to an earlier
+  // selection. The first run loads the initial selection.
+  ngDoCheck(): void {
+    const key = hierarchyKey(this.hierarchyTags);
+    if (key !== this.loadedHierarchyKey) {
+      this.loadedHierarchyKey = key;
+      // TEMP: to see when the hierarchy (re)loads while testing — remove afterwards.
+      console.log("[LLD] hierarchyTags changed -> loading subsurfaces + views (cached if seen before)", this.hierarchyTags);
       this.subsurfaces = [];
-      this.subsurfacesRequest$.next(this.heirarchyTags ?? []);
+      this.subsurfacesRequest$.next(this.hierarchyTags ?? []);
       this.views = [];
       this.selectedViewId = null;
       this.onViewChange();
       this.reloadViews(null);
     }
   }
+
+  private loadedHierarchyKey: string | null = null;
 
   get selectedView(): LldView | null {
     return this.views.find(v => v.id === this.selectedViewId) ?? null;
@@ -142,7 +151,7 @@ export class NxLldConfigComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   ngOnInit(): void {
-    // The views come with the hierarchy (ngOnChanges).
+    // The views come with the hierarchy (ngDoCheck).
     this.track(this.lldService.getLookups(LLD_API_TOKEN)).subscribe(lookups => (this.lookups = lookups));
   }
 

@@ -40,7 +40,7 @@ export class NxLldViewDialogComponent implements OnDestroy {
   stationsError = "";
   // Each push fetches that subsurface's stations; switchMap drops a
   // still-running fetch for a subsurface that's no longer picked.
-  private readonly stationsRequest$ = new Subject<number | null>();
+  private readonly stationsRequest$ = new Subject<string | null>();
   private readonly subscriptions = new Subscription();
 
   constructor(
@@ -50,9 +50,10 @@ export class NxLldViewDialogComponent implements OnDestroy {
     private lldService: NxLldService
   ) {
     const view = data.view;
+    const subsurfaceName = this.findSubsurfaceName(view);
     this.form = this.fb.group({
       name: [view?.name ?? "", Validators.required],
-      subsurfaceId: [view?.subsurfaceId ?? null, Validators.required],
+      subsurfaceName: [subsurfaceName, Validators.required],
       stationNames: [view?.stationNames ?? [], Validators.required],
       status: [view?.status ?? LldViewStatus.Private, Validators.required],
       description: [view?.description ?? ""]
@@ -60,8 +61,8 @@ export class NxLldViewDialogComponent implements OnDestroy {
     this.subscriptions.add(
       this.stationsRequest$
         .pipe(
-          switchMap((id): Observable<dcTag[]> => {
-            const subsurface = this.data.subsurfaces.find(s => s.ObjectID === id);
+          switchMap((name: string | null): Observable<dcTag[]> => {
+            const subsurface = this.subsurfaceByName(name);
             this.stations = [];
             this.stationsError = "";
             this.stationsLoading = !!subsurface;
@@ -84,16 +85,29 @@ export class NxLldViewDialogComponent implements OnDestroy {
     // from no selection. Subscribed AFTER the initial values above, so an
     // Edit keeps its saved stations (loaded just below).
     this.subscriptions.add(
-      this.form.get("subsurfaceId")!.valueChanges.subscribe(id => {
+      this.form.get("subsurfaceName")!.valueChanges.subscribe((name: string | null) => {
         this.form.get("stationNames")!.setValue([]);
-        this.stationsRequest$.next(id);
+        this.stationsRequest$.next(name);
       })
     );
-    if (view?.subsurfaceId != null) {
-      this.stationsRequest$.next(view.subsurfaceId);
+    if (subsurfaceName) {
+      this.stationsRequest$.next(subsurfaceName);
     }
     // A rejected save's message goes away once the user changes anything.
     this.subscriptions.add(this.form.valueChanges.subscribe(() => (this.saveError = "")));
+  }
+
+  // The Subsurface dropdown is keyed by name (TagName — unique), since the
+  // API sends SubSurfaceOperationId back as 0. An edit preselects the
+  // view's saved name, written exactly as the dropdown has it.
+  private findSubsurfaceName(view: LldView | undefined): string | null {
+    return this.subsurfaceByName(view?.subsurfaceName ?? null)?.TagName ?? null;
+  }
+
+  // Ignores case and surrounding spaces.
+  private subsurfaceByName(name: string | null): dcTag | undefined {
+    const key = (name ?? "").trim().toLowerCase();
+    return key ? this.data.subsurfaces.find((s: dcTag) => (s.TagName ?? "").trim().toLowerCase() === key) : undefined;
   }
 
   get isEdit(): boolean {
@@ -108,11 +122,13 @@ export class NxLldViewDialogComponent implements OnDestroy {
       return;
     }
     const value = this.form.value;
+    // Saved as before: the picked tag's ObjectID and TagName.
+    const subsurface = this.subsurfaceByName(value.subsurfaceName);
     const payload: LldView = {
       id: this.data.view?.id ?? null,
       name: value.name.trim(),
-      subsurfaceId: value.subsurfaceId,
-      subsurfaceName: this.data.subsurfaces.find(s => s.ObjectID === value.subsurfaceId)?.TagName ?? "",
+      subsurfaceId: subsurface?.ObjectID ?? null,
+      subsurfaceName: subsurface?.TagName ?? "",
       // Dropdown order, not click order.
       stationNames: this.stations.map(s => s.TagName ?? "").filter(name => value.stationNames.includes(name)),
       status: value.status,

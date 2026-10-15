@@ -27,6 +27,8 @@ const LLD_STATIONS_CATEGORY_ID = 1631;
 export const LLD_SAVE_VIEW_URL = "api/PDOCustom/SaveLD";
 // The View dropdown, posted the same tag array as GetSubSurfaceOperations.
 export const LLD_VIEWS_URL = "LimitDiagram/GetLDViews";
+// The selected view's details, by LDID (see getViewDetails()).
+export const LLD_VIEW_DETAILS_URL = "LimitDiagram/GetLDViewDetails";
 
 // TODO(host): real endpoints not known yet. Save = add (no id) AND edit
 // (with id), same URL; delete by id (a view's is a soft delete, see
@@ -271,6 +273,24 @@ export class NxLldService {
     return this.post<LldApiStatus>(LLD_SAVE_VIEW_URL, request, token).pipe(
       map(result => ({ ...view, id: assertOk(result).ID || view.id })),
       forgetViews
+    );
+  }
+
+  // One view's full details — what the view card and Edit show. The LDID
+  // goes in the query string (…/GetLDViewDetails?LDID=7), the body is empty.
+  // Not cached: it's fetched fresh each time a view is selected or saved.
+  getViewDetails(id: number, token: string): Observable<LldView> {
+    if (USE_MOCK) {
+      return this.mockReady$.pipe(
+        delay(MOCK_LATENCY_MS),
+        mergeMap(() => {
+          const view = this.store.views.find(v => v.id === id);
+          return view ? of({ ...view }) : mockError(404, `View ${id} not found`);
+        })
+      );
+    }
+    return this.post<LldApiResult<LldViewResponse>>(`${LLD_VIEW_DETAILS_URL}?LDID=${encodeURIComponent(id)}`, null, token).pipe(
+      map((result: LldApiResult<LldViewResponse>) => toView(unwrapResult(result)))
     );
   }
 

@@ -77,6 +77,11 @@ export class NxLldConfigComponent implements OnInit, DoCheck, OnDestroy {
   // view to select once the list arrives (see reloadViews()).
   private readonly viewsRequest$ = new Subject<LldViewsRequest>();
   private readonly viewsSub: Subscription;
+  // The selected view's details — switchMap drops a still-running fetch for
+  // a view that's no longer selected.
+  selectedViewDetails: LldView | null = null;
+  private readonly detailsRequest$ = new Subject<number | null>();
+  private readonly detailsSub: Subscription;
 
   constructor(private lldService: NxLldService, private dialog: MatDialog) {
     this.groupsSub = this.groupsRequest$
@@ -99,6 +104,21 @@ export class NxLldConfigComponent implements OnInit, DoCheck, OnDestroy {
         console.log("[LLD] subsurfaces set on the page:", subsurfaces.length, subsurfaces);
         this.subsurfaces = subsurfaces;
       });
+    this.detailsSub = this.detailsRequest$
+      .pipe(
+        switchMap(
+          (id: number | null): Observable<LldView | null> =>
+            id == null
+              ? of<LldView | null>(null)
+              : this.track(this.lldService.getViewDetails(id, LLD_API_TOKEN)).pipe(
+                  catchError((err: unknown) => {
+                    console.error("[LLD] GetLDViewDetails failed:", apiErrorMessage(err), err);
+                    return of<LldView | null>(null);
+                  })
+                )
+        )
+      )
+      .subscribe((details: LldView | null) => (this.selectedViewDetails = details));
     this.viewsSub = this.viewsRequest$
       .pipe(
         switchMap(({ selectId, selectName }: LldViewsRequest): Observable<LldViewsResult> => {
@@ -144,7 +164,12 @@ export class NxLldConfigComponent implements OnInit, DoCheck, OnDestroy {
 
   private loadedHierarchyKey: string | null = null;
 
+  // The selected view as GetLDViewDetails returned it — or, until that
+  // arrives (or if it fails), its row from the views list.
   get selectedView(): LldView | null {
+    if (this.selectedViewDetails && this.selectedViewDetails.id === this.selectedViewId) {
+      return this.selectedViewDetails;
+    }
     return this.views.find(v => v.id === this.selectedViewId) ?? null;
   }
 
@@ -169,6 +194,7 @@ export class NxLldConfigComponent implements OnInit, DoCheck, OnDestroy {
     this.groupsSub.unsubscribe();
     this.subsurfacesSub.unsubscribe();
     this.viewsSub.unsubscribe();
+    this.detailsSub.unsubscribe();
   }
 
   // ------------------------------------------------------------- views
@@ -177,6 +203,12 @@ export class NxLldConfigComponent implements OnInit, DoCheck, OnDestroy {
     this.expandedGroupIds.clear();
     this.expandedSubGroupIds.clear();
     this.groupsRequest$.next(this.selectedViewId);
+    this.loadViewDetails();
+  }
+
+  private loadViewDetails(): void {
+    this.selectedViewDetails = null;
+    this.detailsRequest$.next(this.selectedViewId);
   }
 
   newView(): void {
@@ -239,6 +271,10 @@ export class NxLldConfigComponent implements OnInit, DoCheck, OnDestroy {
     this.selectedViewId = keep ?? views[0]?.id ?? null;
     if (this.selectedViewId !== previousId || previousId == null) {
       this.onViewChange();
+    } else {
+      // Same view still selected (e.g. it was just edited) — its details
+      // may have changed.
+      this.loadViewDetails();
     }
   }
 

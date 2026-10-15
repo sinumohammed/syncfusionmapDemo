@@ -130,6 +130,25 @@ export function hierarchyKey(tags: dcTag[] | null): string {
   return (tags ?? []).map((t: dcTag) => `${t.TagID}|${t.ObjectID}|${t.TagName}`).join(",");
 }
 
+// A hierarchy tag as GetLDViews wants it: only these fields, not the whole
+// dcTag (its UI flags, dataStoreOptions, etc. are left out).
+export type LldViewsTag = Pick<
+  dcTag,
+  "TagID" | "TagName" | "ElementTypeID" | "SourceObjectID" | "ObjectID" | "isSelected" | "CategoryID" | "SourceClassID"
+>;
+function toViewsTag(tag: dcTag): LldViewsTag {
+  return {
+    TagID: tag.TagID,
+    TagName: tag.TagName,
+    ElementTypeID: tag.ElementTypeID,
+    SourceObjectID: tag.SourceObjectID,
+    ObjectID: tag.ObjectID,
+    isSelected: tag.isSelected,
+    CategoryID: tag.CategoryID,
+    SourceClassID: tag.SourceClassID
+  };
+}
+
 // One item of the GetSubSurfaceOperations / GetStations responses — only
 // the fields read here.
 interface ElementResponse {
@@ -161,10 +180,15 @@ export class NxLldService {
   // as-is. Remembered per selection, so going back to an earlier one makes
   // no call.
   getSubsurfaces(tags: dcTag[], token: string): Observable<dcTag[]> {
+    // TEMP: tracing why the Subsurface dropdown stays empty — remove afterwards.
+    console.log("[LLD] getSubsurfaces called, cached:", this.subsurfacesCache.has(hierarchyKey(tags)), tags);
     return this.cached(this.subsurfacesCache, hierarchyKey(tags), () =>
       USE_MOCK
         ? this.mock(() => unwrapResult(this.mockSubsurfaces).map(toTag))
-        : this.post<LldApiResult<ElementResponse[]>>(LLD_SUBSURFACES_URL, tags, token).pipe(map(result => unwrapResult(result).map(toTag)))
+        : this.post<LldApiResult<ElementResponse[]>>(LLD_SUBSURFACES_URL, tags, token).pipe(
+            tap((result: LldApiResult<ElementResponse[]>) => console.log("[LLD] GetSubSurfaceOperations raw result", result)),
+            map((result: LldApiResult<ElementResponse[]>) => unwrapResult(result).map(toTag))
+          )
     );
   }
   private readonly subsurfacesCache = new Map<string, Observable<dcTag[]>>();
@@ -197,8 +221,8 @@ export class NxLldService {
   }
 
   // ------------------------------------------------------------- views
-  // The views of the host's hierarchy selection — `tags` posted as-is, like
-  // getSubsurfaces(). Soft-deleted views are never shown (filtered here too,
+  // The views of the host's hierarchy selection — each tag trimmed to the
+  // fields GetLDViews takes (see toViewsTag()). Soft-deleted views are never shown (filtered here too,
   // in case the API ever returns them). The mock ignores `tags`.
   // Remembered per selection like the subsurfaces; a save or delete forgets
   // every remembered list, so the reload after it reaches the server.
@@ -206,7 +230,7 @@ export class NxLldService {
     return this.cached(this.viewsCache, hierarchyKey(tags), () =>
       USE_MOCK
         ? this.mock(() => this.store.views.filter(v => v.status !== LldViewStatus.Deleted))
-        : this.post<LldApiResult<LldViewResponse[]>>(LLD_VIEWS_URL, tags, token).pipe(
+        : this.post<LldApiResult<LldViewResponse[]>>(LLD_VIEWS_URL, tags.map(toViewsTag), token).pipe(
             map(result => (unwrapResult(result) ?? []).map(toView).filter(v => v.status !== LldViewStatus.Deleted))
           )
     );

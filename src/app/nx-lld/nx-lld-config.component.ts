@@ -4,7 +4,7 @@ import { Observable, of, Subject, Subscription } from "rxjs";
 import { catchError, finalize, map, switchMap } from "rxjs/operators";
 import { LLD_VIEW_STATUS_OPTIONS, LldGroup, LldGroupWithSubGroups, LldLookups, LldSubGroup, LldView, LldViewStatus } from "./model/nx-lld.model";
 import { dcTag } from "./model/dc-tag.model";
-import { hierarchyKey, NxLldService } from "./services/nx-lld.service";
+import { apiErrorMessage, hierarchyKey, NxLldService } from "./services/nx-lld.service";
 import { LldViewDialogData, NxLldViewDialogComponent } from "./nx-lld-view-dialog.component";
 import { LldGroupDialogData, NxLldGroupDialogComponent } from "./nx-lld-group-dialog.component";
 import { LldSubGroupDialogData, NxLldSubGroupDialogComponent } from "./nx-lld-subgroup-dialog.component";
@@ -87,17 +87,27 @@ export class NxLldConfigComponent implements OnInit, DoCheck, OnDestroy {
         switchMap(
           (tags): Observable<dcTag[]> =>
             tags.length
-              ? this.track(this.lldService.getSubsurfaces(tags, LLD_API_TOKEN)).pipe(catchError(() => of<dcTag[]>([])))
+              ? this.track(this.lldService.getSubsurfaces(tags, LLD_API_TOKEN)).pipe(catchError((err: unknown) => {
+                  console.error("[LLD] GetSubSurfaceOperations failed:", apiErrorMessage(err), err);
+                  return of<dcTag[]>([]);
+                }))
               : of<dcTag[]>([])
         )
       )
-      .subscribe((subsurfaces: dcTag[]) => (this.subsurfaces = subsurfaces));
+      .subscribe((subsurfaces: dcTag[]) => {
+        // TEMP: tracing why the Subsurface dropdown stays empty — remove afterwards.
+        console.log("[LLD] subsurfaces set on the page:", subsurfaces.length, subsurfaces);
+        this.subsurfaces = subsurfaces;
+      });
     this.viewsSub = this.viewsRequest$
       .pipe(
         switchMap(({ selectId, selectName }: LldViewsRequest): Observable<LldViewsResult> => {
           const tags: dcTag[] = this.hierarchyTags ?? [];
           const views$: Observable<LldView[]> = tags.length
-            ? this.track(this.lldService.getViews(tags, LLD_API_TOKEN)).pipe(catchError(() => of<LldView[]>([])))
+            ? this.track(this.lldService.getViews(tags, LLD_API_TOKEN)).pipe(catchError((err: unknown) => {
+                console.error("[LLD] GetLDViews failed:", apiErrorMessage(err), err);
+                return of<LldView[]>([]);
+              }))
             : of<LldView[]>([]);
           return views$.pipe(
             map(

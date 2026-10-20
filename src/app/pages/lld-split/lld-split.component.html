@@ -1,0 +1,22 @@
+<app-lld-header
+  title="LLD Configuration"
+  [hierarchyTags]="hierarchyTags"
+  [currentUser]="currentUser"
+  [viewSelectConfig]="viewSelectConfig"
+  (viewChange)="selectedView = $event"
+></app-lld-header>
+
+<!-- matTabContent: each tab is built when opened, so it refetches — a group
+     added in Groups shows up in Sub-groups' picker. -->
+<mat-tab-group class="lld-split-tabs" animationDuration="0ms">
+  <mat-tab label="Groups">
+    <ng-template matTabContent>
+      <app-nx-lld-groups [view]="selectedView"></app-nx-lld-groups>
+    </ng-template>
+  </mat-tab>
+  <mat-tab label="Sub-groups">
+    <ng-template matTabContent>
+      <app-nx-lld-subgroups [view]="selectedView"></app-nx-lld-subgroups>
+    </ng-template>
+  </mat-tab>
+</mat-tab-group>

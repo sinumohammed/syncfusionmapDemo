@@ -12,9 +12,11 @@ import { MapDashboardComponent } from "./pages/map-dashboard/map-dashboard.compo
 import { TrendDashboardComponent } from "./pages/trend-dashboard/trend-dashboard.component";
 import { ImageMapDashboardComponent } from "./pages/image-map-dashboard/image-map-dashboard.component";
 import { LldConfigComponent } from "./pages/lld-config/lld-config.component";
+import { LldSplitComponent } from "./pages/lld-split/lld-split.component";
+import { LldHeaderModule } from "./pages/lld-split/lld-header.module";
 
 @NgModule({
-  declarations: [AppComponent, MapDashboardComponent, TrendDashboardComponent, ImageMapDashboardComponent, LldConfigComponent],
+  declarations: [AppComponent, MapDashboardComponent, TrendDashboardComponent, ImageMapDashboardComponent, LldConfigComponent, LldSplitComponent],
   // BrowserAnimationsModule is root-only (Angular's animation engine is a
   // single app-wide provider) — the one exception to every other module
   // here being a self-contained per-feature import (NxCircularChartModule
@@ -23,7 +25,7 @@ import { LldConfigComponent } from "./pages/lld-config/lld-config.component";
   // (nx-circular-chart-comments.component.ts) — without it, Angular
   // Material throws at the first animated component (a dialog's own
   // open/close transition) rather than degrading to no-animation.
-  imports: [BrowserModule, BrowserAnimationsModule, FormsModule, AppRoutingModule, NxMapDemoModule, NxCircularChartModule, NxImageMapModule, NxLldModule],
+  imports: [BrowserModule, BrowserAnimationsModule, FormsModule, AppRoutingModule, NxMapDemoModule, NxCircularChartModule, NxImageMapModule, NxLldModule, LldHeaderModule],
   bootstrap: [AppComponent]
 })
 export class AppModule {}

@@ -1,0 +1,57 @@
+:host {
+  display: inline-block;
+}
+.nx-lld-view-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+// Pull the outline field's reserved hint space back so it sits centred in
+// a header bar, level with the buttons.
+.nx-lld-view-select-field {
+  position: relative;
+  width: 240px;
+  margin-bottom: -1.25em;
+  font-size: 13px;
+}
+.nx-lld-view-select-loader {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 1.4em;
+  height: 2px;
+}
+// Edit / Delete as one joined group of icon buttons.
+.nx-lld-view-select-actions {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+}
+.nx-lld-view-select-btn {
+  width: 34px;
+  height: 34px;
+  line-height: 34px;
+  border-radius: 0;
+  color: #4b5563;
+
+  & + & {
+    border-left: 1px solid #e5e7eb;
+  }
+  &:hover:not([disabled]) {
+    background: #f3f4f6;
+  }
+  &[disabled] {
+    opacity: 0.4;
+  }
+}
+.nx-lld-view-select-btn--delete {
+  color: #d32f2f;
+}
+.nx-lld-view-select-icon {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+  vertical-align: middle;
+}

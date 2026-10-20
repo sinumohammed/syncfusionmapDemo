@@ -1,0 +1,127 @@
+// Shared by the Groups and Sub-groups tabs.
+:host {
+  display: block;
+}
+.nx-lld-tab {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 4px;
+}
+// Thin bar along the tab's top edge — no layout jump while loading.
+.nx-lld-tab-loader {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+}
+.nx-lld-tab-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.nx-lld-tab-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #14213d;
+}
+// Pull the outline field's reserved hint space back so the button lines
+// up with its box.
+.nx-lld-group-select {
+  width: 260px;
+  margin-bottom: -1.25em;
+}
+.nx-lld-empty {
+  font-size: 13px;
+  color: #6b7280;
+}
+.nx-lld-strong {
+  font-weight: 600;
+}
+.nx-lld-muted {
+  color: #6b7280;
+}
+.nx-lld-icon {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+  vertical-align: middle;
+}
+// Leading icon inside a text button.
+.nx-lld-icon--btn {
+  margin: -2px 4px 0 -4px;
+}
+.nx-lld-delete {
+  color: #d32f2f;
+}
+.nx-lld-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  th,
+  td {
+    padding: 4px 12px;
+    text-align: left;
+  }
+  th {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  tbody tr:nth-child(odd) {
+    background: #f9fafb;
+  }
+}
+.nx-lld-table-actions {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}
+.nx-lld-subgroup {
+  border-top: 1px solid #f0f0f0;
+}
+.nx-lld-subgroup-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 2px 4px;
+  font-size: 13px;
+  cursor: pointer;
+
+  &:hover {
+    background: #f9fafb;
+  }
+}
+.nx-lld-row-actions {
+  display: inline-flex;
+  margin-left: auto;
+}
+.nx-lld-chevron {
+  flex: 0 0 auto;
+  margin-right: -12px;
+  color: #6b7280;
+  transition: transform 0.15s;
+}
+.nx-lld-chevron--open {
+  transform: rotate(90deg);
+}
+.nx-lld-subgroup-name {
+  min-width: 120px;
+}
+// A sub-group's equipments with their meta information.
+.nx-lld-equipments {
+  width: calc(100% - 34px);
+  margin: 0 0 8px 34px;
+  border-left: 2px solid #e0efff;
+}
+.nx-lld-path {
+  font-family: Consolas, monospace;
+  font-size: 12px;
+  word-break: break-all;
+}

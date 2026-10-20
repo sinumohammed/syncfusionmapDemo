@@ -1,0 +1,68 @@
+<div class="nx-lld-tab">
+  <mat-progress-bar *ngIf="loading" mode="indeterminate" class="nx-lld-tab-loader"></mat-progress-bar>
+
+  <div class="nx-lld-empty" *ngIf="!view">Pick a view in the header to see its sub-groups.</div>
+
+  <ng-container *ngIf="view">
+    <div class="nx-lld-tab-header">
+      <mat-form-field appearance="outline" class="nx-lld-group-select">
+        <mat-label>Group</mat-label>
+        <mat-select [(value)]="selectedGroupId" [disabled]="!groups.length">
+          <mat-option *ngFor="let g of groups" [value]="g.id">{{ g.name }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+      <button mat-stroked-button color="primary" (click)="addSubGroup()" [disabled]="!selectedGroup || !lookups">
+        <svg viewBox="0 0 24 24" class="nx-lld-icon nx-lld-icon--btn"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" /></svg>
+        Add Sub-group
+      </button>
+    </div>
+
+    <div class="nx-lld-empty" *ngIf="!loading && !groups.length">This view has no groups yet — add one in the Groups tab first.</div>
+    <div class="nx-lld-empty" *ngIf="selectedGroup && !selectedGroup.subGroups.length">No sub-groups in this group yet — click Add Sub-group.</div>
+
+    <div class="nx-lld-subgroup" *ngFor="let sub of selectedGroup?.subGroups">
+      <div
+        class="nx-lld-subgroup-row"
+        role="button"
+        tabindex="0"
+        [attr.aria-expanded]="expandedSubGroupIds.has(sub.id!)"
+        (click)="toggleSubGroup(sub)"
+        (keydown.enter)="toggleSubGroup(sub)"
+      >
+        <svg viewBox="0 0 24 24" class="nx-lld-icon nx-lld-chevron" [class.nx-lld-chevron--open]="expandedSubGroupIds.has(sub.id!)">
+          <path d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z" />
+        </svg>
+        <span class="nx-lld-strong nx-lld-subgroup-name">{{ sub.name }}</span>
+        <span>Type: {{ typeName(sub.typeId) }}</span>
+        <span>Template: {{ templateLabel(sub.typeId, sub.templateId) }}</span>
+        <span class="nx-lld-muted">{{ sub.equipments.length }} equipment(s)</span>
+        <span class="nx-lld-row-actions">
+          <button mat-icon-button type="button" matTooltip="Edit sub-group" aria-label="Edit sub-group" (click)="editSubGroup(sub, $event)" (keydown.enter)="$event.stopPropagation()">
+            <svg viewBox="0 0 24 24" class="nx-lld-icon"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" /></svg>
+          </button>
+          <button mat-icon-button type="button" class="nx-lld-delete" matTooltip="Delete sub-group" aria-label="Delete sub-group" (click)="deleteSubGroup(sub, $event)" (keydown.enter)="$event.stopPropagation()">
+            <svg viewBox="0 0 24 24" class="nx-lld-icon"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" /></svg>
+          </button>
+        </span>
+      </div>
+      <table class="nx-lld-table nx-lld-equipments" *ngIf="expandedSubGroupIds.has(sub.id!)">
+        <thead>
+          <tr>
+            <th>Equipment</th>
+            <th>Name</th>
+            <th>Path</th>
+            <th>Attribute</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let e of sub.equipments">
+            <td>{{ equipmentName(e.equipmentId) }}</td>
+            <td>{{ e.name }}</td>
+            <td class="nx-lld-path">{{ e.path || "—" }}</td>
+            <td>{{ e.attribute || "—" }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </ng-container>
+</div>

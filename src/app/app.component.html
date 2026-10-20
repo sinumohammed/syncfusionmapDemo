@@ -3,7 +3,8 @@
     <a class="app-nav-link" routerLink="/" routerLinkActive="app-nav-link--active" [routerLinkActiveOptions]="{ exact: true }">Map Dashboard</a>
     <a class="app-nav-link" routerLink="/trend" routerLinkActive="app-nav-link--active">Trend Dashboard</a>
     <a class="app-nav-link" routerLink="/image-map" routerLinkActive="app-nav-link--active">Image Map</a>
-    <a class="app-nav-link" routerLink="/lld" routerLinkActive="app-nav-link--active">LLD</a>
+    <a class="app-nav-link" routerLink="/lld" routerLinkActive="app-nav-link--active" [routerLinkActiveOptions]="{ exact: true }">LLD</a>
+    <a class="app-nav-link" routerLink="/lld-split" routerLinkActive="app-nav-link--active">LLD (split)</a>
   </nav>
   <div class="app-content">
     <router-outlet></router-outlet>

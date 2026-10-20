@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges, OnDestroy, OnInit, SimpleChanges } from "@angular/core";
+import { ChangeDetectorRef, Component, Input, NgZone, OnChanges, OnDestroy, OnInit, SimpleChanges } from "@angular/core";
 import { MatDialog } from "@angular/material/dialog";
 import { Observable, of, Subject, Subscription } from "rxjs";
 import { catchError, finalize, switchMap } from "rxjs/operators";
@@ -32,7 +32,7 @@ export class NxLldSubGroupsComponent implements OnInit, OnChanges, OnDestroy {
   private readonly groupsRequest$ = new Subject<number | null>();
   private readonly subscriptions = new Subscription();
 
-  constructor(private lldService: NxLldService, private dialog: MatDialog) {
+  constructor(private lldService: NxLldService, private dialog: MatDialog, private cdr: ChangeDetectorRef, private zone: NgZone) {
     this.subscriptions.add(
       this.groupsRequest$
         .pipe(
@@ -46,11 +46,11 @@ export class NxLldSubGroupsComponent implements OnInit, OnChanges, OnDestroy {
                 console.error("[LLD] GetGroups failed:", apiErrorMessage(err), err);
                 return of<LldGroupWithSubGroups[]>([]);
               }),
-              finalize(() => (this.loading = false))
+              finalize(() => this.refresh(() => (this.loading = false)))
             );
           })
         )
-        .subscribe(groups => this.setGroups(groups))
+        .subscribe(groups => this.refresh(() => this.setGroups(groups)))
     );
   }
 
@@ -61,7 +61,7 @@ export class NxLldSubGroupsComponent implements OnInit, OnChanges, OnDestroy {
   ngOnInit(): void {
     this.subscriptions.add(
       this.lldService.getLookups(this.token).subscribe({
-        next: lookups => (this.lookups = lookups),
+        next: lookups => this.refresh(() => (this.lookups = lookups)),
         error: (err: unknown) => console.error("[LLD] GetLookups failed:", apiErrorMessage(err), err)
       })
     );
@@ -163,5 +163,16 @@ export class NxLldSubGroupsComponent implements OnInit, OnChanges, OnDestroy {
 
   private reload(): void {
     this.groupsRequest$.next(this.view?.id ?? null);
+  }
+
+  // The host can sit this inside an OnPush parent, or finish its HTTP calls
+  // outside Angular's zone — either way an async result alone wouldn't
+  // redraw. Every async update
+  // goes through here: back in the zone, marked for check.
+  private refresh(update: () => void): void {
+    this.zone.run(() => {
+      update();
+      this.cdr.markForCheck();
+    });
   }
 }

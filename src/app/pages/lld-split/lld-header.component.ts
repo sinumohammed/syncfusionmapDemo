@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from "@angular/core";
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from "@angular/core";
 import { dcTag } from "../../nx-lld/model/dc-tag.model";
 import { LldView } from "../../nx-lld/model/nx-lld.model";
 import { LldViewSelectConfig } from "../../nx-lld/nx-lld-view-select.component";
@@ -6,9 +6,11 @@ import { LldViewSelectConfig } from "../../nx-lld/nx-lld-view-select.component";
 // Stands in for the host app's own header (its own module, LldHeaderModule,
 // importing NxLldViewSelectModule): a title on the left, the LLD View
 // dropdown on the right. Passes the dropdown's inputs in and its picked
-// view out.
+// view out. OnPush like a typical host header, so the demo shows the
+// dropdown still filling in on its own (see NxLldViewSelectComponent.refresh()).
 @Component({
   selector: "app-lld-header",
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="lld-header">
       <h2 class="lld-header-title">{{ title }}</h2>

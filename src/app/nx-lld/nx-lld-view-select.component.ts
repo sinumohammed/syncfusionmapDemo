@@ -1,4 +1,4 @@
-import { Component, DoCheck, EventEmitter, Input, OnDestroy, Output } from "@angular/core";
+import { ChangeDetectorRef, Component, DoCheck, EventEmitter, Input, NgZone, OnDestroy, Output } from "@angular/core";
 import { MatDialog } from "@angular/material/dialog";
 import { asapScheduler, forkJoin, Observable, of, Subject, Subscription } from "rxjs";
 import { catchError, finalize, map, observeOn, switchMap } from "rxjs/operators";
@@ -10,7 +10,8 @@ import { LldConfirmDialogData, NxLldConfirmDialogComponent } from "./nx-lld-conf
 
 // What the host can switch on the dropdown.
 export interface LldViewSelectConfig {
-  // true -> Edit and Delete icons beside the dropdown; false -> the list only.
+  // true -> New / Edit / Delete icons, shown while hovering the dropdown;
+  // false -> the list only.
   showToolbar: boolean;
 }
 
@@ -24,8 +25,9 @@ interface LldViewsRequest {
 // The View dropdown on its own, for the host's header. Only lists the
 // hierarchy's views (GetLDViews) and says which one is picked
 // (viewChange) — the Groups / Sub-groups tabs take that view as input.
-// Edit fetches the view's details (GetLDViewDetails) and opens the View
-// popup; Delete asks first. Both only when config.showToolbar is on.
+// New opens the View popup empty; Edit fetches the view's details
+// (GetLDViewDetails) first; Delete asks first. All three only when
+// config.showToolbar is on.
 @Component({
   selector: "app-nx-lld-view-select",
   templateUrl: "./nx-lld-view-select.component.html",
@@ -45,8 +47,8 @@ export class NxLldViewSelectComponent implements DoCheck, OnDestroy {
 
   views: LldView[] = [];
   selectedViewId: number | null = null;
-  // Set while Edit fetches details + subsurfaces, so a double-click can't
-  // open two popups.
+  // Set while New / Edit fetch what the popup needs, so a double-click
+  // can't open two popups.
   editLoading = false;
 
   private pendingRequests = 0;
@@ -67,7 +69,7 @@ export class NxLldViewSelectComponent implements DoCheck, OnDestroy {
   private loadedHierarchyKey: string | null = null;
   private emittedView: LldView | null = null;
 
-  constructor(private lldService: NxLldService, private dialog: MatDialog) {
+  constructor(private lldService: NxLldService, private dialog: MatDialog, private cdr: ChangeDetectorRef, private zone: NgZone) {
     this.viewsSub = this.viewsRequest$
       .pipe(
         switchMap(({ selectId, selectName }: LldViewsRequest) => {
@@ -89,7 +91,7 @@ export class NxLldViewSelectComponent implements DoCheck, OnDestroy {
         }),
         observeOn(asapScheduler)
       )
-      .subscribe(({ views, selectId }) => this.setViews(views, selectId));
+      .subscribe(({ views, selectId }) => this.refresh(() => this.setViews(views, selectId)));
   }
 
   ngDoCheck(): void {
@@ -109,19 +111,37 @@ export class NxLldViewSelectComponent implements DoCheck, OnDestroy {
     this.emitSelected();
   }
 
+  newView(): void {
+    this.openEditor(null);
+  }
+
   editView(): void {
     const view = this.selectedView;
-    if (!view || view.id == null || this.editLoading) {
+    if (view && view.id != null) {
+      this.openEditor(view.id);
+    }
+  }
+
+  // The popup's Subsurface dropdown needs the hierarchy's subsurfaces
+  // (cached per hierarchy in the service); Edit also needs the view's
+  // details. The loader goes off and the popup opens in one step, inside
+  // the zone (see refresh()) — opened outside it, the popup and the loader
+  // wouldn't redraw until the next click.
+  private openEditor(viewId: number | null): void {
+    if (this.editLoading) {
       return;
     }
-    // The popup's Subsurface dropdown needs the hierarchy's subsurfaces
-    // (cached per hierarchy in the service).
     this.editLoading = true;
-    forkJoin([this.lldService.getViewDetails(view.id, this.token), this.lldService.getSubsurfaces(this.hierarchyTags ?? [], this.token)])
-      .pipe(finalize(() => (this.editLoading = false)))
+    const details$: Observable<LldView | undefined> = viewId == null ? of(undefined) : this.lldService.getViewDetails(viewId, this.token);
+    forkJoin([details$, this.lldService.getSubsurfaces(this.hierarchyTags ?? [], this.token)])
+      .pipe(finalize(() => this.refresh(() => (this.editLoading = false))))
       .subscribe({
-        next: ([details, subsurfaces]: [LldView, dcTag[]]) => this.openViewDialog(details, subsurfaces),
-        error: (err: unknown) => console.error("[LLD] Edit view: loading details failed:", apiErrorMessage(err), err)
+        next: ([details, subsurfaces]: [LldView | undefined, dcTag[]]) =>
+          this.refresh(() => {
+            this.editLoading = false;
+            this.openViewDialog(details, subsurfaces);
+          }),
+        error: (err: unknown) => console.error("[LLD] View popup: loading failed:", apiErrorMessage(err), err)
       });
   }
 
@@ -145,7 +165,7 @@ export class NxLldViewSelectComponent implements DoCheck, OnDestroy {
       });
   }
 
-  private openViewDialog(view: LldView, subsurfaces: dcTag[]): void {
+  private openViewDialog(view: LldView | undefined, subsurfaces: dcTag[]): void {
     this.dialog
       .open<NxLldViewDialogComponent, LldViewDialogData, LldView>(NxLldViewDialogComponent, {
         width: "420px",
@@ -183,6 +203,17 @@ export class NxLldViewSelectComponent implements DoCheck, OnDestroy {
 
   private track<T>(request: Observable<T>): Observable<T> {
     this.pendingRequests++;
-    return request.pipe(finalize(() => this.pendingRequests--));
+    return request.pipe(finalize(() => this.refresh(() => this.pendingRequests--)));
+  }
+
+  // The host can sit this inside an OnPush parent, or finish its HTTP calls
+  // outside Angular's zone — either way an async result alone wouldn't
+  // redraw (the dropdown stayed blank until a hover). Every async update
+  // goes through here: back in the zone, marked for check.
+  private refresh(update: () => void): void {
+    this.zone.run(() => {
+      update();
+      this.cdr.markForCheck();
+    });
   }
 }

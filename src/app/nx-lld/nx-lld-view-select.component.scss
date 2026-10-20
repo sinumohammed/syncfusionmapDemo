@@ -4,54 +4,72 @@
 .nx-lld-view-select {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 2px;
 }
 // Pull the outline field's reserved hint space back so it sits centred in
-// a header bar, level with the buttons.
+// a header bar, level with the icons.
 .nx-lld-view-select-field {
-  position: relative;
   width: 240px;
   margin-bottom: -1.25em;
   font-size: 13px;
 }
+// Fills the hint strip's width; thin like the box's own border.
 .nx-lld-view-select-loader {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 1.4em;
-  height: 2px;
+  flex: 1 0 100%;
+
+  .mat-progress-bar {
+    height: 2px;
+  }
 }
-// Edit / Delete as one joined group of icon buttons.
+// New / Edit / Delete: plain icons, hidden until the dropdown is hovered
+// or focused (and kept up while a popup is loading). They keep their space,
+// so nothing shifts when they appear.
 .nx-lld-view-select-actions {
   display: inline-flex;
-  overflow: hidden;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  background: #fff;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.nx-lld-view-select:hover,
+.nx-lld-view-select:focus-within,
+.nx-lld-view-select--busy {
+  .nx-lld-view-select-actions {
+    opacity: 1;
+  }
 }
 .nx-lld-view-select-btn {
-  width: 34px;
-  height: 34px;
-  line-height: 34px;
-  border-radius: 0;
-  color: #4b5563;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
 
-  & + & {
-    border-left: 1px solid #e5e7eb;
-  }
   &:hover:not([disabled]) {
     background: #f3f4f6;
+    color: #111827;
+  }
+  &:focus-visible {
+    outline: 2px solid #47a1f6;
+    outline-offset: 1px;
   }
   &[disabled] {
-    opacity: 0.4;
+    opacity: 0.35;
+    cursor: default;
   }
 }
-.nx-lld-view-select-btn--delete {
+.nx-lld-view-select-btn--add:hover:not([disabled]) {
+  color: #1d4ed8;
+}
+.nx-lld-view-select-btn--delete:hover:not([disabled]) {
   color: #d32f2f;
 }
 .nx-lld-view-select-icon {
   width: 18px;
   height: 18px;
   fill: currentColor;
-  vertical-align: middle;
 }

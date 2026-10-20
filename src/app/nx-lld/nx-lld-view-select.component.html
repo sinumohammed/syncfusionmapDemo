@@ -1,17 +1,24 @@
-<div class="nx-lld-view-select">
+<div class="nx-lld-view-select" [class.nx-lld-view-select--busy]="editLoading">
   <mat-form-field appearance="outline" class="nx-lld-view-select-field">
     <mat-label>View</mat-label>
     <mat-select [(value)]="selectedViewId" (selectionChange)="onSelectionChange()" [disabled]="!views.length">
       <mat-option *ngFor="let v of views" [value]="v.id">{{ v.name }}</mat-option>
     </mat-select>
-    <mat-progress-bar *ngIf="isLoading || editLoading" mode="indeterminate" class="nx-lld-view-select-loader"></mat-progress-bar>
+    <!-- In the hint strip, so it runs just under the box. -->
+    <mat-hint *ngIf="isLoading || editLoading" class="nx-lld-view-select-loader">
+      <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+    </mat-hint>
   </mat-form-field>
 
+  <!-- Shown while hovering (or tabbing into) the dropdown. -->
   <div class="nx-lld-view-select-actions" *ngIf="config?.showToolbar" role="toolbar" aria-label="View actions">
-    <button mat-icon-button class="nx-lld-view-select-btn" matTooltip="Edit view" aria-label="Edit view" (click)="editView()" [disabled]="!selectedView || editLoading">
+    <button type="button" class="nx-lld-view-select-btn nx-lld-view-select-btn--add" matTooltip="New view" aria-label="New view" (click)="newView()" [disabled]="editLoading">
+      <svg viewBox="0 0 24 24" class="nx-lld-view-select-icon"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" /></svg>
+    </button>
+    <button type="button" class="nx-lld-view-select-btn" matTooltip="Edit view" aria-label="Edit view" (click)="editView()" [disabled]="!selectedView || editLoading">
       <svg viewBox="0 0 24 24" class="nx-lld-view-select-icon"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" /></svg>
     </button>
-    <button mat-icon-button class="nx-lld-view-select-btn nx-lld-view-select-btn--delete" matTooltip="Delete view" aria-label="Delete view" (click)="deleteView()" [disabled]="!selectedView">
+    <button type="button" class="nx-lld-view-select-btn nx-lld-view-select-btn--delete" matTooltip="Delete view" aria-label="Delete view" (click)="deleteView()" [disabled]="!selectedView">
       <svg viewBox="0 0 24 24" class="nx-lld-view-select-icon"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" /></svg>
     </button>
   </div>

@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges, OnDestroy, SimpleChanges } from "@angular/core";
+import { ChangeDetectorRef, Component, Input, NgZone, OnChanges, OnDestroy, SimpleChanges } from "@angular/core";
 import { MatDialog } from "@angular/material/dialog";
 import { Observable, of, Subject, Subscription } from "rxjs";
 import { catchError, finalize, switchMap } from "rxjs/operators";
@@ -26,7 +26,7 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
   private readonly groupsRequest$ = new Subject<number | null>();
   private readonly groupsSub: Subscription;
 
-  constructor(private lldService: NxLldService, private dialog: MatDialog) {
+  constructor(private lldService: NxLldService, private dialog: MatDialog, private cdr: ChangeDetectorRef, private zone: NgZone) {
     this.groupsSub = this.groupsRequest$
       .pipe(
         switchMap((viewId: number | null): Observable<LldGroupWithSubGroups[]> => {
@@ -39,11 +39,11 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
               console.error("[LLD] GetGroups failed:", apiErrorMessage(err), err);
               return of<LldGroupWithSubGroups[]>([]);
             }),
-            finalize(() => (this.loading = false))
+            finalize(() => this.refresh(() => (this.loading = false)))
           );
         })
       )
-      .subscribe(groups => (this.groups = groups));
+      .subscribe(groups => this.refresh(() => (this.groups = groups)));
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -101,5 +101,16 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
 
   private reload(): void {
     this.groupsRequest$.next(this.view?.id ?? null);
+  }
+
+  // The host can sit this inside an OnPush parent, or finish its HTTP calls
+  // outside Angular's zone — either way an async result alone wouldn't
+  // redraw. Every async update
+  // goes through here: back in the zone, marked for check.
+  private refresh(update: () => void): void {
+    this.zone.run(() => {
+      update();
+      this.cdr.markForCheck();
+    });
   }
 }

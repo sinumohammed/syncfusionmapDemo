@@ -120,26 +120,30 @@ export class NxLldViewSelectComponent implements DoCheck, OnDestroy {
     }
   }
 
-  // The popup's Subsurface dropdown needs the hierarchy's subsurfaces
-  // (cached per hierarchy in the service); Edit also needs the view's
-  // details. The loader goes off and the popup opens in one step, inside
-  // the zone (see refresh()) — opened outside it, the popup and the loader
-  // wouldn't redraw until the next click.
+  // Edit needs the view's details first (cached per view, so usually
+  // instant); New opens at once. The hierarchy's subsurfaces load inside
+  // the popup, with its own loader. The loader here goes off and the popup
+  // opens in one step, inside the zone (see refresh()) — opened outside it,
+  // the popup and the loader wouldn't redraw until the next click.
   private openEditor(viewId: number | null): void {
     if (this.editLoading) {
       return;
     }
+    if (viewId == null) {
+      this.openViewDialog(undefined);
+      return;
+    }
     this.editLoading = true;
-    const details$: Observable<LldView | undefined> = viewId == null ? of(undefined) : this.lldService.getViewDetails(viewId, this.token);
-    forkJoin([details$, this.lldService.getSubsurfaces(this.hierarchyTags ?? [], this.token)])
+    this.lldService
+      .getViewDetails(viewId, this.token)
       .pipe(finalize(() => this.refresh(() => (this.editLoading = false))))
       .subscribe({
-        next: ([details, subsurfaces]: [LldView | undefined, dcTag[]]) =>
+        next: (details: LldView) =>
           this.refresh(() => {
             this.editLoading = false;
-            this.openViewDialog(details, subsurfaces);
+            this.openViewDialog(details);
           }),
-        error: (err: unknown) => console.error("[LLD] View popup: loading failed:", apiErrorMessage(err), err)
+        error: (err: unknown) => console.error("[LLD] View popup: loading details failed:", apiErrorMessage(err), err)
       });
   }
 
@@ -179,7 +183,8 @@ export class NxLldViewSelectComponent implements DoCheck, OnDestroy {
       });
   }
 
-  private openViewDialog(view: LldView | undefined, subsurfaces: dcTag[]): void {
+  private openViewDialog(view: LldView | undefined): void {
+    const subsurfaces = this.lldService.getSubsurfaces(this.hierarchyTags ?? [], this.token);
     this.dialog
       .open<NxLldViewDialogComponent, LldViewDialogData, LldView>(NxLldViewDialogComponent, {
         width: "420px",

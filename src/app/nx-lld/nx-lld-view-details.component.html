@@ -1,9 +1,10 @@
 <div class="nx-lld-tab">
   <mat-progress-bar *ngIf="loading" mode="indeterminate" class="nx-lld-tab-loader"></mat-progress-bar>
 
-  <div class="nx-lld-empty" *ngIf="!shown">Pick a view in the header to see its details.</div>
+  <div class="nx-lld-empty" *ngIf="viewId == null">Pick a view in the header to see its details.</div>
+  <div class="nx-lld-empty" *ngIf="viewId != null && !loading && !details">This view's details couldn't be loaded.</div>
 
-  <section class="nx-lld-details" *ngIf="shown as v">
+  <section class="nx-lld-details" *ngIf="details as v">
     <div class="nx-lld-details-head">
       <h3 class="nx-lld-tab-title">{{ v.name }}</h3>
       <span

@@ -14,8 +14,13 @@
     <mat-form-field appearance="fill">
       <mat-label>Subsurface</mat-label>
       <mat-select formControlName="subsurfaceName">
-        <mat-option *ngFor="let s of data.subsurfaces" [value]="s.TagName">{{ s.TagName }}</mat-option>
+        <mat-option *ngFor="let s of subsurfaces" [value]="s.TagName">{{ s.TagName }}</mat-option>
       </mat-select>
+      <mat-hint *ngIf="subsurfacesLoading" class="nx-lld-dialog-loading">
+        Loading subsurfaces…
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+      </mat-hint>
+      <mat-hint *ngIf="subsurfacesError" class="nx-lld-dialog-field-error">{{ subsurfacesError }}</mat-hint>
       <mat-error *ngIf="form.get('subsurfaceName')?.hasError('required')">Subsurface is required</mat-error>
     </mat-form-field>
 
@@ -24,10 +29,13 @@
       <mat-select formControlName="stationNames" multiple>
         <mat-option *ngFor="let s of stations" [value]="s.TagName">{{ s.TagName }}</mat-option>
       </mat-select>
-      <mat-hint *ngIf="stationsLoading">Loading stations…</mat-hint>
+      <mat-hint *ngIf="stationsLoading" class="nx-lld-dialog-loading">
+        Loading stations…
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+      </mat-hint>
       <mat-hint *ngIf="stationsError" class="nx-lld-dialog-field-error">{{ stationsError }}</mat-hint>
       <mat-hint *ngIf="!stationsLoading && !stationsError && !stations.length">
-        {{ !form.get("subsurfaceName")?.value ? "Choose a subsurface first" : "This subsurface has no stations" }}
+        {{ subsurfacesLoading || !form.get("subsurfaceName")?.value ? "Choose a subsurface first" : "This subsurface has no stations" }}
       </mat-hint>
       <mat-error *ngIf="form.get('stationNames')?.hasError('required')">Select at least one station</mat-error>
     </mat-form-field>
@@ -49,5 +57,5 @@
 </div>
 <div mat-dialog-actions align="end">
   <button mat-button mat-dialog-close [disabled]="saving">Cancel</button>
-  <button mat-flat-button color="primary" (click)="save()" [disabled]="saving || stationsLoading">Save</button>
+  <button mat-flat-button color="primary" (click)="save()" [disabled]="saving || stationsLoading || subsurfacesLoading">Save</button>
 </div>

@@ -21,16 +21,22 @@
     height: 2px;
   }
 }
-// New / Edit / Delete: plain icons, hidden until the dropdown is hovered
-// or focused (and kept up while a popup is loading). They keep their space,
+// New / Edit / Delete: plain icons, shown while the dropdown is hovered
+// (and kept up while a popup is loading). Not on focus-within — the select
+// keeps focus after picking a view, which left them showing until the next
+// click; keyboard users get them on tabbing onto an icon (focus-visible,
+// so a mouse click on one doesn't pin them either). They keep their space,
 // so nothing shifts when they appear.
 .nx-lld-view-select-actions {
   display: inline-flex;
   opacity: 0;
   transition: opacity 0.15s;
+
+  &:has(:focus-visible) {
+    opacity: 1;
+  }
 }
 .nx-lld-view-select:hover,
-.nx-lld-view-select:focus-within,
 .nx-lld-view-select--busy {
   .nx-lld-view-select-actions {
     opacity: 1;

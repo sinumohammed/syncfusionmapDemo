@@ -1,9 +1,9 @@
 <div class="nx-lld-tab">
   <mat-progress-bar *ngIf="loading" mode="indeterminate" class="nx-lld-tab-loader"></mat-progress-bar>
 
-  <div class="nx-lld-empty" *ngIf="!view">Pick a view in the header to see its sub-groups.</div>
+  <div class="nx-lld-empty" *ngIf="viewId == null">Pick a view in the header to see its sub-groups.</div>
 
-  <ng-container *ngIf="view">
+  <ng-container *ngIf="viewId != null">
     <div class="nx-lld-tab-header">
       <mat-form-field appearance="outline" class="nx-lld-group-select">
         <mat-label>Group</mat-label>

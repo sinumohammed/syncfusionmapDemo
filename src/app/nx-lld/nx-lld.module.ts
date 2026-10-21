@@ -25,7 +25,8 @@ import { NxLldService } from "./services/nx-lld.service";
 // <app-nx-lld-config></app-nx-lld-config> where the LLD screen should render.
 // Or the split version: the View dropdown from NxLldViewSelectModule in the
 // host's header, and <app-nx-lld-view-details> / <app-nx-lld-groups> /
-// <app-nx-lld-subgroups> (in tabs) taking its picked view.
+// <app-nx-lld-subgroups> (in tabs), each given the pick as
+// [viewSelection]='{"LDID":[id]}'.
 // Needs BrowserAnimationsModule at the root for its Material dialogs.
 @NgModule({
   declarations: [

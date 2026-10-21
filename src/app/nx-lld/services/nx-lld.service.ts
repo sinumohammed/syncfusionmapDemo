@@ -1,6 +1,6 @@
 import { Injectable } from "@angular/core";
 import { HttpClient, HttpErrorResponse, HttpHeaders } from "@angular/common/http";
-import { forkJoin, Observable, of, throwError } from "rxjs";
+import { forkJoin, Observable, of, Subject, throwError } from "rxjs";
 import { catchError, delay, map, mergeMap, shareReplay, tap } from "rxjs/operators";
 import { dcTag } from "../model/dc-tag.model";
 import {
@@ -141,6 +141,56 @@ export function withSubsurfaceId(view: LldView, subsurfaces: dcTag[]): LldView {
   return subsurface ? { ...view, subsurfaceId: subsurface.ObjectID ?? view.subsurfaceId, subsurfaceName: subsurface.TagName ?? view.subsurfaceName } : view;
 }
 
+// The picked view as the host passes it to each tab — normally
+// {"LDID":[21]}, but the key name and shape aren't relied on: any of
+// {"LDID":[21]}, {"id":21}, {"viewId":"21"}, [21], 21 or "21", as a JSON
+// string or already parsed.
+export type LldViewSelection = string | number | unknown[] | Record<string, unknown>;
+
+// Object keys tried first, in this order (case-insensitive), before falling
+// back to the object's first value.
+const VIEW_ID_KEYS = ["ldid", "id", "viewid", "ld_id", "view_id"];
+
+// The view id in a selection — the first positive number found — or null
+// when there's none (empty, unparseable, nothing numeric).
+export function selectedViewId(selection: LldViewSelection | null | undefined): number | null {
+  return findViewId(selection, 0);
+}
+
+function findViewId(value: unknown, depth: number): number | null {
+  if (value == null || depth > 3) {
+    return null;
+  }
+  if (typeof value === "number") {
+    return Number.isFinite(value) && value > 0 ? value : null;
+  }
+  if (typeof value === "string") {
+    const text = value.trim();
+    if (!text) {
+      return null;
+    }
+    // A bare number ("21"), else JSON ('{"LDID":[21]}').
+    if (/^\d+$/.test(text)) {
+      return findViewId(Number(text), depth);
+    }
+    try {
+      return findViewId(JSON.parse(text), depth + 1);
+    } catch {
+      console.error("[LLD] View selection isn't a number or valid JSON:", value);
+      return null;
+    }
+  }
+  if (Array.isArray(value)) {
+    return findViewId(value[0], depth + 1);
+  }
+  if (typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>);
+    const known = VIEW_ID_KEYS.map(key => entries.find(([k]) => k.toLowerCase() === key)).find(entry => entry);
+    return findViewId((known ?? entries[0])?.[1], depth + 1);
+  }
+  return null;
+}
+
 // What identifies a hierarchy selection — the cache key for its
 // subsurfaces and views, and how the page spots a changed selection.
 export function hierarchyKey(tags: dcTag[] | null): string {
@@ -229,13 +279,16 @@ export class NxLldService {
   private readonly stationsCache = new Map<number, Observable<dcTag[]>>();
 
   // ----------------------------------------------------------- lookups
-  // Every Sub-group dropdown/checklist value in one call.
+  // Every Sub-group dropdown/checklist value in one call. Fetched once and
+  // remembered (they rarely change) — each Sub-groups tab open reuses it.
   getLookups(token: string): Observable<LldLookups> {
-    if (USE_MOCK) {
-      return this.mockReady$.pipe(delay(MOCK_LATENCY_MS), map(() => this.mockLookups));
-    }
-    return this.post<LldLookups>(LLD_LOOKUPS_URL, {}, token);
+    return this.cached(this.lookupsCache, "all", () =>
+      USE_MOCK
+        ? this.mockReady$.pipe(delay(MOCK_LATENCY_MS), map(() => this.mockLookups))
+        : this.post<LldLookups>(LLD_LOOKUPS_URL, {}, token)
+    );
   }
+  private readonly lookupsCache = new Map<string, Observable<LldLookups>>();
 
   // ------------------------------------------------------------- views
   // The views of the host's hierarchy selection — each tag trimmed to the
@@ -254,6 +307,12 @@ export class NxLldService {
   }
   private readonly viewsCache = new Map<string, Observable<LldView[]>>();
 
+  // The id of each view just saved (added, edited or deleted). A tab gets
+  // the picked view as {"LDID":[id]}, which doesn't change when that view is
+  // edited — so the tabs listen here to reload it.
+  private readonly viewSavedSubject = new Subject<number | null>();
+  readonly viewSaved$: Observable<number | null> = this.viewSavedSubject.asObservable();
+
   // Returns the saved view so the page can select it — with its server id
   // when the API reports one (SaveLD's ID can be 0; the page then finds a
   // new view by name). A rejected save, e.g. a duplicate name, comes back
@@ -262,7 +321,18 @@ export class NxLldService {
     const request = toSaveViewRequest(view);
     // TEMP: to check the SaveLD payload while testing — remove afterwards.
     console.log("[LLD] SaveLD payload", request);
-    const forgetViews = tap<LldView>(() => this.viewsCache.clear());
+    // Every remembered list is stale now, and so are this view's remembered
+    // details (all of them when the save reported no id) — forgotten BEFORE
+    // the tabs showing it are told to reload, so they reach the server.
+    const forgetViews = tap<LldView>((saved: LldView) => {
+      this.viewsCache.clear();
+      if (saved.id != null) {
+        this.detailsCache.delete(saved.id);
+      } else {
+        this.detailsCache.clear();
+      }
+      this.viewSavedSubject.next(saved.id ?? null);
+    });
     if (USE_MOCK) {
       return this.mockReady$.pipe(
         delay(MOCK_LATENCY_MS),
@@ -291,23 +361,27 @@ export class NxLldService {
     );
   }
 
-  // One view's full details — what the view card and Edit show. The LDID
-  // goes in the query string (…/GetLDViewDetails?LDID=7), the body is empty.
-  // Not cached: it's fetched fresh each time a view is selected or saved.
+  // One view's full details — what the View / Groups tabs and Edit / Delete
+  // use. The LDID goes in the query string (…/GetLDViewDetails?LDID=7), the
+  // body is empty. Remembered per view, so switching tabs makes no new call;
+  // saving that view forgets it (see saveView()), and a failed fetch isn't
+  // remembered.
   getViewDetails(id: number, token: string): Observable<LldView> {
-    if (USE_MOCK) {
-      return this.mockReady$.pipe(
-        delay(MOCK_LATENCY_MS),
-        mergeMap(() => {
-          const view = this.store.views.find(v => v.id === id);
-          return view ? of({ ...view }) : mockError(404, `View ${id} not found`);
-        })
-      );
-    }
-    return this.post<LldApiResult<LldViewResponse>>(`${LLD_VIEW_DETAILS_URL}?LDID=${encodeURIComponent(id)}`, null, token).pipe(
-      map((result: LldApiResult<LldViewResponse>) => toView(unwrapResult(result)))
+    return this.cached(this.detailsCache, id, () =>
+      USE_MOCK
+        ? this.mockReady$.pipe(
+            delay(MOCK_LATENCY_MS),
+            mergeMap(() => {
+              const view = this.store.views.find(v => v.id === id);
+              return view ? of({ ...view }) : mockError(404, `View ${id} not found`);
+            })
+          )
+        : this.post<LldApiResult<LldViewResponse>>(`${LLD_VIEW_DETAILS_URL}?LDID=${encodeURIComponent(id)}`, null, token).pipe(
+            map((result: LldApiResult<LldViewResponse>) => toView(unwrapResult(result)))
+          )
     );
   }
+  private readonly detailsCache = new Map<number, Observable<LldView>>();
 
   // Soft delete: the same SaveLD call as an edit — the view's full model
   // (pass its details, see getViewDetails()) with only Status set to 3

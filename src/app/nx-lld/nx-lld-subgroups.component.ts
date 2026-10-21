@@ -2,24 +2,27 @@ import { ChangeDetectorRef, Component, Input, NgZone, OnChanges, OnDestroy, OnIn
 import { MatDialog } from "@angular/material/dialog";
 import { Observable, of, Subject, Subscription } from "rxjs";
 import { catchError, finalize, switchMap } from "rxjs/operators";
-import { LldGroupWithSubGroups, LldLookups, LldSubGroup, LldView } from "./model/nx-lld.model";
-import { apiErrorMessage, NxLldService } from "./services/nx-lld.service";
+import { LldGroupWithSubGroups, LldLookups, LldSubGroup } from "./model/nx-lld.model";
+import { apiErrorMessage, LldViewSelection, NxLldService, selectedViewId } from "./services/nx-lld.service";
 import { LldSubGroupDialogData, NxLldSubGroupDialogComponent } from "./nx-lld-subgroup-dialog.component";
 import { LldConfirmDialogData, NxLldConfirmDialogComponent } from "./nx-lld-confirm-dialog.component";
 
 // The Sub-groups tab: pick one of the given view's groups, then its
 // sub-groups (each row toggles its equipment list), with Add / Edit /
-// Delete. Takes the view picked in the header's View dropdown as input.
+// Delete. Gets the picked view as the host passes it, {"LDID":[21]} — only
+// its id is needed.
 @Component({
   selector: "app-nx-lld-subgroups",
   templateUrl: "./nx-lld-subgroups.component.html",
   styleUrls: ["./nx-lld-tab.scss"]
 })
 export class NxLldSubGroupsComponent implements OnInit, OnChanges, OnDestroy {
-  @Input() view: LldView | null = null;
+  // {"LDID":[21]} — a JSON string or the parsed object.
+  @Input() viewSelection: string | LldViewSelection | null = null;
   // TODO(host): the logged-in user's API token.
   @Input() token = "";
 
+  viewId: number | null = null;
   lookups: LldLookups | null = null;
   groups: LldGroupWithSubGroups[] = [];
   selectedGroupId: number | null = null;
@@ -68,12 +71,15 @@ export class NxLldSubGroupsComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    const change = changes["view"];
-    if (change && (change.firstChange || change.previousValue?.id !== change.currentValue?.id)) {
-      this.groups = [];
-      this.selectedGroupId = null;
-      this.expandedSubGroupIds.clear();
-      this.reload();
+    if (changes["viewSelection"]) {
+      const id = selectedViewId(this.viewSelection);
+      if (id !== this.viewId) {
+        this.viewId = id;
+        this.groups = [];
+        this.selectedGroupId = null;
+        this.expandedSubGroupIds.clear();
+        this.reload();
+      }
     }
   }
 
@@ -162,7 +168,7 @@ export class NxLldSubGroupsComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private reload(): void {
-    this.groupsRequest$.next(this.view?.id ?? null);
+    this.groupsRequest$.next(this.viewId);
   }
 
   // The host can sit this inside an OnPush parent, or finish its HTTP calls

@@ -1,7 +1,7 @@
-import { Component, Inject, OnDestroy } from "@angular/core";
+import { ChangeDetectorRef, Component, Inject, NgZone, OnDestroy } from "@angular/core";
 import { FormBuilder, FormGroup, Validators } from "@angular/forms";
 import { MAT_DIALOG_DATA, MatDialogRef } from "@angular/material/dialog";
-import { Observable, of, Subject, Subscription } from "rxjs";
+import { isObservable, Observable, of, Subject, Subscription } from "rxjs";
 import { catchError, finalize, switchMap } from "rxjs/operators";
 import { dcTag } from "./model/dc-tag.model";
 import { LLD_VIEW_STATUS_OPTIONS, LldView, LldViewStatus } from "./model/nx-lld.model";
@@ -10,8 +10,9 @@ import { apiErrorMessage, findSubsurface, NxLldService } from "./services/nx-lld
 export interface LldViewDialogData {
   // Absent -> New; present -> Edit (same form, pre-filled).
   view?: LldView;
-  // The Subsurface dropdown, already loaded by the page.
-  subsurfaces: dcTag[];
+  // The Subsurface dropdown: already loaded, or the call that loads it —
+  // then the popup opens at once and shows a loader in that field.
+  subsurfaces: dcTag[] | Observable<dcTag[]>;
   token: string;
 }
 
@@ -32,6 +33,9 @@ export class NxLldViewDialogComponent implements OnDestroy {
   form: FormGroup;
   saving = false;
   saveError = "";
+  subsurfaces: dcTag[] = [];
+  subsurfacesLoading = false;
+  subsurfacesError = "";
   // The picked subsurface's stations — empty until its fetch lands.
   stations: dcTag[] = [];
   stationsLoading = false;
@@ -45,13 +49,14 @@ export class NxLldViewDialogComponent implements OnDestroy {
     @Inject(MAT_DIALOG_DATA) public data: LldViewDialogData,
     private dialogRef: MatDialogRef<NxLldViewDialogComponent, LldView>,
     private fb: FormBuilder,
-    private lldService: NxLldService
+    private lldService: NxLldService,
+    private cdr: ChangeDetectorRef,
+    private zone: NgZone
   ) {
     const view = data.view;
-    const subsurfaceName = this.findSubsurfaceName(view);
     this.form = this.fb.group({
       name: [view?.name ?? "", Validators.required],
-      subsurfaceName: [subsurfaceName, Validators.required],
+      subsurfaceName: [null, Validators.required],
       stationNames: [view?.stationNames ?? [], Validators.required],
       status: [view?.status ?? LldViewStatus.Private, Validators.required],
       description: [view?.description ?? ""]
@@ -63,33 +68,48 @@ export class NxLldViewDialogComponent implements OnDestroy {
             const subsurface = this.subsurfaceByName(name);
             this.stations = [];
             this.stationsError = "";
-            this.stationsLoading = !!subsurface;
+            this.setStationsLoading(!!subsurface);
             return subsurface
               ? this.lldService.getStations(subsurface, this.data.token).pipe(
                   catchError(err => {
-                    this.stationsError = apiErrorMessage(err);
+                    this.refresh(() => (this.stationsError = apiErrorMessage(err)));
                     return of<dcTag[]>([]);
                   })
                 )
               : of<dcTag[]>([]);
           })
         )
-        .subscribe((stations: dcTag[]) => {
-          this.stations = stations;
-          this.stationsLoading = false;
-        })
+        .subscribe((stations: dcTag[]) =>
+          this.refresh(() => {
+            this.stations = stations;
+            this.setStationsLoading(false);
+          })
+        )
     );
-    // Stations belong to one subsurface — a different subsurface starts
-    // from no selection. Subscribed AFTER the initial values above, so an
-    // Edit keeps its saved stations (loaded just below).
+    // Stations belong to one subsurface — a user picking a different one
+    // starts from no selection. (The preselect in setSubsurfaces() doesn't
+    // go through here, so an Edit keeps its saved stations.)
     this.subscriptions.add(
       this.form.get("subsurfaceName")!.valueChanges.subscribe((name: string | null) => {
         this.form.get("stationNames")!.setValue([]);
         this.stationsRequest$.next(name);
       })
     );
-    if (subsurfaceName) {
-      this.stationsRequest$.next(subsurfaceName);
+    if (isObservable(data.subsurfaces)) {
+      this.subsurfacesLoading = true;
+      this.form.get("subsurfaceName")!.disable({ emitEvent: false });
+      this.subscriptions.add(
+        data.subsurfaces.subscribe({
+          next: (subsurfaces: dcTag[]) => this.refresh(() => this.setSubsurfaces(subsurfaces)),
+          error: (err: unknown) =>
+            this.refresh(() => {
+              this.subsurfacesError = apiErrorMessage(err);
+              this.setSubsurfaces([]);
+            })
+        })
+      );
+    } else {
+      this.setSubsurfaces(data.subsurfaces);
     }
     // A rejected save's message goes away once the user changes anything.
     this.subscriptions.add(this.form.valueChanges.subscribe(() => (this.saveError = "")));
@@ -97,13 +117,43 @@ export class NxLldViewDialogComponent implements OnDestroy {
 
   // The Subsurface dropdown is keyed by name (TagName — unique), since the
   // API sends SubSurfaceOperationId back as 0. An edit preselects the
-  // view's saved name, written exactly as the dropdown has it.
-  private findSubsurfaceName(view: LldView | undefined): string | null {
-    return this.subsurfaceByName(view?.subsurfaceName ?? null)?.TagName ?? null;
+  // view's saved name, written exactly as the dropdown has it, and loads
+  // its stations.
+  private setSubsurfaces(subsurfaces: dcTag[]): void {
+    this.subsurfaces = subsurfaces;
+    this.subsurfacesLoading = false;
+    const control = this.form.get("subsurfaceName")!;
+    control.enable({ emitEvent: false });
+    const name = this.subsurfaceByName(this.data.view?.subsurfaceName ?? null)?.TagName ?? null;
+    if (name) {
+      control.setValue(name, { emitEvent: false });
+      this.stationsRequest$.next(name);
+    }
+  }
+
+  // The Stations field is locked while its list loads (keeping any
+  // selection).
+  private setStationsLoading(loading: boolean): void {
+    this.stationsLoading = loading;
+    const control = this.form.get("stationNames")!;
+    if (loading) {
+      control.disable({ emitEvent: false });
+    } else {
+      control.enable({ emitEvent: false });
+    }
   }
 
   private subsurfaceByName(name: string | null): dcTag | undefined {
-    return findSubsurface(this.data.subsurfaces, name);
+    return findSubsurface(this.subsurfaces, name);
+  }
+
+  // Back in the zone and marked for check, so an async result redraws even
+  // when the host's HTTP finishes outside the zone.
+  private refresh(update: () => void): void {
+    this.zone.run(() => {
+      update();
+      this.cdr.markForCheck();
+    });
   }
 
   get isEdit(): boolean {
@@ -111,9 +161,9 @@ export class NxLldViewDialogComponent implements OnDestroy {
   }
 
   save(): void {
-    // Not while stations are loading — the payload below is filtered
-    // through them, so an early save would drop the selection.
-    if (this.form.invalid || this.saving || this.stationsLoading) {
+    // Not while a list is loading — the payload below is filtered through
+    // the stations, so an early save would drop the selection.
+    if (this.form.invalid || this.saving || this.stationsLoading || this.subsurfacesLoading) {
       this.form.markAllAsTouched();
       return;
     }
@@ -137,14 +187,16 @@ export class NxLldViewDialogComponent implements OnDestroy {
     this.lldService
       .saveView(payload, this.data.token)
       .pipe(
-        finalize(() => {
-          this.saving = false;
-          this.dialogRef.disableClose = false;
-        })
+        finalize(() =>
+          this.refresh(() => {
+            this.saving = false;
+            this.dialogRef.disableClose = false;
+          })
+        )
       )
       .subscribe({
-        next: saved => this.dialogRef.close(saved),
-        error: err => (this.saveError = apiErrorMessage(err))
+        next: saved => this.refresh(() => this.dialogRef.close(saved)),
+        error: err => this.refresh(() => (this.saveError = apiErrorMessage(err)))
       });
   }
 

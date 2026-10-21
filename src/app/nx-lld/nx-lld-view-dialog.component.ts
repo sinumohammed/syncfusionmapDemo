@@ -12,8 +12,6 @@ export interface LldViewDialogData {
   view?: LldView;
   // The Subsurface dropdown, already loaded by the page.
   subsurfaces: dcTag[];
-  // The logged-in user — sent as CreatedBy / ModifiedBy.
-  currentUser: string;
   token: string;
 }
 
@@ -139,7 +137,7 @@ export class NxLldViewDialogComponent implements OnDestroy {
     this.saveError = "";
     this.dialogRef.disableClose = true;
     this.lldService
-      .saveView(payload, this.data.currentUser, this.data.token)
+      .saveView(payload, this.data.token)
       .pipe(
         finalize(() => {
           this.saving = false;

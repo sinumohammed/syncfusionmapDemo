@@ -18,9 +18,6 @@ export class LldSplitComponent {
 
   selectedView: LldView | null = null;
 
-  // TODO(host): bind the logged-in user instead.
-  currentUser = "1337";
-
   // TODO(host): bind the host's own hierarchy selection instead. This is the
   // sample request captured from the host (FAHUD).
   hierarchyTags: dcTag[] = [

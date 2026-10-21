@@ -37,8 +37,6 @@ export class NxLldViewSelectComponent implements DoCheck, OnDestroy {
   // The host's current hierarchy selection — any change (new array or
   // in-place edit) reloads the list.
   @Input() hierarchyTags: dcTag[] | null = null;
-  // Sent as a saved view's CreatedBy / ModifiedBy.
-  @Input() currentUser: string | null = null;
   // TODO(host): the logged-in user's API token.
   @Input() token = "";
   @Input() config: LldViewSelectConfig = { showToolbar: true };
@@ -168,7 +166,7 @@ export class NxLldViewSelectComponent implements DoCheck, OnDestroy {
         this.lldService
           .getViewDetails(view.id!, this.token)
           .pipe(
-            switchMap((details: LldView) => this.lldService.deleteView(details, this.currentUser ?? "", this.token)),
+            switchMap((details: LldView) => this.lldService.deleteView(details, this.token)),
             finalize(() => this.refresh(() => (this.editLoading = false)))
           )
           .subscribe({
@@ -182,7 +180,7 @@ export class NxLldViewSelectComponent implements DoCheck, OnDestroy {
     this.dialog
       .open<NxLldViewDialogComponent, LldViewDialogData, LldView>(NxLldViewDialogComponent, {
         width: "420px",
-        data: { view, subsurfaces, currentUser: this.currentUser ?? "", token: this.token }
+        data: { view, subsurfaces, token: this.token }
       })
       .afterClosed()
       .subscribe(saved => {

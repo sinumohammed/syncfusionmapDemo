@@ -52,6 +52,9 @@ const MOCK_DATA_URL = "assets/mock-api/lld-data.json";
 const MOCK_SUBSURFACES_URL = "assets/mock-api/lld-subsurfaces.json";
 // GetStations responses, keyed by the subsurface's ElementVersionID.
 const MOCK_STATIONS_URL = "assets/mock-api/lld-stations.json";
+// Who the mock "server" stamps as a view's creator / modifier (the real API
+// takes the logged-in user).
+const MOCK_USER = "1337";
 // Simulated network time for the mock, so loaders are visible.
 const MOCK_LATENCY_MS = 400;
 
@@ -85,20 +88,18 @@ function unwrapResult<T>(result: LldApiResult<T>): T {
   return assertOk(result).Value;
 }
 
-// A view as SaveLD wants it. `currentUser` is the logged-in user: the creator of
-// a new view, the modifier of an edited one (whose own creator is sent back
-// when known).
-function toSaveViewRequest(view: LldView, currentUser: string): LldSaveViewRequest {
+// A view as SaveLD wants it. Who created / modified it isn't sent — the API
+// stamps that from the logged-in user itself.
+function toSaveViewRequest(view: LldView): LldSaveViewRequest {
   const request: LldSaveViewRequest = {
     LDViewName: view.name,
     LDDescription: view.description,
     SubSurfaceOperationId: view.subsurfaceId!,
     SubSurfaceOperation: view.subsurfaceName,
     Facility: view.stationNames.join(","),
-    Status: view.status,
-    CreatedBy: view.createdBy ?? currentUser
+    Status: view.status
   };
-  return view.id != null ? { LDID: view.id, ...request, ModifiedBy: currentUser } : request;
+  return view.id != null ? { LDID: view.id, ...request } : request;
 }
 
 // A GetLDViews row as the page's view. 0 / null user ids mean "nobody"
@@ -241,8 +242,8 @@ export class NxLldService {
   // when the API reports one (SaveLD's ID can be 0; the page then finds a
   // new view by name). A rejected save, e.g. a duplicate name, comes back
   // with Status false — the popup shows its message.
-  saveView(view: LldView, currentUser: string, token: string): Observable<LldView> {
-    const request = toSaveViewRequest(view, currentUser);
+  saveView(view: LldView, token: string): Observable<LldView> {
+    const request = toSaveViewRequest(view);
     // TEMP: to check the SaveLD payload while testing — remove afterwards.
     console.log("[LLD] SaveLD payload", request);
     const forgetViews = tap<LldView>(() => this.viewsCache.clear());
@@ -261,8 +262,8 @@ export class NxLldService {
           const now = new Date().toISOString();
           const existing = this.store.views.find(v => v.id === view.id);
           const stamped: LldView = existing
-            ? { ...existing, ...view, createdBy: existing.createdBy, modifiedBy: currentUser, modifiedOn: now }
-            : { ...view, createdBy: currentUser, createdOn: now };
+            ? { ...existing, ...view, createdBy: existing.createdBy, modifiedBy: MOCK_USER, modifiedOn: now }
+            : { ...view, createdBy: MOCK_USER, createdOn: now };
           return of(this.upsert("views", stamped));
         }),
         forgetViews
@@ -296,8 +297,8 @@ export class NxLldService {
   // (pass its details, see getViewDetails()) with only Status set to 3
   // (Deleted). The row (and its groups/sub-groups) stays in the database,
   // hidden from then on because getViews() skips it.
-  deleteView(view: LldView, currentUser: string, token: string): Observable<LldView> {
-    return this.saveView({ ...view, status: LldViewStatus.Deleted }, currentUser, token);
+  deleteView(view: LldView, token: string): Observable<LldView> {
+    return this.saveView({ ...view, status: LldViewStatus.Deleted }, token);
   }
 
   // ------------------------------------------------------------ groups

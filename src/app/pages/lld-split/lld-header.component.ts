@@ -16,7 +16,6 @@ import { LldViewSelectConfig } from "../../nx-lld/nx-lld-view-select.component";
       <h2 class="lld-header-title">{{ title }}</h2>
       <app-nx-lld-view-select
         [hierarchyTags]="hierarchyTags"
-        [currentUser]="currentUser"
         [config]="viewSelectConfig"
         (viewChange)="viewChange.emit($event)"
       ></app-nx-lld-view-select>
@@ -45,7 +44,6 @@ import { LldViewSelectConfig } from "../../nx-lld/nx-lld-view-select.component";
 export class LldHeaderComponent {
   @Input() title = "";
   @Input() hierarchyTags: dcTag[] | null = null;
-  @Input() currentUser: string | null = null;
   @Input() viewSelectConfig: LldViewSelectConfig = { showToolbar: true };
   @Output() readonly viewChange = new EventEmitter<LldView | null>();
 }

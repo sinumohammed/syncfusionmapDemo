@@ -39,9 +39,6 @@ export class NxLldConfigComponent implements OnInit, DoCheck, OnDestroy {
   // Subsurface dropdown and the views. Any change reloads both, whether the
   // host passes a new array or edits this one in place (see ngDoCheck()).
   @Input() hierarchyTags: dcTag[] | null = null;
-  // The logged-in user, from the host — handed to the View popup and sent
-  // as a saved view's CreatedBy / ModifiedBy.
-  @Input() currentUser: string | null = null;
 
   readonly ViewStatus = LldViewStatus;
   // How the view card shows Created on / Modified on.
@@ -229,7 +226,7 @@ export class NxLldConfigComponent implements OnInit, DoCheck, OnDestroy {
     this.confirm("Delete View", `Delete view "${view.name}"? All its groups, sub-groups and equipments will be deleted too.`).subscribe(
       confirmed => {
         if (confirmed) {
-          this.track(this.lldService.deleteView(view, this.currentUser ?? "", LLD_API_TOKEN)).subscribe(() => this.reloadViews(null));
+          this.track(this.lldService.deleteView(view, LLD_API_TOKEN)).subscribe(() => this.reloadViews(null));
         }
       }
     );
@@ -245,7 +242,6 @@ export class NxLldConfigComponent implements OnInit, DoCheck, OnDestroy {
         data: {
           view,
           subsurfaces: this.subsurfaces,
-          currentUser: this.currentUser ?? "",
           token: LLD_API_TOKEN
         }
       })

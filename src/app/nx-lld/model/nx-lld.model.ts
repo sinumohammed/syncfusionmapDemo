@@ -20,7 +20,8 @@ export interface LldApiResult<T> extends LldApiStatus {
   Value: T;
 }
 
-// What SaveLD is posted — a new view has no LDID/ModifiedBy, an edit has both.
+// What SaveLD is posted — a new view has no LDID, an edit (or delete) has
+// it. No CreatedBy / ModifiedBy: the API stamps who saved it.
 export interface LldSaveViewRequest {
   LDID?: number;
   LDViewName: string;
@@ -30,8 +31,6 @@ export interface LldSaveViewRequest {
   // The selected stations' names, comma-separated.
   Facility: string;
   Status: LldViewStatus;
-  CreatedBy: string;
-  ModifiedBy?: string;
 }
 
 // One row of GetLDViews' Value. Older rows can have SubSurfaceOperationId 0

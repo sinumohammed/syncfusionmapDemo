@@ -12,10 +12,6 @@ export class LldConfigComponent {
   // TODO(host): bind the host's own hierarchy selection instead, assigning
   // a new array whenever it changes. This is the sample request captured
   // from the host (FAHUD).
-  // TODO(host): bind the logged-in user instead. This one is from the
-  // captured sample save request.
-  currentUser = "1337";
-
   hierarchyTags: dcTag[] = [
     {
       TagID: 4251,

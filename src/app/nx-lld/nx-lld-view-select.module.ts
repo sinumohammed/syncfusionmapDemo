@@ -10,8 +10,8 @@ import { NxLldViewSelectComponent } from "./nx-lld-view-select.component";
 
 // The LLD View dropdown on its own, for another module (e.g. the host's
 // header module) to import:
-//   <app-nx-lld-view-select [hierarchyTags]="tags" [currentUser]="user"
-//     [config]="{ showToolbar: true }" (viewChange)="view = $event">
+//   <app-nx-lld-view-select [hierarchyTags]="tags" [config]="{ showToolbar: true }"
+//     (viewChange)="view = $event">
 // showToolbar true -> Edit / Delete icons beside it; false -> dropdown only.
 // NxLldModule brings the service (shared with the Groups / Sub-groups tabs)
 // and the View / confirm popups that Edit and Delete open.

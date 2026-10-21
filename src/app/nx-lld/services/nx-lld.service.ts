@@ -23,7 +23,7 @@ export const LLD_STATIONS_URL = "api/PreConfig/GetStations";
 const LLD_STATIONS_CATEGORY_ID = 1631;
 
 // TODO(host): confirm the full path — only "/SaveLD" is known. Save = add
-// (no LDID) AND edit (with LDID), same URL.
+// (no LDID), edit (with LDID) AND delete (an edit with Status 3), same URL.
 export const LLD_SAVE_VIEW_URL = "api/PDOCustom/SaveLD";
 // The View dropdown, posted the same tag array as GetSubSurfaceOperations.
 export const LLD_VIEWS_URL = "LimitDiagram/GetLDViews";
@@ -31,10 +31,8 @@ export const LLD_VIEWS_URL = "LimitDiagram/GetLDViews";
 export const LLD_VIEW_DETAILS_URL = "LimitDiagram/GetLDViewDetails";
 
 // TODO(host): real endpoints not known yet. Save = add (no id) AND edit
-// (with id), same URL; delete by id (a view's is a soft delete, see
-// deleteView()).
+// (with id), same URL; delete by id.
 export const LLD_LOOKUPS_URL = "PDOCustom/LLD/GetLookups";
-export const LLD_DELETE_VIEW_URL = "PDOCustom/LLD/DeleteView";
 export const LLD_GROUPS_URL = "PDOCustom/LLD/GetGroups";
 export const LLD_SAVE_GROUP_URL = "PDOCustom/LLD/SaveGroup";
 export const LLD_DELETE_GROUP_URL = "PDOCustom/LLD/DeleteGroup";
@@ -294,16 +292,12 @@ export class NxLldService {
     );
   }
 
-  // Soft delete: the server only flips the view's status to Deleted — the
-  // row (and its groups/sub-groups) stays in the database, hidden from then
-  // on because getViews() skips it.
-  deleteView(id: number, token: string): Observable<unknown> {
-    const request$: Observable<unknown> = USE_MOCK
-      ? this.mock(() => {
-          this.store.views = this.store.views.map(v => (v.id === id ? { ...v, status: LldViewStatus.Deleted } : v));
-        })
-      : this.post<unknown>(LLD_DELETE_VIEW_URL, { id }, token);
-    return request$.pipe(tap(() => this.viewsCache.clear()));
+  // Soft delete: the same SaveLD call as an edit — the view's full model
+  // (pass its details, see getViewDetails()) with only Status set to 3
+  // (Deleted). The row (and its groups/sub-groups) stays in the database,
+  // hidden from then on because getViews() skips it.
+  deleteView(view: LldView, currentUser: string, token: string): Observable<LldView> {
+    return this.saveView({ ...view, status: LldViewStatus.Deleted }, currentUser, token);
   }
 
   // ------------------------------------------------------------ groups

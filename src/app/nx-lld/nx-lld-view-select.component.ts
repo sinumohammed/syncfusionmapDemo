@@ -145,9 +145,11 @@ export class NxLldViewSelectComponent implements DoCheck, OnDestroy {
       });
   }
 
+  // Asks first, then sends the view's full details back with Status 3 —
+  // the same SaveLD call as an edit (see NxLldService.deleteView()).
   deleteView(): void {
     const view = this.selectedView;
-    if (!view || view.id == null) {
+    if (!view || view.id == null || this.editLoading) {
       return;
     }
     this.dialog
@@ -159,9 +161,20 @@ export class NxLldViewSelectComponent implements DoCheck, OnDestroy {
       })
       .afterClosed()
       .subscribe(confirmed => {
-        if (confirmed) {
-          this.track(this.lldService.deleteView(view.id!, this.token)).subscribe(() => this.reloadViews(null));
+        if (!confirmed) {
+          return;
         }
+        this.refresh(() => (this.editLoading = true));
+        this.lldService
+          .getViewDetails(view.id!, this.token)
+          .pipe(
+            switchMap((details: LldView) => this.lldService.deleteView(details, this.currentUser ?? "", this.token)),
+            finalize(() => this.refresh(() => (this.editLoading = false)))
+          )
+          .subscribe({
+            next: () => this.reloadViews(null),
+            error: (err: unknown) => console.error("[LLD] Delete view failed:", apiErrorMessage(err), err)
+          });
       });
   }
 

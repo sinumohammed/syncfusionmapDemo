@@ -229,7 +229,7 @@ export class NxLldConfigComponent implements OnInit, DoCheck, OnDestroy {
     this.confirm("Delete View", `Delete view "${view.name}"? All its groups, sub-groups and equipments will be deleted too.`).subscribe(
       confirmed => {
         if (confirmed) {
-          this.track(this.lldService.deleteView(view.id!, LLD_API_TOKEN)).subscribe(() => this.reloadViews(null));
+          this.track(this.lldService.deleteView(view, this.currentUser ?? "", LLD_API_TOKEN)).subscribe(() => this.reloadViews(null));
         }
       }
     );

@@ -8,6 +8,11 @@
 <!-- matTabContent: each tab is built when opened, so it refetches — a group
      added in Groups shows up in Sub-groups' picker. -->
 <mat-tab-group class="lld-split-tabs" animationDuration="0ms">
+  <mat-tab label="View">
+    <ng-template matTabContent>
+      <app-nx-lld-view-details [view]="selectedView"></app-nx-lld-view-details>
+    </ng-template>
+  </mat-tab>
   <mat-tab label="Groups">
     <ng-template matTabContent>
       <app-nx-lld-groups [view]="selectedView"></app-nx-lld-groups>

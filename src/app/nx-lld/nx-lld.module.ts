@@ -17,14 +17,15 @@ import { NxLldGroupDialogComponent } from "./nx-lld-group-dialog.component";
 import { NxLldGroupsComponent } from "./nx-lld-groups.component";
 import { NxLldSubGroupDialogComponent } from "./nx-lld-subgroup-dialog.component";
 import { NxLldSubGroupsComponent } from "./nx-lld-subgroups.component";
+import { NxLldViewDetailsComponent } from "./nx-lld-view-details.component";
 import { NxLldViewDialogComponent } from "./nx-lld-view-dialog.component";
 import { NxLldService } from "./services/nx-lld.service";
 
 // Self-contained like the other nx-* modules: import NxLldModule and drop
 // <app-nx-lld-config></app-nx-lld-config> where the LLD screen should render.
 // Or the split version: the View dropdown from NxLldViewSelectModule in the
-// host's header, and <app-nx-lld-groups> / <app-nx-lld-subgroups> (in tabs)
-// taking its picked view.
+// host's header, and <app-nx-lld-view-details> / <app-nx-lld-groups> /
+// <app-nx-lld-subgroups> (in tabs) taking its picked view.
 // Needs BrowserAnimationsModule at the root for its Material dialogs.
 @NgModule({
   declarations: [
@@ -33,6 +34,7 @@ import { NxLldService } from "./services/nx-lld.service";
     NxLldViewDialogComponent,
     NxLldGroupDialogComponent,
     NxLldSubGroupDialogComponent,
+    NxLldViewDetailsComponent,
     NxLldGroupsComponent,
     NxLldSubGroupsComponent
   ],
@@ -53,6 +55,6 @@ import { NxLldService } from "./services/nx-lld.service";
   providers: [NxLldService],
   // MatTabsModule too, for the host page that puts the Groups / Sub-groups
   // components in tabs.
-  exports: [NxLldConfigComponent, NxLldGroupsComponent, NxLldSubGroupsComponent, MatTabsModule]
+  exports: [NxLldConfigComponent, NxLldViewDetailsComponent, NxLldGroupsComponent, NxLldSubGroupsComponent, MatTabsModule]
 })
 export class NxLldModule {}

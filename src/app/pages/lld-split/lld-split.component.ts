@@ -4,8 +4,8 @@ import { LldView } from "../../nx-lld/model/nx-lld.model";
 import { LldViewSelectConfig } from "../../nx-lld/nx-lld-view-select.component";
 
 // "/lld-split" page — the LLD screen split into separate components, as the
-// host will place them: the View dropdown inside a header, and the Groups /
-// Sub-groups tabs below taking the picked view as input. Plays the host's
+// host will place them: the View dropdown inside a header, and the View /
+// Groups / Sub-groups tabs below taking the picked view as input. Plays the host's
 // hierarchy and user like LldConfigComponent does.
 @Component({
   selector: "app-lld-split",

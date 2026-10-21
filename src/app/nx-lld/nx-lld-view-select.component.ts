@@ -4,7 +4,7 @@ import { asapScheduler, forkJoin, Observable, of, Subject, Subscription } from "
 import { catchError, finalize, map, observeOn, switchMap } from "rxjs/operators";
 import { LldView } from "./model/nx-lld.model";
 import { dcTag } from "./model/dc-tag.model";
-import { apiErrorMessage, hierarchyKey, NxLldService } from "./services/nx-lld.service";
+import { apiErrorMessage, hierarchyKey, NxLldService, withSubsurfaceId } from "./services/nx-lld.service";
 import { LldViewDialogData, NxLldViewDialogComponent } from "./nx-lld-view-dialog.component";
 import { LldConfirmDialogData, NxLldConfirmDialogComponent } from "./nx-lld-confirm-dialog.component";
 
@@ -162,11 +162,14 @@ export class NxLldViewSelectComponent implements DoCheck, OnDestroy {
         if (!confirmed) {
           return;
         }
+        // The subsurfaces fill in SubSurfaceOperationId by name, as Edit's
+        // popup does (the details carry it as 0).
         this.refresh(() => (this.editLoading = true));
-        this.lldService
-          .getViewDetails(view.id!, this.token)
+        forkJoin([this.lldService.getViewDetails(view.id!, this.token), this.lldService.getSubsurfaces(this.hierarchyTags ?? [], this.token)])
           .pipe(
-            switchMap((details: LldView) => this.lldService.deleteView(details, this.token)),
+            switchMap(([details, subsurfaces]: [LldView, dcTag[]]) =>
+              this.lldService.deleteView(withSubsurfaceId(details, subsurfaces), this.token)
+            ),
             finalize(() => this.refresh(() => (this.editLoading = false)))
           )
           .subscribe({

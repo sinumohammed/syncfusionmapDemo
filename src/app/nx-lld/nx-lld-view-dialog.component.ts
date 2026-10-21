@@ -5,7 +5,7 @@ import { Observable, of, Subject, Subscription } from "rxjs";
 import { catchError, finalize, switchMap } from "rxjs/operators";
 import { dcTag } from "./model/dc-tag.model";
 import { LLD_VIEW_STATUS_OPTIONS, LldView, LldViewStatus } from "./model/nx-lld.model";
-import { apiErrorMessage, NxLldService } from "./services/nx-lld.service";
+import { apiErrorMessage, findSubsurface, NxLldService } from "./services/nx-lld.service";
 
 export interface LldViewDialogData {
   // Absent -> New; present -> Edit (same form, pre-filled).
@@ -102,10 +102,8 @@ export class NxLldViewDialogComponent implements OnDestroy {
     return this.subsurfaceByName(view?.subsurfaceName ?? null)?.TagName ?? null;
   }
 
-  // Ignores case and surrounding spaces.
   private subsurfaceByName(name: string | null): dcTag | undefined {
-    const key = (name ?? "").trim().toLowerCase();
-    return key ? this.data.subsurfaces.find((s: dcTag) => (s.TagName ?? "").trim().toLowerCase() === key) : undefined;
+    return findSubsurface(this.data.subsurfaces, name);
   }
 
   get isEdit(): boolean {

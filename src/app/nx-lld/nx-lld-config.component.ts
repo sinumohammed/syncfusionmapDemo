@@ -4,7 +4,7 @@ import { Observable, of, Subject, Subscription } from "rxjs";
 import { catchError, finalize, map, switchMap } from "rxjs/operators";
 import { LLD_VIEW_STATUS_OPTIONS, LldGroup, LldGroupWithSubGroups, LldLookups, LldSubGroup, LldView, LldViewStatus } from "./model/nx-lld.model";
 import { dcTag } from "./model/dc-tag.model";
-import { apiErrorMessage, hierarchyKey, NxLldService } from "./services/nx-lld.service";
+import { apiErrorMessage, hierarchyKey, NxLldService, withSubsurfaceId } from "./services/nx-lld.service";
 import { LldViewDialogData, NxLldViewDialogComponent } from "./nx-lld-view-dialog.component";
 import { LldGroupDialogData, NxLldGroupDialogComponent } from "./nx-lld-group-dialog.component";
 import { LldSubGroupDialogData, NxLldSubGroupDialogComponent } from "./nx-lld-subgroup-dialog.component";
@@ -226,7 +226,7 @@ export class NxLldConfigComponent implements OnInit, DoCheck, OnDestroy {
     this.confirm("Delete View", `Delete view "${view.name}"? All its groups, sub-groups and equipments will be deleted too.`).subscribe(
       confirmed => {
         if (confirmed) {
-          this.track(this.lldService.deleteView(view, LLD_API_TOKEN)).subscribe(() => this.reloadViews(null));
+          this.track(this.lldService.deleteView(withSubsurfaceId(view, this.subsurfaces), LLD_API_TOKEN)).subscribe(() => this.reloadViews(null));
         }
       }
     );

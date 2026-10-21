@@ -125,6 +125,22 @@ function toView(row: LldViewResponse): LldView {
   };
 }
 
+// The subsurface tag with this name (TagName — unique), ignoring case and
+// surrounding spaces. Views are matched to their subsurface by name, since
+// GetLDViews / GetLDViewDetails send SubSurfaceOperationId back as 0.
+export function findSubsurface(subsurfaces: dcTag[], name: string | null | undefined): dcTag | undefined {
+  const key = (name ?? "").trim().toLowerCase();
+  return key ? subsurfaces.find((s: dcTag) => (s.TagName ?? "").trim().toLowerCase() === key) : undefined;
+}
+
+// A view (e.g. from GetLDViewDetails) with its subsurface id filled in from
+// the subsurface list by name — what Edit's popup does before saving, so a
+// delete sends the same SubSurfaceOperationId an edit would.
+export function withSubsurfaceId(view: LldView, subsurfaces: dcTag[]): LldView {
+  const subsurface = findSubsurface(subsurfaces, view.subsurfaceName);
+  return subsurface ? { ...view, subsurfaceId: subsurface.ObjectID ?? view.subsurfaceId, subsurfaceName: subsurface.TagName ?? view.subsurfaceName } : view;
+}
+
 // What identifies a hierarchy selection — the cache key for its
 // subsurfaces and views, and how the page spots a changed selection.
 export function hierarchyKey(tags: dcTag[] | null): string {

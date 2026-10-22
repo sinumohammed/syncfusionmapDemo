@@ -31,7 +31,7 @@ export const LLD_VIEWS_URL = "LimitDiagram/GetLDViews";
 // The selected view's details, by LDID (see getViewDetails()).
 export const LLD_VIEW_DETAILS_URL = "LimitDiagram/GetLDViewDetails";
 
-// A view's groups (LDID, GID empty) or one group (LDID + GID) — see
+// A view's groups (LDID, GID 0) or one group (LDID + GID) — see
 // getGroups() / getGroup().
 export const LLD_GROUPS_URL = "LimitDiagram/GetLDGroupDetails";
 // Save = add (GroupID 0), edit (the real GroupID) AND delete (an edit with
@@ -437,7 +437,7 @@ export class NxLldService {
 
   // ------------------------------------------------------------ groups
   // One view's groups in display order: GetLDGroupDetails with the LDID and
-  // an empty GID in the query string (…/GetLDGroupDetails?LDID=7&GID=), the
+  // GID 0 in the query string (…/GetLDGroupDetails?LDID=7&GID=0), the
   // body empty. The API doesn't return deleted groups.
   // TODO(host): the response has groups only — sub-groups get their own
   // API later; until then each group's come from the mock (none with the
@@ -478,8 +478,9 @@ export class NxLldService {
     );
   }
 
-  private groupsUrl(viewId: number, groupId?: number): string {
-    return `${LLD_GROUPS_URL}?LDID=${encodeURIComponent(viewId)}&GID=${groupId != null ? encodeURIComponent(groupId) : ""}`;
+  // GID 0 = all the view's groups.
+  private groupsUrl(viewId: number, groupId = 0): string {
+    return `${LLD_GROUPS_URL}?LDID=${encodeURIComponent(viewId)}&GID=${encodeURIComponent(groupId)}`;
   }
 
   // Add / edit: SaveLDGroup with the full model — GroupID 0 for a new group,

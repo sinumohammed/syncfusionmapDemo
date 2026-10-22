@@ -125,3 +125,24 @@
   font-size: 12px;
   word-break: break-all;
 }
+
+// AG Grid tables (Groups tab).
+.nx-lld-grid {
+  width: 100%;
+  transition: opacity 0.15s;
+}
+// Dimmed while an Edit / Delete call runs.
+.nx-lld-grid--busy {
+  opacity: 0.6;
+  pointer-events: none;
+}
+// Cell classes live inside AG Grid's own DOM, outside this view.
+::ng-deep .nx-lld-grid .nx-lld-grid-strong {
+  font-weight: 600;
+}
+// autoHeight keeps a ~150px minimum body — drop it, so the grid ends at its
+// last row.
+::ng-deep .nx-lld-grid .ag-layout-auto-height .ag-center-cols-clipper,
+::ng-deep .nx-lld-grid .ag-layout-auto-height .ag-center-cols-container {
+  min-height: 0 !important;
+}

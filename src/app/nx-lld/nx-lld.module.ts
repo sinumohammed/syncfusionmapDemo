@@ -12,10 +12,12 @@ import { MatSelectModule } from "@angular/material/select";
 import { MatSlideToggleModule } from "@angular/material/slide-toggle";
 import { MatTabsModule } from "@angular/material/tabs";
 import { MatTooltipModule } from "@angular/material/tooltip";
+import { AgGridModule } from "ag-grid-angular";
 import { NxLldConfigComponent } from "./nx-lld-config.component";
 import { NxLldConfirmDialogComponent } from "./nx-lld-confirm-dialog.component";
 import { NxLldGroupDialogComponent } from "./nx-lld-group-dialog.component";
 import { NxLldGroupsComponent } from "./nx-lld-groups.component";
+import { NxLldRowActionsCellComponent } from "./nx-lld-row-actions-cell.component";
 import { NxLldSubGroupDialogComponent } from "./nx-lld-subgroup-dialog.component";
 import { NxLldSubGroupsComponent } from "./nx-lld-subgroups.component";
 import { NxLldViewDetailsComponent } from "./nx-lld-view-details.component";
@@ -28,7 +30,9 @@ import { NxLldService } from "./services/nx-lld.service";
 // host's header, and <app-nx-lld-view-details> / <app-nx-lld-groups> /
 // <app-nx-lld-subgroups> (in tabs), each given the pick as
 // [viewSelection]='{"LDID":[id]}'.
-// Needs BrowserAnimationsModule at the root for its Material dialogs.
+// Needs BrowserAnimationsModule at the root for its Material dialogs, and
+// AG Grid's ag-grid.css + ag-theme-alpine.css in the global styles (the
+// Groups tab's grid).
 @NgModule({
   declarations: [
     NxLldConfigComponent,
@@ -38,6 +42,7 @@ import { NxLldService } from "./services/nx-lld.service";
     NxLldSubGroupDialogComponent,
     NxLldViewDetailsComponent,
     NxLldGroupsComponent,
+    NxLldRowActionsCellComponent,
     NxLldSubGroupsComponent
   ],
   imports: [
@@ -53,7 +58,8 @@ import { NxLldService } from "./services/nx-lld.service";
     MatSelectModule,
     MatSlideToggleModule,
     MatTabsModule,
-    MatTooltipModule
+    MatTooltipModule,
+    AgGridModule
   ],
   providers: [NxLldService],
   // MatTabsModule too, for the host page that puts the Groups / Sub-groups

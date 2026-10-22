@@ -29,6 +29,7 @@
       [getRowId]="rowId"
       [suppressAnimationFrame]="true"
       [suppressCellFocus]="true"
+      (gridReady)="onGridReady($event)"
     ></ag-grid-angular>
   </ng-container>
 </div>

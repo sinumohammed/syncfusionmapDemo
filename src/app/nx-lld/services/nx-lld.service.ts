@@ -143,7 +143,8 @@ function toGroup(row: LldGroupRequest): LldGroup {
     name: row.GroupName ?? "",
     description: row.GroupDesc ?? "",
     order: row.GroupOrder ?? 0,
-    type: row.GroupType || null,
+    // A number even if the API sends it as a string ("5131").
+    type: Number(row.GroupType) || null,
     isVisible: row.IsVisible ?? true,
     isDeleted: !!row.IsDeleted
   };

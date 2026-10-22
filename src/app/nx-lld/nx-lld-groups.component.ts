@@ -1,6 +1,6 @@
 import { ChangeDetectorRef, Component, Input, NgZone, OnChanges, OnDestroy, SimpleChanges } from "@angular/core";
 import { MatDialog } from "@angular/material/dialog";
-import { ColDef } from "ag-grid-community";
+import { ColDef, GridApi, GridReadyEvent } from "ag-grid-community";
 import { Observable, of, Subject, Subscription } from "rxjs";
 import { catchError, filter, finalize, switchMap } from "rxjs/operators";
 import { LLD_DEFAULT_GROUP_TYPES, LldGroup, LldGroupType, LldGroupTypeOption, LldGroupWithSubGroups, LldView, parseGroupTypes } from "./model/nx-lld.model";
@@ -39,6 +39,7 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
   private readonly groupsRequest$ = new Subject<number | null>();
   private readonly viewRequest$ = new Subject<number | null>();
   private readonly subscriptions = new Subscription();
+  private gridApi: GridApi | null = null;
 
   // The groups grid (AG Grid). Rows come in display order (by Order) —
   // the user can still sort by any column.
@@ -46,7 +47,8 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
   readonly columnDefs: ColDef<LldGroupWithSubGroups>[] = [
     { field: "order", headerName: "Order", width: 90 },
     { field: "name", headerName: "Group", flex: 1, minWidth: 160, cellClass: "nx-lld-grid-strong" },
-    { field: "type", headerName: "Type", width: 130, valueFormatter: p => this.typeLabel(p.value) },
+    // Shows the type's name (TYPES) for the saved TypeID.
+    { field: "type", headerName: "Type", width: 160, valueFormatter: p => this.typeLabel(p.value) },
     { field: "description", headerName: "Description", flex: 2, minWidth: 200, valueFormatter: p => p.value || "—" },
     { field: "isVisible", headerName: "Visible", width: 100, valueFormatter: p => (p.value ? "Yes" : "No") },
     { colId: "subGroups", headerName: "Sub-groups", width: 120, valueGetter: p => p.data?.subGroups.length ?? 0 },
@@ -88,7 +90,7 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
             );
           })
         )
-        .subscribe(groups => this.refresh(() => (this.groups = groups)))
+        .subscribe(groups => this.refresh(() => this.setGroups(groups)))
     );
     this.subscriptions.add(
       this.viewRequest$
@@ -118,13 +120,16 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
   ngOnChanges(changes: SimpleChanges): void {
     if (changes["groupTypes"]) {
       this.typeOptions = parseGroupTypes(this.groupTypes);
+      // Types that arrive after the rows: AG Grid doesn't re-format cells it
+      // has already drawn on its own.
+      this.gridApi?.refreshCells({ columns: ["type"], force: true });
     }
     if (changes["viewSelection"]) {
       const id = selectedViewId(this.viewSelection);
       if (id !== this.viewId) {
         this.viewId = id;
         this.view = null;
-        this.groups = [];
+        this.setGroups([]);
         this.viewRequest$.next(id);
         this.reload();
       }
@@ -139,8 +144,24 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
     this.openGroupDialog();
   }
 
-  typeLabel(type: number | null): string {
-    return this.typeOptions.find(o => o.value === type)?.label ?? (type != null ? String(type) : "—");
+  // The type's name for a TypeID — the id itself when it's not in the list.
+  typeLabel(type: number | string | null): string {
+    if (type == null || type === "") {
+      return "—";
+    }
+    return this.typeOptions.find(o => o.value === Number(type))?.label ?? String(type);
+  }
+
+  onGridReady(event: GridReadyEvent): void {
+    this.gridApi = event.api;
+  }
+
+  // No groups removes the grid (*ngIf) — and its API with it.
+  private setGroups(groups: LldGroupWithSubGroups[]): void {
+    this.groups = groups;
+    if (!groups.length) {
+      this.gridApi = null;
+    }
   }
 
   // Opens with the group's own details (GetLDGroupDetails with its GID).

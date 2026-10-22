@@ -17,6 +17,10 @@ export class LldSplitComponent {
   // Toggle to see the dropdown without its Edit / Delete icons.
   viewSelectConfig: LldViewSelectConfig = { showToolbar: true };
 
+  // TODO(host): the Group Type names from configuration, comma-separated
+  // (e.g. "Pump,Separator,Equipment") — placeholders for now.
+  groupTypes = "a,b,c,d";
+
   // The pick as each tab gets it: '{"LDID":[21]}', or null for none.
   viewSelection: string | null = null;
 

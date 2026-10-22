@@ -1,5 +1,5 @@
 <div class="nx-lld-tab">
-  <mat-progress-bar *ngIf="loading" mode="indeterminate" class="nx-lld-tab-loader"></mat-progress-bar>
+  <mat-progress-bar *ngIf="loading || busy" mode="indeterminate" class="nx-lld-tab-loader"></mat-progress-bar>
 
   <div class="nx-lld-empty" *ngIf="viewId == null">Pick a view in the header to see its groups.</div>
 
@@ -17,20 +17,28 @@
     <table class="nx-lld-table" *ngIf="groups.length">
       <thead>
         <tr>
+          <th>Order</th>
           <th>Group</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Visible</th>
           <th>Sub-groups</th>
           <th class="nx-lld-table-actions"></th>
         </tr>
       </thead>
       <tbody>
         <tr *ngFor="let group of groups">
+          <td class="nx-lld-muted">{{ group.order }}</td>
           <td class="nx-lld-strong">{{ group.name }}</td>
+          <td>{{ typeLabel(group.type) }}</td>
+          <td class="nx-lld-muted">{{ group.description || "—" }}</td>
+          <td>{{ group.isVisible ? "Yes" : "No" }}</td>
           <td class="nx-lld-muted">{{ group.subGroups.length }}</td>
           <td class="nx-lld-table-actions">
-            <button mat-icon-button type="button" matTooltip="Edit group" aria-label="Edit group" (click)="editGroup(group)" [disabled]="!view">
+            <button mat-icon-button type="button" matTooltip="Edit group" aria-label="Edit group" (click)="editGroup(group)" [disabled]="!view || busy">
               <svg viewBox="0 0 24 24" class="nx-lld-icon"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" /></svg>
             </button>
-            <button mat-icon-button type="button" class="nx-lld-delete" matTooltip="Delete group" aria-label="Delete group" (click)="deleteGroup(group)">
+            <button mat-icon-button type="button" class="nx-lld-delete" matTooltip="Delete group" aria-label="Delete group" (click)="deleteGroup(group)" [disabled]="busy">
               <svg viewBox="0 0 24 24" class="nx-lld-icon"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" /></svg>
             </button>
           </td>

@@ -2,7 +2,7 @@ import { ChangeDetectorRef, Component, Input, NgZone, OnChanges, OnDestroy, Simp
 import { MatDialog } from "@angular/material/dialog";
 import { Observable, of, Subject, Subscription } from "rxjs";
 import { catchError, filter, finalize, switchMap } from "rxjs/operators";
-import { LldGroup, LldGroupWithSubGroups, LldView } from "./model/nx-lld.model";
+import { LLD_DEFAULT_GROUP_TYPES, LldGroup, LldGroupTypeOption, LldGroupWithSubGroups, LldView, parseGroupTypes } from "./model/nx-lld.model";
 import { apiErrorMessage, LldViewSelection, NxLldService, selectedViewId } from "./services/nx-lld.service";
 import { LldGroupDialogData, NxLldGroupDialogComponent } from "./nx-lld-group-dialog.component";
 import { LldConfirmDialogData, NxLldConfirmDialogComponent } from "./nx-lld-confirm-dialog.component";
@@ -21,7 +21,13 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
   @Input() viewSelection: string | LldViewSelection | null = null;
   // TODO(host): the logged-in user's API token.
   @Input() token = "";
+  // The Group Type names, comma-separated — e.g. "Pump,Separator,Equipment".
+  // Sent as GroupType by position (Pump = 1, …), so only append to it.
+  @Input() groupTypes = LLD_DEFAULT_GROUP_TYPES;
 
+  typeOptions: LldGroupTypeOption[] = parseGroupTypes(LLD_DEFAULT_GROUP_TYPES);
+  // An Edit fetching its group, or a Delete running.
+  busy = false;
   viewId: number | null = null;
   view: LldView | null = null;
   groups: LldGroupWithSubGroups[] = [];
@@ -78,6 +84,9 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes["groupTypes"]) {
+      this.typeOptions = parseGroupTypes(this.groupTypes);
+    }
     if (changes["viewSelection"]) {
       const id = selectedViewId(this.viewSelection);
       if (id !== this.viewId) {
@@ -98,8 +107,23 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
     this.openGroupDialog();
   }
 
+  typeLabel(type: number | null): string {
+    return this.typeOptions.find(o => o.value === type)?.label ?? (type != null ? String(type) : "—");
+  }
+
+  // Opens with the group's own details (GetLDGroupDetails with its GID).
   editGroup(group: LldGroup): void {
-    this.openGroupDialog(group);
+    if (this.busy || this.viewId == null) {
+      return;
+    }
+    this.busy = true;
+    this.lldService
+      .getGroup(this.viewId, group.id!, this.token)
+      .pipe(finalize(() => this.refresh(() => (this.busy = false))))
+      .subscribe({
+        next: details => this.refresh(() => this.openGroupDialog(details)),
+        error: (err: unknown) => console.error("[LLD] GetLDGroupDetails failed:", apiErrorMessage(err), err)
+      });
   }
 
   deleteGroup(group: LldGroupWithSubGroups): void {
@@ -113,7 +137,16 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
       .afterClosed()
       .subscribe(confirmed => {
         if (confirmed) {
-          this.lldService.deleteGroup(group.id!, this.token).subscribe(() => this.reload());
+          // The full model, only IsDeleted set (see NxLldService.deleteGroup).
+          const { subGroups, ...model } = group;
+          this.refresh(() => (this.busy = true));
+          this.lldService
+            .deleteGroup(model, this.token)
+            .pipe(finalize(() => this.refresh(() => (this.busy = false))))
+            .subscribe({
+              next: () => this.reload(),
+              error: (err: unknown) => console.error("[LLD] SaveLDGroup (delete) failed:", apiErrorMessage(err), err)
+            });
         }
       });
   }
@@ -125,8 +158,8 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
     }
     this.dialog
       .open<NxLldGroupDialogComponent, LldGroupDialogData, LldGroup>(NxLldGroupDialogComponent, {
-        width: "380px",
-        data: { group, view: this.view, token: this.token }
+        width: "420px",
+        data: { group, view: this.view, token: this.token, groupTypes: this.groupTypes, nextOrder: this.nextOrder() }
       })
       .afterClosed()
       .subscribe(saved => {
@@ -134,6 +167,11 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
           this.reload();
         }
       });
+  }
+
+  // A new group goes after the last one.
+  private nextOrder(): number {
+    return this.groups.reduce((max, g) => Math.max(max, g.order ?? 0), 0) + 1;
   }
 
   private reload(): void {

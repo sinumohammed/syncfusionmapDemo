@@ -291,7 +291,7 @@ export class NxLldConfigComponent implements OnInit, DoCheck, OnDestroy {
       : "";
     this.confirm("Delete Group", `Delete group "${group.name}"?${children}`).subscribe(confirmed => {
       if (confirmed) {
-        this.track(this.lldService.deleteGroup(group.id!, LLD_API_TOKEN)).subscribe(() => {
+        this.track(this.lldService.deleteGroup(group, LLD_API_TOKEN)).subscribe(() => {
           this.expandedGroupIds.delete(group.id!);
           this.reloadGroups();
         });

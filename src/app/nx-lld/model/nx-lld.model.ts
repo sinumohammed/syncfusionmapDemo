@@ -118,6 +118,49 @@ export interface LldGroup {
   id?: number | null;
   viewId: number;
   name: string;
+  description: string;
+  // Display order within the view (lowest first).
+  order: number;
+  // A Group Type option's value — its position in the configured list
+  // (see parseGroupTypes()), null when none is picked.
+  type: number | null;
+  isVisible: boolean;
+  // Set only by Delete (a SaveLDGroup with IsDeleted true).
+  isDeleted?: boolean;
+}
+
+// What SaveLDGroup is posted — add (GroupID 0), edit (the real GroupID) AND
+// delete (an edit with IsDeleted true), same URL. GetLDGroupDetails returns
+// rows of the same shape.
+export interface LldGroupRequest {
+  GroupID: number;
+  GroupName: string;
+  LDID: number;
+  GroupOrder: number;
+  GroupDesc: string;
+  GroupType: number | null;
+  IsVisible: boolean;
+  IsDeleted: boolean;
+}
+
+// One Group Type dropdown option.
+export interface LldGroupTypeOption {
+  value: number;
+  label: string;
+}
+
+// The Group Type names, comma-separated — the host's configuration
+// (e.g. "Pump,Separator,Equipment"). Placeholder names until it's set.
+export const LLD_DEFAULT_GROUP_TYPES = "a,b,c,d";
+
+// The configured names as dropdown options. The value sent as GroupType is
+// the name's 1-based position: "Pump,Separator" -> Pump = 1, Separator = 2 —
+// so only ever append to the list, never reorder it.
+export function parseGroupTypes(names: string | null | undefined): LldGroupTypeOption[] {
+  return (names ?? "")
+    .split(",")
+    .map((label, i) => ({ value: i + 1, label: label.trim() }))
+    .filter(o => o.label);
 }
 
 // One sub-group = ONE type + ONE template for every equipment in it —

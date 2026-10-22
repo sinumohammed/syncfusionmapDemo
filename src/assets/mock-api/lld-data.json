@@ -36,17 +36,32 @@
     {
       "id": 1,
       "viewId": 1,
-      "name": "Pumps"
+      "name": "Pumps",
+      "description": "",
+      "order": 1,
+      "type": 1,
+      "isVisible": true,
+      "isDeleted": false
     },
     {
       "id": 2,
       "viewId": 1,
-      "name": "Lifting"
+      "name": "Lifting",
+      "description": "",
+      "order": 2,
+      "type": 2,
+      "isVisible": true,
+      "isDeleted": false
     },
     {
       "id": 3,
       "viewId": 2,
-      "name": "Surface"
+      "name": "Surface",
+      "description": "",
+      "order": 3,
+      "type": 3,
+      "isVisible": true,
+      "isDeleted": false
     }
   ],
   "subGroups": [

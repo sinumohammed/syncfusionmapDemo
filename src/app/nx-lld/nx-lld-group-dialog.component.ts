@@ -1,9 +1,9 @@
-import { Component, Inject, OnDestroy } from "@angular/core";
+import { ChangeDetectorRef, Component, Inject, NgZone, OnDestroy } from "@angular/core";
 import { FormBuilder, FormGroup, Validators } from "@angular/forms";
 import { MAT_DIALOG_DATA, MatDialogRef } from "@angular/material/dialog";
 import { Subscription } from "rxjs";
 import { finalize } from "rxjs/operators";
-import { LldGroup, LldView } from "./model/nx-lld.model";
+import { LLD_DEFAULT_GROUP_TYPES, LldGroup, LldGroupTypeOption, LldView, parseGroupTypes } from "./model/nx-lld.model";
 import { apiErrorMessage, NxLldService } from "./services/nx-lld.service";
 
 export interface LldGroupDialogData {
@@ -12,12 +12,18 @@ export interface LldGroupDialogData {
   // The view the group belongs to — always the page's selected view.
   view: LldView;
   token: string;
+  // The Group Type names, comma-separated (see parseGroupTypes()). Default
+  // LLD_DEFAULT_GROUP_TYPES.
+  groupTypes?: string;
+  // What Order starts at for a new group (e.g. after the last one). Default 1.
+  nextOrder?: number;
 }
 
-// Add/Edit Group popup: the selected view (read-only) and Group Name.
-// Saves through NxLldService itself and closes with the saved group.
-// Duplicate names (within the view) are checked by the API only; its
-// message shows above the buttons and the popup stays open.
+// Add/Edit Group popup: the selected view (read-only), Group Name,
+// Description, Order, Type and Visible. Saves through NxLldService itself
+// (SaveLDGroup) and closes with the saved group. Duplicate names (within
+// the view) are checked by the API only; its message shows above the
+// buttons and the popup stays open.
 @Component({
   selector: "app-nx-lld-group-dialog",
   templateUrl: "./nx-lld-group-dialog.component.html",
@@ -25,6 +31,7 @@ export interface LldGroupDialogData {
 })
 export class NxLldGroupDialogComponent implements OnDestroy {
   form: FormGroup;
+  readonly typeOptions: LldGroupTypeOption[];
   saving = false;
   saveError = "";
   private readonly subscriptions = new Subscription();
@@ -33,10 +40,18 @@ export class NxLldGroupDialogComponent implements OnDestroy {
     @Inject(MAT_DIALOG_DATA) public data: LldGroupDialogData,
     private dialogRef: MatDialogRef<NxLldGroupDialogComponent, LldGroup>,
     private fb: FormBuilder,
-    private lldService: NxLldService
+    private lldService: NxLldService,
+    private cdr: ChangeDetectorRef,
+    private zone: NgZone
   ) {
+    this.typeOptions = parseGroupTypes(data.groupTypes ?? LLD_DEFAULT_GROUP_TYPES);
+    const group = data.group;
     this.form = this.fb.group({
-      name: [data.group?.name ?? "", Validators.required]
+      name: [group?.name ?? "", Validators.required],
+      description: [group?.description ?? ""],
+      order: [group?.order ?? data.nextOrder ?? 1, [Validators.required, Validators.min(0)]],
+      type: [group?.type ?? null, Validators.required],
+      isVisible: [group?.isVisible ?? true]
     });
     // A rejected save's message goes away once the user changes anything.
     this.subscriptions.add(this.form.valueChanges.subscribe(() => (this.saveError = "")));
@@ -51,10 +66,16 @@ export class NxLldGroupDialogComponent implements OnDestroy {
       this.form.markAllAsTouched();
       return;
     }
+    const value = this.form.value;
     const payload: LldGroup = {
       id: this.data.group?.id ?? null,
       viewId: this.data.view.id!,
-      name: this.form.value.name.trim()
+      name: value.name.trim(),
+      description: (value.description ?? "").trim(),
+      order: Number(value.order),
+      type: value.type,
+      isVisible: !!value.isVisible,
+      isDeleted: false
     };
     this.saving = true;
     this.saveError = "";
@@ -62,15 +83,26 @@ export class NxLldGroupDialogComponent implements OnDestroy {
     this.lldService
       .saveGroup(payload, this.data.token)
       .pipe(
-        finalize(() => {
-          this.saving = false;
-          this.dialogRef.disableClose = false;
-        })
+        finalize(() =>
+          this.refresh(() => {
+            this.saving = false;
+            this.dialogRef.disableClose = false;
+          })
+        )
       )
       .subscribe({
-        next: saved => this.dialogRef.close(saved),
-        error: err => (this.saveError = apiErrorMessage(err))
+        next: saved => this.refresh(() => this.dialogRef.close(saved)),
+        error: err => this.refresh(() => (this.saveError = apiErrorMessage(err)))
       });
+  }
+
+  // Back in the zone and marked for check, so the result redraws even when
+  // the host's HTTP finishes outside the zone.
+  private refresh(update: () => void): void {
+    this.zone.run(() => {
+      update();
+      this.cdr.markForCheck();
+    });
   }
 
   ngOnDestroy(): void {

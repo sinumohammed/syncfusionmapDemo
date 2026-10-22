@@ -31,6 +31,21 @@
   gap: 4px;
   min-width: 320px;
 }
+// Fields side by side (Group popup: Type + Order).
+.nx-lld-dialog-row {
+  display: flex;
+  gap: 12px;
+  > .mat-form-field {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  > .nx-lld-dialog-order {
+    flex: 0 0 96px;
+  }
+}
+.nx-lld-dialog-toggle {
+  margin: 4px 0 12px;
+}
 // The parent a record belongs to — shown, not editable.
 .nx-lld-dialog-readonly {
   display: flex;

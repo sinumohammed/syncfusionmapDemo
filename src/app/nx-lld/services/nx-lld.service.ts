@@ -7,6 +7,7 @@ import {
   LldApiResult,
   LldApiStatus,
   LldGroup,
+  LldGroupRequest,
   LldGroupWithSubGroups,
   LldLookups,
   LldSaveViewRequest,
@@ -30,12 +31,16 @@ export const LLD_VIEWS_URL = "LimitDiagram/GetLDViews";
 // The selected view's details, by LDID (see getViewDetails()).
 export const LLD_VIEW_DETAILS_URL = "LimitDiagram/GetLDViewDetails";
 
+// A view's groups (LDID, GID empty) or one group (LDID + GID) — see
+// getGroups() / getGroup().
+export const LLD_GROUPS_URL = "LimitDiagram/GetLDGroupDetails";
+// Save = add (GroupID 0), edit (the real GroupID) AND delete (an edit with
+// IsDeleted true), same URL.
+export const LLD_SAVE_GROUP_URL = "LimitDiagram/SaveLDGroup";
+
 // TODO(host): real endpoints not known yet. Save = add (no id) AND edit
 // (with id), same URL; delete by id.
 export const LLD_LOOKUPS_URL = "PDOCustom/LLD/GetLookups";
-export const LLD_GROUPS_URL = "PDOCustom/LLD/GetGroups";
-export const LLD_SAVE_GROUP_URL = "PDOCustom/LLD/SaveGroup";
-export const LLD_DELETE_GROUP_URL = "PDOCustom/LLD/DeleteGroup";
 export const LLD_SAVE_SUBGROUP_URL = "PDOCustom/LLD/SaveSubGroup";
 export const LLD_DELETE_SUBGROUP_URL = "PDOCustom/LLD/DeleteSubGroup";
 
@@ -100,6 +105,45 @@ function toSaveViewRequest(view: LldView): LldSaveViewRequest {
     Status: view.status
   };
   return view.id != null ? { LDID: view.id, ...request } : request;
+}
+
+// A group as SaveLDGroup wants it — always the full model.
+function toGroupRequest(group: LldGroup): LldGroupRequest {
+  return {
+    GroupID: group.id ?? 0,
+    GroupName: group.name,
+    LDID: group.viewId,
+    GroupOrder: group.order,
+    GroupDesc: group.description,
+    GroupType: group.type,
+    IsVisible: group.isVisible,
+    IsDeleted: !!group.isDeleted
+  };
+}
+
+// A GetLDGroupDetails row as the page's group.
+function toGroup(row: LldGroupRequest): LldGroup {
+  return {
+    id: row.GroupID,
+    viewId: row.LDID,
+    name: row.GroupName ?? "",
+    description: row.GroupDesc ?? "",
+    order: row.GroupOrder ?? 0,
+    type: row.GroupType || null,
+    isVisible: row.IsVisible ?? true,
+    isDeleted: !!row.IsDeleted
+  };
+}
+
+// Groups in their display order, then by name.
+function byGroupOrder(a: LldGroup, b: LldGroup): number {
+  return (a.order ?? 0) - (b.order ?? 0) || a.name.localeCompare(b.name);
+}
+
+// GetLDGroupDetails' Value as rows — an array, or a single row / null when
+// one group is asked for.
+function groupRows(value: LldGroupRequest[] | LldGroupRequest | null): LldGroupRequest[] {
+  return Array.isArray(value) ? value : value ? [value] : [];
 }
 
 // A GetLDViews row as the page's view. 0 / null user ids mean "nobody"
@@ -392,46 +436,85 @@ export class NxLldService {
   }
 
   // ------------------------------------------------------------ groups
-  // One view's groups, each carrying its own sub-groups.
+  // One view's groups in display order: GetLDGroupDetails with the LDID and
+  // an empty GID in the query string (…/GetLDGroupDetails?LDID=7&GID=), the
+  // body empty. The API doesn't return deleted groups.
+  // TODO(host): the response has groups only — sub-groups get their own
+  // API later; until then each group's come from the mock (none with the
+  // real API).
   getGroups(viewId: number, token: string): Observable<LldGroupWithSubGroups[]> {
-    if (USE_MOCK) {
-      return this.mock(() =>
-        this.store.groups
-          .filter(g => g.viewId === viewId)
-          .map(g => ({ ...g, subGroups: this.store.subGroups.filter(s => s.groupId === g.id) }))
-      );
-    }
-    return this.post<LldGroupWithSubGroups[]>(LLD_GROUPS_URL, { viewId }, token);
+    const groups$: Observable<LldGroup[]> = USE_MOCK
+      ? this.mock(() => this.store.groups.filter(g => g.viewId === viewId && !g.isDeleted))
+      : this.post<LldApiResult<LldGroupRequest[] | LldGroupRequest | null>>(this.groupsUrl(viewId), null, token).pipe(
+          map(result => groupRows(unwrapResult(result)).map(toGroup))
+        );
+    return groups$.pipe(
+      map((groups: LldGroup[]) =>
+        [...groups].sort(byGroupOrder).map(g => ({ ...g, subGroups: this.store.subGroups.filter(s => s.groupId === g.id) }))
+      )
+    );
   }
 
-  // The server rejects a name already used by another group of the same view.
+  // One group's details — GetLDGroupDetails with both the LDID and the GID.
+  // What Edit opens the popup with.
+  getGroup(viewId: number, groupId: number, token: string): Observable<LldGroup> {
+    if (USE_MOCK) {
+      return this.mockReady$.pipe(
+        delay(MOCK_LATENCY_MS),
+        mergeMap(() => {
+          const group = this.store.groups.find(g => g.id === groupId && g.viewId === viewId && !g.isDeleted);
+          return group ? of({ ...group }) : mockError(404, `Group ${groupId} not found`);
+        })
+      );
+    }
+    return this.post<LldApiResult<LldGroupRequest[] | LldGroupRequest | null>>(this.groupsUrl(viewId, groupId), null, token).pipe(
+      map(result => {
+        const row = groupRows(unwrapResult(result))[0];
+        if (!row) {
+          throw new Error(`Group ${groupId} not found`);
+        }
+        return toGroup(row);
+      })
+    );
+  }
+
+  private groupsUrl(viewId: number, groupId?: number): string {
+    return `${LLD_GROUPS_URL}?LDID=${encodeURIComponent(viewId)}&GID=${groupId != null ? encodeURIComponent(groupId) : ""}`;
+  }
+
+  // Add / edit: SaveLDGroup with the full model — GroupID 0 for a new group,
+  // its real id for an edit. Returns the saved group with the id the API
+  // reports (ID). A rejected save (Status false, e.g. a duplicate name)
+  // throws its message — the popup shows it.
   saveGroup(group: LldGroup, token: string): Observable<LldGroup> {
+    const request = toGroupRequest(group);
+    // TEMP: to check the SaveLDGroup payload while testing — remove afterwards.
+    console.log(`[LLD] SaveLDGroup payload (${request.IsDeleted ? "delete" : request.GroupID ? "edit" : "add"})`, request);
     if (USE_MOCK) {
       return this.mockReady$.pipe(
         delay(MOCK_LATENCY_MS),
         mergeMap(() => {
           const name = group.name.trim().toLowerCase();
-          const duplicate = this.store.groups.some(
-            g => g.id !== group.id && g.viewId === group.viewId && g.name.trim().toLowerCase() === name
-          );
+          const duplicate =
+            !group.isDeleted &&
+            this.store.groups.some(
+              g => g.id !== group.id && g.viewId === group.viewId && !g.isDeleted && g.name.trim().toLowerCase() === name
+            );
           return duplicate
             ? mockError(409, `This view already has a group named "${group.name}"`)
             : of(this.upsert("groups", group));
         })
       );
     }
-    return this.post<LldGroup>(LLD_SAVE_GROUP_URL, group, token);
+    return this.post<LldApiStatus>(LLD_SAVE_GROUP_URL, request, token).pipe(
+      map(result => ({ ...group, id: assertOk(result).ID || group.id }))
+    );
   }
 
-  // Removes the group's sub-groups too.
-  deleteGroup(id: number, token: string): Observable<unknown> {
-    if (USE_MOCK) {
-      return this.mock(() => {
-        this.store.subGroups = this.store.subGroups.filter(s => s.groupId !== id);
-        this.store.groups = this.store.groups.filter(g => g.id !== id);
-      });
-    }
-    return this.post<unknown>(LLD_DELETE_GROUP_URL, { id }, token);
+  // Soft delete: the same SaveLDGroup call as an edit — the group's full
+  // model with IsDeleted true. GetLDGroupDetails stops returning it.
+  deleteGroup(group: LldGroup, token: string): Observable<LldGroup> {
+    return this.saveGroup({ ...group, isDeleted: true }, token);
   }
 
   // --------------------------------------------------------- sub-groups

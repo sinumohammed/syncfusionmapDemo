@@ -1,6 +1,6 @@
 import { Component } from "@angular/core";
 import { dcTag } from "../../nx-lld/model/dc-tag.model";
-import { LldView } from "../../nx-lld/model/nx-lld.model";
+import { LLD_DEFAULT_GROUP_TYPES, LldGroupType, LldView } from "../../nx-lld/model/nx-lld.model";
 import { LldViewSelectConfig } from "../../nx-lld/nx-lld-view-select.component";
 
 // "/lld-split" page — the LLD screen split into separate components, as the
@@ -17,9 +17,8 @@ export class LldSplitComponent {
   // Toggle to see the dropdown without its Edit / Delete icons.
   viewSelectConfig: LldViewSelectConfig = { showToolbar: true };
 
-  // TODO(host): the Group Type names from configuration, comma-separated
-  // (e.g. "Pump,Separator,Equipment") — placeholders for now.
-  groupTypes = "a,b,c,d";
+  // TODO(host): the Group Types from configuration — [{ TYPES, TypeID }].
+  groupTypes: LldGroupType[] = LLD_DEFAULT_GROUP_TYPES;
 
   // The pick as each tab gets it: '{"LDID":[21]}', or null for none.
   viewSelection: string | null = null;

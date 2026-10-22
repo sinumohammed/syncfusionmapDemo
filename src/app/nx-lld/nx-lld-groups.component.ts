@@ -3,7 +3,7 @@ import { MatDialog } from "@angular/material/dialog";
 import { ColDef } from "ag-grid-community";
 import { Observable, of, Subject, Subscription } from "rxjs";
 import { catchError, filter, finalize, switchMap } from "rxjs/operators";
-import { LLD_DEFAULT_GROUP_TYPES, LldGroup, LldGroupTypeOption, LldGroupWithSubGroups, LldView, parseGroupTypes } from "./model/nx-lld.model";
+import { LLD_DEFAULT_GROUP_TYPES, LldGroup, LldGroupType, LldGroupTypeOption, LldGroupWithSubGroups, LldView, parseGroupTypes } from "./model/nx-lld.model";
 import { apiErrorMessage, LldViewSelection, NxLldService, selectedViewId } from "./services/nx-lld.service";
 import { LldGroupDialogData, NxLldGroupDialogComponent } from "./nx-lld-group-dialog.component";
 import { LldConfirmDialogData, NxLldConfirmDialogComponent } from "./nx-lld-confirm-dialog.component";
@@ -23,9 +23,9 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
   @Input() viewSelection: string | LldViewSelection | null = null;
   // TODO(host): the logged-in user's API token.
   @Input() token = "";
-  // The Group Type names, comma-separated — e.g. "Pump,Separator,Equipment".
-  // Sent as GroupType by position (Pump = 1, …), so only append to it.
-  @Input() groupTypes = LLD_DEFAULT_GROUP_TYPES;
+  // The Group Type dropdown: [{ "TYPES": "Pump", "TypeID": 6253 }, …], or
+  // that as a JSON string. TypeID is saved as GroupType.
+  @Input() groupTypes: LldGroupType[] | string = LLD_DEFAULT_GROUP_TYPES;
 
   typeOptions: LldGroupTypeOption[] = parseGroupTypes(LLD_DEFAULT_GROUP_TYPES);
   // An Edit fetching its group, or a Delete running.

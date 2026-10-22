@@ -3,7 +3,7 @@ import { FormBuilder, FormGroup, Validators } from "@angular/forms";
 import { MAT_DIALOG_DATA, MatDialogRef } from "@angular/material/dialog";
 import { Subscription } from "rxjs";
 import { finalize } from "rxjs/operators";
-import { LLD_DEFAULT_GROUP_TYPES, LldGroup, LldGroupTypeOption, LldView, parseGroupTypes } from "./model/nx-lld.model";
+import { LLD_DEFAULT_GROUP_TYPES, LldGroup, LldGroupType, LldGroupTypeOption, LldView, parseGroupTypes } from "./model/nx-lld.model";
 import { apiErrorMessage, NxLldService } from "./services/nx-lld.service";
 
 export interface LldGroupDialogData {
@@ -12,9 +12,9 @@ export interface LldGroupDialogData {
   // The view the group belongs to — always the page's selected view.
   view: LldView;
   token: string;
-  // The Group Type names, comma-separated (see parseGroupTypes()). Default
-  // LLD_DEFAULT_GROUP_TYPES.
-  groupTypes?: string;
+  // The Group Type dropdown: [{ TYPES, TypeID }] (or that as a JSON
+  // string); TypeID is saved as GroupType. Default LLD_DEFAULT_GROUP_TYPES.
+  groupTypes?: LldGroupType[] | string;
   // What Order starts at for a new group (e.g. after the last one). Default 1.
   nextOrder?: number;
 }

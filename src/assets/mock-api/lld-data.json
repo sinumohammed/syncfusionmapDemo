@@ -39,7 +39,7 @@
       "name": "Pumps",
       "description": "",
       "order": 1,
-      "type": 1,
+      "type": 5000,
       "isVisible": true,
       "isDeleted": false
     },
@@ -49,7 +49,7 @@
       "name": "Lifting",
       "description": "",
       "order": 2,
-      "type": 2,
+      "type": 5131,
       "isVisible": true,
       "isDeleted": false
     },
@@ -59,7 +59,7 @@
       "name": "Surface",
       "description": "",
       "order": 3,
-      "type": 3,
+      "type": 5132,
       "isVisible": true,
       "isDeleted": false
     }

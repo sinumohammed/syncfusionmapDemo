@@ -83,9 +83,23 @@ export function apiErrorMessage(err: unknown): string {
 // Status/IsValid false — e.g. a rejected save.
 function assertOk<T extends LldApiStatus>(result: T): T {
   if (!result?.Status || !result.IsValid) {
-    throw new Error(result?.ErrorMessage || result?.StatusMessage || "Request failed");
+    throw new Error(result?.ErrorMessage || result?.Warning || result?.StatusMessage || "Request failed");
   }
   return result;
+}
+
+// SaveLDGroup's saved group id. It rejects a save (e.g. a duplicate name)
+// with Status/IsValid still TRUE — only ID 0 and the reason in
+// StatusMessage tell it apart from a success. Agreed with the API: ID is
+// the group's id when saved (add, edit, delete) and 0 whenever it wasn't.
+// TODO(host): until the API change lands, a rejected EDIT still returns the
+// group's own id and so looks like a success.
+function savedGroupId(result: LldApiStatus): number {
+  const id = assertOk(result).ID;
+  if (!id) {
+    throw new Error(result.ErrorMessage || result.Warning || result.StatusMessage || "The group wasn't saved");
+  }
+  return id;
 }
 
 // The payload of a host result envelope.
@@ -357,6 +371,21 @@ export class NxLldService {
   private readonly viewSavedSubject = new Subject<number | null>();
   readonly viewSaved$: Observable<number | null> = this.viewSavedSubject.asObservable();
 
+  // The message of every failed save — add, edit or delete of a view or a
+  // group (duplicate name, Status false, HTTP error). The popup stays open
+  // and shows it too; subscribe here to also show it as a toaster:
+  //   lldService.saveFailed$.subscribe(message => toastr.error(message));
+  private readonly saveFailedSubject = new Subject<string>();
+  readonly saveFailed$: Observable<string> = this.saveFailedSubject.asObservable();
+
+  // Reports a failed save on saveFailed$, then rethrows it to the caller.
+  private reportSaveFailure<T>() {
+    return catchError<T, Observable<never>>((err: unknown) => {
+      this.saveFailedSubject.next(apiErrorMessage(err));
+      return throwError(() => err);
+    });
+  }
+
   // Returns the saved view so the page can select it — with its server id
   // when the API reports one (SaveLD's ID can be 0; the page then finds a
   // new view by name). A rejected save, e.g. a duplicate name, comes back
@@ -396,12 +425,14 @@ export class NxLldService {
             : { ...view, createdBy: MOCK_USER, createdOn: now };
           return of(this.upsert("views", stamped));
         }),
-        forgetViews
+        forgetViews,
+        this.reportSaveFailure()
       );
     }
     return this.post<LldApiStatus>(LLD_SAVE_VIEW_URL, request, token).pipe(
       map(result => ({ ...view, id: assertOk(result).ID || view.id })),
-      forgetViews
+      forgetViews,
+      this.reportSaveFailure()
     );
   }
 
@@ -485,8 +516,8 @@ export class NxLldService {
 
   // Add / edit: SaveLDGroup with the full model — GroupID 0 for a new group,
   // its real id for an edit. Returns the saved group with the id the API
-  // reports (ID). A rejected save (Status false, e.g. a duplicate name)
-  // throws its message — the popup shows it.
+  // reports (ID). A rejected save throws its message — the popup stays open
+  // and shows it (see savedGroupId()).
   saveGroup(group: LldGroup, token: string): Observable<LldGroup> {
     const request = toGroupRequest(group);
     // TEMP: to check the SaveLDGroup payload while testing — remove afterwards.
@@ -504,11 +535,13 @@ export class NxLldService {
           return duplicate
             ? mockError(409, `This view already has a group named "${group.name}"`)
             : of(this.upsert("groups", group));
-        })
+        }),
+        this.reportSaveFailure()
       );
     }
     return this.post<LldApiStatus>(LLD_SAVE_GROUP_URL, request, token).pipe(
-      map(result => ({ ...group, id: assertOk(result).ID || group.id }))
+      map(result => ({ ...group, id: savedGroupId(result) })),
+      this.reportSaveFailure()
     );
   }
 

@@ -10,6 +10,7 @@ export interface LldApiStatus {
   Status: boolean;
   StatusMessage: string | null;
   ErrorMessage: string | null;
+  Warning?: string | null;
   // The saved record's id when the API reports one (0 otherwise).
   ID?: number | null;
 }
@@ -121,8 +122,8 @@ export interface LldGroup {
   description: string;
   // Display order within the view (lowest first).
   order: number;
-  // A Group Type option's value — its position in the configured list
-  // (see parseGroupTypes()), null when none is picked.
+  // The picked Group Type's TypeID (see LldGroupType), null when none is
+  // picked.
   type: number | null;
   isVisible: boolean;
   // Set only by Delete (a SaveLDGroup with IsDeleted true).
@@ -149,18 +150,50 @@ export interface LldGroupTypeOption {
   label: string;
 }
 
-// The Group Type names, comma-separated — the host's configuration
-// (e.g. "Pump,Separator,Equipment"). Placeholder names until it's set.
-export const LLD_DEFAULT_GROUP_TYPES = "a,b,c,d";
+// One Group Type as the host's configuration lists it. TYPES is shown in
+// the dropdown, TypeID is sent as GroupType.
+export interface LldGroupType {
+  TYPES: string;
+  TypeID: number;
+}
 
-// The configured names as dropdown options. The value sent as GroupType is
-// the name's 1-based position: "Pump,Separator" -> Pump = 1, Separator = 2 —
-// so only ever append to the list, never reorder it.
-export function parseGroupTypes(names: string | null | undefined): LldGroupTypeOption[] {
-  return (names ?? "")
-    .split(",")
-    .map((label, i) => ({ value: i + 1, label: label.trim() }))
-    .filter(o => o.label);
+// The Group Types used when the host passes none.
+// TODO(host): Tank and FILTER share TypeID 5132 — a group saved as either
+// shows as Tank on Edit / in the grid until one gets its own id.
+export const LLD_DEFAULT_GROUP_TYPES: LldGroupType[] = [
+  { TYPES: "Wells", TypeID: 5000 },
+  { TYPES: "Separator", TypeID: 5131 },
+  { TYPES: "Tank", TypeID: 5132 },
+  { TYPES: "Compressor", TypeID: 5092 },
+  { TYPES: "Pump", TypeID: 6253 },
+  { TYPES: "UNIT", TypeID: 6339 },
+  { TYPES: "Blower", TypeID: 5084 },
+  { TYPES: "FLOW_LINE", TypeID: 5463 },
+  { TYPES: "COLUMN", TypeID: 5088 },
+  { TYPES: "EXCHANGER", TypeID: 6266 },
+  { TYPES: "FILTER", TypeID: 5132 },
+  { TYPES: "FURNACE", TypeID: 5423 },
+  { TYPES: "HEAT_RECOVERY_STEAM_GENERATOR", TypeID: 5329 },
+  { TYPES: "PROCESS_STEAM_GENERATOR", TypeID: 5433 },
+  { TYPES: "PROCESS (GU and AU)", TypeID: 6340 }
+];
+
+// The configured Group Types as dropdown options (label TYPES, value
+// TypeID) — the array, or the same as a JSON string. Rows without a name or
+// a numeric TypeID are skipped.
+export function parseGroupTypes(types: LldGroupType[] | string | null | undefined): LldGroupTypeOption[] {
+  let rows: unknown = types;
+  if (typeof types === "string") {
+    try {
+      rows = JSON.parse(types);
+    } catch {
+      console.error("[LLD] Group types aren't valid JSON:", types);
+      return [];
+    }
+  }
+  return (Array.isArray(rows) ? (rows as Partial<LldGroupType>[]) : [])
+    .map(row => ({ value: Number(row?.TypeID), label: String(row?.TYPES ?? "").trim() }))
+    .filter(o => o.label && Number.isFinite(o.value));
 }
 
 // One sub-group = ONE type + ONE template for every equipment in it —

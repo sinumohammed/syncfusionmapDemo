@@ -50,7 +50,8 @@ export class NxLldGroupDialogComponent implements OnDestroy {
       name: [group?.name ?? "", Validators.required],
       description: [group?.description ?? ""],
       order: [group?.order ?? data.nextOrder ?? 1, [Validators.required, Validators.min(0)]],
-      type: [group?.type ?? null, Validators.required],
+      // A group's type is fixed once it's created — locked on Edit.
+      type: [{ value: group?.type ?? null, disabled: group?.id != null }, Validators.required],
       isVisible: [group?.isVisible ?? true]
     });
     // A rejected save's message goes away once the user changes anything.
@@ -66,7 +67,8 @@ export class NxLldGroupDialogComponent implements OnDestroy {
       this.form.markAllAsTouched();
       return;
     }
-    const value = this.form.value;
+    // getRawValue(): includes the locked Type on Edit.
+    const value = this.form.getRawValue();
     const payload: LldGroup = {
       id: this.data.group?.id ?? null,
       viewId: this.data.view.id!,

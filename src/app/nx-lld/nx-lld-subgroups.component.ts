@@ -1,47 +1,80 @@
-import { ChangeDetectorRef, Component, Input, NgZone, OnChanges, OnDestroy, OnInit, SimpleChanges } from "@angular/core";
+import { ChangeDetectorRef, Component, Input, NgZone, OnChanges, OnDestroy, SimpleChanges } from "@angular/core";
 import { MatDialog } from "@angular/material/dialog";
-import { Observable, of, Subject, Subscription } from "rxjs";
-import { catchError, finalize, switchMap } from "rxjs/operators";
-import { LldGroupWithSubGroups, LldLookups, LldSubGroup } from "./model/nx-lld.model";
+import { asapScheduler, Observable, of, Subject, Subscription } from "rxjs";
+import { catchError, finalize, observeOn, switchMap } from "rxjs/operators";
+import {
+  groupTypeId,
+  LLD_SUBGROUP_DUMMY,
+  LldGroupTypeOption,
+  LldGroupWithSubGroups,
+  LldSeries,
+  LldSeriesSubGroup
+} from "./model/nx-lld.model";
 import { apiErrorMessage, LldViewSelection, NxLldService, selectedViewId } from "./services/nx-lld.service";
-import { LldSubGroupDialogData, NxLldSubGroupDialogComponent } from "./nx-lld-subgroup-dialog.component";
+import { LldSeriesSubGroupDialogData, NxLldSeriesSubGroupDialogComponent } from "./nx-lld-series-subgroup-dialog.component";
 import { LldConfirmDialogData, NxLldConfirmDialogComponent } from "./nx-lld-confirm-dialog.component";
 
-// The Sub-groups tab: pick one of the given view's groups, then its
-// sub-groups (each row toggles its equipment list), with Add / Edit /
-// Delete. Gets the picked view as the host passes it, {"LDID":[21]} — only
-// its id is needed.
+// The Group dropdown's "All" — 0 like GetLDGroupDetails' GID 0. Not null:
+// mat-select treats a null option as "no selection" and shows it empty.
+export const LLD_ALL_GROUPS = 0;
+
+// A sub-group row with the group it belongs to and its series.
+interface LldSubGroupRow {
+  subGroup: LldSeriesSubGroup;
+  group: LldGroupWithSubGroups;
+  series: LldSeries[];
+}
+
+// The Sub-groups tab: a Group dropdown (All, or one of the view's groups)
+// and its sub-groups. All lists every group's sub-groups and disables Add
+// Sub-group; a single group enables it. Add / Edit open the series popup
+// (NxLldSeriesSubGroupDialogComponent). Gets the picked view as the host
+// passes it, {"LDID":[21]} — only its id is needed.
 @Component({
   selector: "app-nx-lld-subgroups",
   templateUrl: "./nx-lld-subgroups.component.html",
   styleUrls: ["./nx-lld-tab.scss"]
 })
-export class NxLldSubGroupsComponent implements OnInit, OnChanges, OnDestroy {
+export class NxLldSubGroupsComponent implements OnChanges, OnDestroy {
   // {"LDID":[21]} — a JSON string or the parsed object.
   @Input() viewSelection: string | LldViewSelection | null = null;
   // TODO(host): the logged-in user's API token.
   @Input() token = "";
-  // The add / edit / delete permission. Not used by this tab itself — it's
-  // written to NxLldService, so the View dropdown and the other
-  // tabs follow it wherever they're rendered.
+  // The add / edit / delete permission — ONE value shared by every LLD
+  // component through NxLldService (hasPermission$). False (the default)
+  // hides Add Sub-group and the Edit / Delete icons.
   @Input() set hasPermission(value: boolean) {
     this.lldService.setHasPermission(value);
   }
+  get hasPermission(): boolean {
+    return this.permitted;
+  }
+  private permitted = false;
 
+  readonly allGroups = LLD_ALL_GROUPS;
   viewId: number | null = null;
-  lookups: LldLookups | null = null;
   groups: LldGroupWithSubGroups[] = [];
-  selectedGroupId: number | null = null;
-  // Which sub-groups show their equipment list — kept by id so a reload
-  // after a save doesn't collapse them.
-  readonly expandedSubGroupIds = new Set<number>();
+  selectedGroupId: number = LLD_ALL_GROUPS;
+  // Rebuilt only when the groups, the pick or the series change — a getter
+  // would hand *ngFor new rows on every check and swallow button clicks.
+  rows: LldSubGroupRow[] = [];
+  // GetLDGroupTypes — the group's type name and its Id for GetLDSeries.
+  typeOptions: LldGroupTypeOption[] = [];
+  // Every series met so far, by id — for the rows' series names / colours.
+  readonly seriesById = new Map<number, LldSeries>();
   loading = false;
+  busy = false;
 
   // switchMap drops a still-running fetch for a view that's no longer picked.
   private readonly groupsRequest$ = new Subject<number | null>();
   private readonly subscriptions = new Subscription();
 
   constructor(private lldService: NxLldService, private dialog: MatDialog, private cdr: ChangeDetectorRef, private zone: NgZone) {
+    // observeOn(asap): applied on the next tick, not mid-check.
+    this.permitted = this.lldService.hasPermission;
+    this.subscriptions.add(
+      this.lldService.hasPermission$.pipe(observeOn(asapScheduler)).subscribe(value => this.refresh(() => (this.permitted = value)))
+    );
     this.subscriptions.add(
       this.groupsRequest$
         .pipe(
@@ -67,23 +100,26 @@ export class NxLldSubGroupsComponent implements OnInit, OnChanges, OnDestroy {
     return this.groups.find(g => g.id === this.selectedGroupId) ?? null;
   }
 
-  ngOnInit(): void {
-    this.subscriptions.add(
-      this.lldService.getLookups(this.token).subscribe({
-        next: lookups => this.refresh(() => (this.lookups = lookups)),
-        error: (err: unknown) => console.error("[LLD] GetLookups failed:", apiErrorMessage(err), err)
-      })
-    );
+  readonly trackRow = (_: number, row: LldSubGroupRow) => row.subGroup.id;
+  readonly trackSeries = (_: number, s: LldSeries) => s.id;
+
+  onGroupChange(groupId: number): void {
+    this.selectedGroupId = groupId;
+    this.updateRows();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    // Again only if the first fetch failed (an empty list).
+    if (!this.typeOptions.length) {
+      this.loadGroupTypes();
+    }
     if (changes["viewSelection"]) {
       const id = selectedViewId(this.viewSelection);
       if (id !== this.viewId) {
         this.viewId = id;
         this.groups = [];
-        this.selectedGroupId = null;
-        this.expandedSubGroupIds.clear();
+        this.selectedGroupId = LLD_ALL_GROUPS;
+        this.updateRows();
         this.reload();
       }
     }
@@ -93,84 +129,130 @@ export class NxLldSubGroupsComponent implements OnInit, OnChanges, OnDestroy {
     this.subscriptions.unsubscribe();
   }
 
-  typeName(typeId: string): string {
-    return this.lookups?.subGroupTypes.find(t => t.id === typeId)?.name ?? typeId;
+  typeName(group: LldGroupWithSubGroups): string {
+    if (group.type == null) {
+      return "";
+    }
+    return this.typeOptions.find(o => o.value === Number(group.type))?.label ?? String(group.type);
   }
 
-  templateLabel(typeId: string, templateId: string): string {
-    const template = this.lookups?.subGroupTypes.find(t => t.id === typeId)?.templates.find(t => t.id === templateId);
-    return template ? `${template.name} ${template.version}` : templateId;
+  sourceTypeName(id: number | null): string {
+    return LLD_SUBGROUP_DUMMY.types.find(t => t.id === id)?.name ?? "—";
   }
 
-  equipmentName(id: string): string {
-    return this.lookups?.equipments.find(e => e.id === id)?.name ?? id;
+  equipmentName(id: number | null): string {
+    return LLD_SUBGROUP_DUMMY.equipments.find(e => e.id === id)?.name ?? "—";
   }
 
-  toggleSubGroup(sub: LldSubGroup): void {
-    if (!this.expandedSubGroupIds.delete(sub.id!)) {
-      this.expandedSubGroupIds.add(sub.id!);
+  // Only for a single group — All disables the button.
+  addSubGroup(): void {
+    const group = this.selectedGroup;
+    if (group) {
+      this.openDialog(group);
     }
   }
 
-  addSubGroup(): void {
-    this.openSubGroupDialog();
+  editSubGroup(row: LldSubGroupRow): void {
+    // The row's own group — under All the dropdown doesn't name it.
+    this.openDialog(row.group, row.subGroup);
   }
 
-  editSubGroup(sub: LldSubGroup, event: Event): void {
-    event.stopPropagation();
-    this.openSubGroupDialog(sub);
-  }
-
-  deleteSubGroup(sub: LldSubGroup, event: Event): void {
-    event.stopPropagation();
+  deleteSubGroup(row: LldSubGroupRow): void {
+    if (!this.hasPermission || this.busy) {
+      return;
+    }
     this.dialog
       .open<NxLldConfirmDialogComponent, LldConfirmDialogData, boolean>(NxLldConfirmDialogComponent, {
-        data: {
-          title: "Delete Sub-group",
-          message: `Delete sub-group "${sub.name}"? Its ${sub.equipments.length} equipment(s) will be removed too.`
-        }
+        data: { title: "Delete Sub-group", message: `Delete this sub-group of "${row.group.name}"?` }
       })
       .afterClosed()
       .subscribe(confirmed => {
         if (confirmed) {
-          this.lldService.deleteSubGroup(sub.id!, this.token).subscribe(() => {
-            this.expandedSubGroupIds.delete(sub.id!);
-            this.reload();
-          });
+          this.refresh(() => (this.busy = true));
+          this.lldService
+            .deleteSeriesSubGroup(row.subGroup.id!, this.token)
+            .pipe(finalize(() => this.refresh(() => (this.busy = false))))
+            .subscribe({
+              next: () => this.reload(),
+              error: (err: unknown) => console.error("[LLD] Delete sub-group failed:", apiErrorMessage(err), err)
+            });
         }
       });
   }
 
-  private openSubGroupDialog(subGroup?: LldSubGroup): void {
-    const group = this.selectedGroup;
-    if (!group || !this.lookups) {
+  private openDialog(group: LldGroupWithSubGroups, subGroup?: LldSeriesSubGroup): void {
+    if (!this.hasPermission) {
       return;
     }
     this.dialog
-      .open<NxLldSubGroupDialogComponent, LldSubGroupDialogData, LldSubGroup>(NxLldSubGroupDialogComponent, {
-        // Wide enough for each equipment's Name / Path / Attribute row.
-        width: "720px",
+      .open<NxLldSeriesSubGroupDialogComponent, LldSeriesSubGroupDialogData, LldSeriesSubGroup>(NxLldSeriesSubGroupDialogComponent, {
+        width: "520px",
         maxWidth: "95vw",
-        data: { subGroup, group, lookups: this.lookups, token: this.token }
+        data: { subGroup, group, token: this.token }
       })
       .afterClosed()
       .subscribe(saved => {
         if (saved) {
-          // A new sub-group opens straight away to show its equipments.
-          if (!subGroup && saved.id != null) {
-            this.expandedSubGroupIds.add(saved.id);
-          }
           this.reload();
         }
       });
   }
 
-  // Keeps the picked group when it's still there, else the first one.
+  private loadGroupTypes(): void {
+    this.subscriptions.add(
+      this.lldService.getGroupTypes(this.token).subscribe({
+        next: options =>
+          this.refresh(() => {
+            this.typeOptions = options;
+            this.loadSeries();
+          }),
+        error: (err: unknown) => console.error("[LLD] GetLDGroupTypes failed:", apiErrorMessage(err), err)
+      })
+    );
+  }
+
+  // The series of every group type in the view (cached per type), for the
+  // rows' series names.
+  private loadSeries(): void {
+    const typeIds = new Set(this.groups.map(g => groupTypeId(g.type, this.typeOptions)).filter((id): id is number => id != null));
+    typeIds.forEach(typeId =>
+      this.subscriptions.add(
+        this.lldService.getSeries(typeId, this.token).subscribe({
+          next: series =>
+            this.refresh(() => {
+              series.forEach(s => this.seriesById.set(s.id, s));
+              this.updateRows();
+            }),
+          error: (err: unknown) => console.error("[LLD] GetLDSeries failed:", apiErrorMessage(err), err)
+        })
+      )
+    );
+  }
+
+  // Keeps the pick (All included) when it's still there, else All.
   private setGroups(groups: LldGroupWithSubGroups[]): void {
     this.groups = groups;
-    if (!groups.some(g => g.id === this.selectedGroupId)) {
-      this.selectedGroupId = groups[0]?.id ?? null;
+    if (this.selectedGroupId !== LLD_ALL_GROUPS && !groups.some(g => g.id === this.selectedGroupId)) {
+      this.selectedGroupId = LLD_ALL_GROUPS;
     }
+    this.updateRows();
+    this.loadSeries();
+  }
+
+  // All: every group's sub-groups, group by group; else the picked group's.
+  private updateRows(): void {
+    const groups = this.selectedGroupId === LLD_ALL_GROUPS ? this.groups : this.groups.filter(g => g.id === this.selectedGroupId);
+    this.rows = groups.reduce<LldSubGroupRow[]>(
+      (rows, group) =>
+        rows.concat(
+          group.seriesSubGroups.map(subGroup => ({
+            subGroup,
+            group,
+            series: subGroup.seriesIds.map(id => this.seriesById.get(id) ?? { id, name: String(id), color: "" })
+          }))
+        ),
+      []
+    );
   }
 
   private reload(): void {
@@ -179,8 +261,8 @@ export class NxLldSubGroupsComponent implements OnInit, OnChanges, OnDestroy {
 
   // The host can sit this inside an OnPush parent, or finish its HTTP calls
   // outside Angular's zone — either way an async result alone wouldn't
-  // redraw. Every async update
-  // goes through here: back in the zone, marked for check.
+  // redraw. Every async update goes through here: back in the zone, marked
+  // for check.
   private refresh(update: () => void): void {
     this.zone.run(() => {
       update();

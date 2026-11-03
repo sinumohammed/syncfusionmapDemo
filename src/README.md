@@ -251,6 +251,7 @@ The same screen split into separate components, the way the host places them: th
 | Save / edit / delete view | `api/PDOCustom/SaveLD` | delete = the full model with `Status: 3` |
 | Groups of a view | `LimitDiagram/GetLDGroupDetails?LDID=<id>&GID=0` | empty body; `GID=0` = all groups; deleted groups aren't returned; sorted by `GroupOrder` |
 | One group (Edit) | `LimitDiagram/GetLDGroupDetails?LDID=<id>&GID=<gid>` | loaded before the Edit popup opens |
+| Series of a group type | `LimitDiagram/GetLDSeries?GroupTypeId=<Id>` | empty body; `GroupTypeId` = the GetLDGroupTypes **`Id`** (not the `ElementTypeId` a group saves — mapped back by `groupTypeId()`); rows `{ Id, SeriesName, SupportedGroupTypeId, Color, LDID }` (ids can be negative); cached per type |
 | Group types | `LimitDiagram/GetLDGroupTypes` | empty body; `Value` rows `{ Id, GroupType, GroupTypeCategory, ElementTypeId }`; fetched once and cached |
 | Save / edit / delete group | `LimitDiagram/SaveLDGroup` | full model `{ GroupID, GroupName, LDID, GroupOrder, GroupDesc, GroupType, IsVisible, IsDeleted }`; add = `GroupID: 0`, delete = `IsDeleted: true` |
 
@@ -261,10 +262,17 @@ The same screen split into separate components, the way the host places them: th
 - **AG Grid** (`ag-theme-alpine`, `domLayout="autoHeight"`, `suppressAnimationFrame`): Order, Group, Type (name), Description, Visible, Sub-groups count, and an Edit/Delete icon column (`NxLldRowActionsCellComponent`). The host needs `ag-grid.css` + `ag-theme-alpine.css` in its global styles.
 - **Group popup**: Group Name (required), Description, Type (required; **locked on Edit**), Order (new groups default to after the last), Visible.
 - **Group types**: from `GetLDGroupTypes` (`getGroupTypes()`, cached — the tab and every popup share one call; a failed call is retried on the next input change). The dropdown and grid show `GroupType`; `ElementTypeId` is saved as the group's `GroupType`. Tank and FILTER share ElementTypeId 5132 — a group saved as either shows as Tank. Types arriving after the rows redraw the column; a `GroupType` sent as a string is coerced to a number. Mock: `assets/mock-api/lld-group-types.json` (the real response).
-- **Sub-groups**: no API yet — counts come from the mock (0 with the real API).
+- **Sub-groups** column: counts the split tab's sub-groups (`seriesSubGroups`) — from the mock, 0 with the real API.
+
+### Sub-groups tab
+
+- **Group dropdown**: `All` (value `LLD_ALL_GROUPS` = 0, the default) lists every group's sub-groups with their group; **Add Sub-group is disabled under All** and enabled for a single group. A reload keeps the pick (All included).
+- **Table**: Group, Group Type, Series (colour swatch + name), Type, Equipment, Capacity, Edit/Delete (with permission). Add Sub-group and Edit/Delete follow the shared `hasPermission`.
+- **Popup** (`NxLldSeriesSubGroupDialogComponent`): Group and Group Type (read-only), **Series** checkboxes from `GetLDSeries` for the group's type, then Type and Equipment — **placeholders** (`LLD_SUBGROUP_DUMMY`) until discussed; the Equipment list is the picked Type's only (changing Type clears an equipment of another type), then Capacity (last). Future / Expected from the sketch are left out until discussed. Saved as `LldSeriesSubGroup` to the mock only (`saveSeriesSubGroup()` / `deleteSeriesSubGroup()`, URLs `TODO(host)`).
+- Tank and FILTER share ElementTypeId 5132, so a FILTER group asks GetLDSeries for Tank's Id (3).
 
 ### Still open
 
-- Sub-groups / lookups APIs; the Sub-groups tab's permission handling.
+- Sub-group save / delete / list APIs and the popup's placeholder fields (Type, Equipment) and the fields still to discuss (Future, Expected).
 - SaveLD returning `ID: 0` on success (the page falls back to finding a new view by name); once it returns the real id, the same `ID: 0` = failure rule can apply to views.
 - TEMP `console.log`s of the SaveLD / SaveLDGroup payloads (and GetSubSurfaceOperations) — remove once the models are confirmed.

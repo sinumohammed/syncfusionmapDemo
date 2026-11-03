@@ -138,3 +138,27 @@
   color: #b3261e;
   font-size: 13px;
 }
+// Series sub-group popup: the group type's series as checkboxes.
+.nx-lld-dialog-series {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 12px;
+  padding: 8px 16px 12px;
+  border: 1px solid #c7d2fe;
+  border-radius: 12px;
+
+  legend {
+    padding: 0 6px;
+    font-size: 12px;
+    color: #6b7280;
+  }
+}
+.nx-lld-dialog-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 2px;
+  vertical-align: middle;
+}

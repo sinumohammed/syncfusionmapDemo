@@ -146,3 +146,18 @@
 ::ng-deep .nx-lld-grid .ag-layout-auto-height .ag-center-cols-container {
   min-height: 0 !important;
 }
+
+// Sub-groups tab: a row's series, each with its colour.
+.nx-lld-series {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 12px;
+  white-space: nowrap;
+}
+.nx-lld-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  border-radius: 2px;
+}

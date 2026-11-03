@@ -146,8 +146,11 @@ export interface LldGroupRequest {
 
 // One Group Type dropdown option.
 export interface LldGroupTypeOption {
+  // ElementTypeId — what a group saves as its GroupType.
   value: number;
   label: string;
+  // The type's own Id — what GetLDSeries takes as GroupTypeId.
+  id: number;
 }
 
 // One row of GetLDGroupTypes' Value. GroupType is shown in the dropdown,
@@ -165,9 +168,68 @@ export interface LldGroupTypeResponse {
 // either shows as Tank on Edit / in the grid.
 export function toGroupTypeOptions(rows: LldGroupTypeResponse[] | null | undefined): LldGroupTypeOption[] {
   return (rows ?? [])
-    .map(row => ({ value: Number(row?.ElementTypeId), label: String(row?.GroupType ?? "").trim() }))
+    .map(row => ({ value: Number(row?.ElementTypeId), label: String(row?.GroupType ?? "").trim(), id: Number(row?.Id) }))
     .filter(o => o.label && Number.isFinite(o.value));
 }
+
+// A group's GroupType (its ElementTypeId) as the type's Id, for GetLDSeries
+// — null when the group has no type or it isn't in the list.
+// TODO(host): Tank and FILTER share ElementTypeId 5132, so a FILTER group
+// resolves to Tank's Id (3), not 11.
+export function groupTypeId(type: number | null | undefined, options: LldGroupTypeOption[]): number | null {
+  const option = type == null ? undefined : options.find(o => o.value === Number(type));
+  return option && Number.isFinite(option.id) ? option.id : null;
+}
+
+// --------------------------------------------------------------- series
+// One row of GetLDSeries' Value. Ids can be negative (the built-in
+// Unavailable / Stand By / Available); SupportedGroupTypeId is the type
+// Ids it applies to, comma-separated; LDID -1 = every view.
+export interface LldSeriesResponse {
+  Id: number;
+  SeriesName: string;
+  SupportedGroupTypeId: string;
+  Color: string;
+  LDID: number;
+}
+
+export interface LldSeries {
+  id: number;
+  name: string;
+  color: string;
+}
+
+// ------------------------------------------------- sub-groups (split tab)
+// What the Sub-groups tab's popup saves: the picked series, the Type, that
+// type's Equipment and the Capacity. TODO(host): no API yet — the mock stores these;
+// Type and Equipment are placeholders until they're discussed.
+export interface LldSeriesSubGroup {
+  id?: number | null;
+  groupId: number;
+  // Picked series ids (GetLDSeries' Id).
+  seriesIds: number[];
+  // LLD_SUBGROUP_DUMMY.types' id.
+  sourceType: number | null;
+  // LLD_SUBGROUP_DUMMY.equipments' id — one of sourceType's equipments.
+  equipmentId: number | null;
+  capacity: number | null;
+}
+
+// TODO(host): placeholders for the popup's Type and Equipment — the one
+// place to replace them. Each equipment belongs to one type (typeId); the
+// Equipment dropdown lists the picked type's only.
+export const LLD_SUBGROUP_DUMMY = {
+  types: [
+    { id: 1, name: "Manual" },
+    { id: 2, name: "Calculated" }
+  ],
+  equipments: [
+    { id: 1, name: "Nitrogen", typeId: 1 },
+    { id: 2, name: "Compressor A", typeId: 1 },
+    { id: 3, name: "Pump P-101", typeId: 2 },
+    { id: 4, name: "Flow Meter FM-1", typeId: 2 }
+  ]
+};
 
 // One sub-group = ONE type + ONE template for every equipment in it —
 // mixed templates aren't representable, by design.
@@ -195,4 +257,6 @@ export interface LldSubGroupEquipment {
 // the grouped layout renders from a single call.
 export interface LldGroupWithSubGroups extends LldGroup {
   subGroups: LldSubGroup[];
+  // The split Sub-groups tab's sub-groups (see LldSeriesSubGroup).
+  seriesSubGroups: LldSeriesSubGroup[];
 }

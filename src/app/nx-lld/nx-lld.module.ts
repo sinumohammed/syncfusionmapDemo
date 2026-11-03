@@ -3,6 +3,7 @@ import { HttpClientModule } from "@angular/common/http";
 import { NgModule } from "@angular/core";
 import { ReactiveFormsModule } from "@angular/forms";
 import { MatButtonModule } from "@angular/material/button";
+import { MatCheckboxModule } from "@angular/material/checkbox";
 import { MatDialogModule } from "@angular/material/dialog";
 import { MatExpansionModule } from "@angular/material/expansion";
 import { MatFormFieldModule } from "@angular/material/form-field";
@@ -18,6 +19,7 @@ import { NxLldConfirmDialogComponent } from "./nx-lld-confirm-dialog.component";
 import { NxLldGroupDialogComponent } from "./nx-lld-group-dialog.component";
 import { NxLldGroupsComponent } from "./nx-lld-groups.component";
 import { NxLldRowActionsCellComponent } from "./nx-lld-row-actions-cell.component";
+import { NxLldSeriesSubGroupDialogComponent } from "./nx-lld-series-subgroup-dialog.component";
 import { NxLldSubGroupDialogComponent } from "./nx-lld-subgroup-dialog.component";
 import { NxLldSubGroupsComponent } from "./nx-lld-subgroups.component";
 import { NxLldViewDetailsComponent } from "./nx-lld-view-details.component";
@@ -39,6 +41,7 @@ import { NxLldViewDialogComponent } from "./nx-lld-view-dialog.component";
     NxLldViewDialogComponent,
     NxLldGroupDialogComponent,
     NxLldSubGroupDialogComponent,
+    NxLldSeriesSubGroupDialogComponent,
     NxLldViewDetailsComponent,
     NxLldGroupsComponent,
     NxLldRowActionsCellComponent,
@@ -49,6 +52,7 @@ import { NxLldViewDialogComponent } from "./nx-lld-view-dialog.component";
     HttpClientModule,
     ReactiveFormsModule,
     MatButtonModule,
+    MatCheckboxModule,
     MatDialogModule,
     MatExpansionModule,
     MatFormFieldModule,

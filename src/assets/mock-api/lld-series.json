@@ -1,0 +1,16 @@
+{
+  "Value": [
+    { "Id": -5, "SeriesName": "Unavailable", "SupportedGroupTypeId": "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15", "Color": "#DC3545", "LDID": -1 },
+    { "Id": -3, "SeriesName": "Stand By", "SupportedGroupTypeId": "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15", "Color": "#FFA500", "LDID": -1 },
+    { "Id": -2, "SeriesName": "Available", "SupportedGroupTypeId": "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15", "Color": "#28A745", "LDID": -1 }
+  ],
+  "IsValid": true,
+  "Status": true,
+  "StatusMessage": null,
+  "Warning": null,
+  "ID": 0,
+  "Name": null,
+  "CreatedOn": "0001-01-01T00:00:00+04:00",
+  "StackTrace": null,
+  "ErrorMessage": null
+}

@@ -13,6 +13,9 @@ import {
   LldGroupWithSubGroups,
   LldLookups,
   LldSaveViewRequest,
+  LldSeries,
+  LldSeriesResponse,
+  LldSeriesSubGroup,
   LldSubGroup,
   LldView,
   LldViewResponse,
@@ -42,6 +45,12 @@ export const LLD_GROUPS_URL = "LimitDiagram/GetLDGroupDetails";
 export const LLD_SAVE_GROUP_URL = "LimitDiagram/SaveLDGroup";
 // The Group Type dropdown (see getGroupTypes()).
 export const LLD_GROUP_TYPES_URL = "LimitDiagram/GetLDGroupTypes";
+// A group type's series (see getSeries()).
+export const LLD_SERIES_URL = "LimitDiagram/GetLDSeries";
+// TODO(host): the split Sub-groups tab's save / delete — no API yet, the
+// mock answers both. Save = add (no id) AND edit (with id), same URL.
+export const LLD_SAVE_SERIES_SUBGROUP_URL = "LimitDiagram/SaveLDSubGroup";
+export const LLD_DELETE_SERIES_SUBGROUP_URL = "LimitDiagram/DeleteLDSubGroup";
 
 // TODO(host): real endpoints not known yet. Save = add (no id) AND edit
 // (with id), same URL; delete by id.
@@ -64,6 +73,8 @@ const MOCK_SUBSURFACES_URL = "assets/mock-api/lld-subsurfaces.json";
 const MOCK_STATIONS_URL = "assets/mock-api/lld-stations.json";
 // The real GetLDGroupTypes response.
 const MOCK_GROUP_TYPES_URL = "assets/mock-api/lld-group-types.json";
+// The real GetLDSeries response (GroupTypeId=3); filtered per type by the mock.
+const MOCK_SERIES_URL = "assets/mock-api/lld-series.json";
 // Who the mock "server" stamps as a view's creator / modifier (the real API
 // takes the logged-in user).
 const MOCK_USER = "1337";
@@ -302,6 +313,7 @@ interface LldMockData {
   views: LldView[];
   groups: LldGroup[];
   subGroups: LldSubGroup[];
+  seriesSubGroups: LldSeriesSubGroup[];
 }
 
 // providedIn "root": ONE instance for the whole app — the View dropdown's
@@ -513,6 +525,32 @@ export class NxLldService {
   }
   private readonly groupTypesCache = new Map<string, Observable<LldGroupTypeOption[]>>();
 
+  // ------------------------------------------------------------ series
+  // A group type's series: GetLDSeries with the type's Id (GetLDGroupTypes'
+  // Id, not the ElementTypeId a group saves — see groupTypeId()) in the
+  // query string (…/GetLDSeries?GroupTypeId=3), the body empty. Remembered
+  // per type.
+  getSeries(groupTypeId: number, token: string): Observable<LldSeries[]> {
+    return this.cached(this.seriesCache, groupTypeId, () =>
+      (USE_MOCK
+        ? this.http.get<LldApiResult<LldSeriesResponse[]>>(MOCK_SERIES_URL).pipe(
+            delay(MOCK_LATENCY_MS),
+            // What the server does: only the series supporting this type.
+            map(result => ({
+              ...result,
+              Value: result.Value.filter(s => s.SupportedGroupTypeId.split(",").map(Number).includes(groupTypeId))
+            }))
+          )
+        : this.post<LldApiResult<LldSeriesResponse[]>>(`${LLD_SERIES_URL}?GroupTypeId=${encodeURIComponent(groupTypeId)}`, null, token)
+      ).pipe(
+        map((result: LldApiResult<LldSeriesResponse[]>) =>
+          (unwrapResult(result) ?? []).map(row => ({ id: row.Id, name: row.SeriesName ?? "", color: row.Color ?? "" }))
+        )
+      )
+    );
+  }
+  private readonly seriesCache = new Map<number, Observable<LldSeries[]>>();
+
   // ------------------------------------------------------------ groups
   // One view's groups in display order: GetLDGroupDetails with the LDID and
   // GID 0 in the query string (…/GetLDGroupDetails?LDID=7&GID=0), the
@@ -528,7 +566,11 @@ export class NxLldService {
         );
     return groups$.pipe(
       map((groups: LldGroup[]) =>
-        [...groups].sort(byGroupOrder).map(g => ({ ...g, subGroups: this.store.subGroups.filter(s => s.groupId === g.id) }))
+        [...groups].sort(byGroupOrder).map(g => ({
+          ...g,
+          subGroups: this.store.subGroups.filter(s => s.groupId === g.id),
+          seriesSubGroups: this.store.seriesSubGroups.filter(s => s.groupId === g.id)
+        }))
       )
     );
   }
@@ -598,6 +640,23 @@ export class NxLldService {
     return this.saveGroup({ ...group, isDeleted: true }, token);
   }
 
+  // ------------------------------------------- sub-groups (split tab)
+  // TODO(host): mock only until the API is known (see
+  // LLD_SAVE_SERIES_SUBGROUP_URL).
+  saveSeriesSubGroup(subGroup: LldSeriesSubGroup, token: string): Observable<LldSeriesSubGroup> {
+    if (USE_MOCK) {
+      return this.mock(() => this.upsert("seriesSubGroups", subGroup)).pipe(this.reportSaveFailure<LldSeriesSubGroup>());
+    }
+    return this.post<LldSeriesSubGroup>(LLD_SAVE_SERIES_SUBGROUP_URL, subGroup, token).pipe(this.reportSaveFailure<LldSeriesSubGroup>());
+  }
+
+  deleteSeriesSubGroup(id: number, token: string): Observable<unknown> {
+    if (USE_MOCK) {
+      return this.mock(() => (this.store.seriesSubGroups = this.store.seriesSubGroups.filter(s => s.id !== id)));
+    }
+    return this.post<unknown>(LLD_DELETE_SERIES_SUBGROUP_URL, { id }, token);
+  }
+
   // --------------------------------------------------------- sub-groups
   saveSubGroup(subGroup: LldSubGroup, token: string): Observable<LldSubGroup> {
     if (USE_MOCK) {
@@ -649,7 +708,7 @@ export class NxLldService {
   private mockLookups!: LldLookups;
   private mockSubsurfaces!: LldApiResult<ElementResponse[]>;
   private mockStations: Record<number, ElementResponse[]> = {};
-  private store: LldMockData = { views: [], groups: [], subGroups: [] };
+  private store: LldMockData = { views: [], groups: [], subGroups: [], seriesSubGroups: [] };
   private readonly mockReady$: Observable<unknown> = USE_MOCK
     ? forkJoin([
         this.http.get<LldLookups>(MOCK_LOOKUPS_URL),
@@ -659,7 +718,7 @@ export class NxLldService {
       ]).pipe(
         map(([lookups, data, subsurfaces, stations]) => {
           this.mockLookups = lookups;
-          this.store = data;
+          this.store = { ...data, seriesSubGroups: data.seriesSubGroups ?? [] };
           this.mockSubsurfaces = subsurfaces;
           this.mockStations = stations;
         }),

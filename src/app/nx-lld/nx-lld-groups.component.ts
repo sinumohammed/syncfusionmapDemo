@@ -64,7 +64,7 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
     { field: "type", headerName: "Type", width: 160, valueFormatter: p => this.typeLabel(p.value) },
     { field: "description", headerName: "Description", flex: 2, minWidth: 200, valueFormatter: p => p.value || "—" },
     { field: "isVisible", headerName: "Visible", width: 100, valueFormatter: p => (p.value ? "Yes" : "No") },
-    { colId: "subGroups", headerName: "Sub-groups", width: 120, valueGetter: p => p.data?.subGroups.length ?? 0 },
+    { colId: "subGroups", headerName: "Sub-groups", width: 120, valueGetter: p => p.data?.seriesSubGroups.length ?? 0 },
     {
       colId: "actions",
       headerName: "",
@@ -239,8 +239,8 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
     if (!this.hasPermission || this.busy) {
       return;
     }
-    const children = group.subGroups.length
-      ? ` Its ${group.subGroups.length} sub-group(s) and their equipments will be deleted too.`
+    const children = group.seriesSubGroups.length
+      ? ` Its ${group.seriesSubGroups.length} sub-group(s) will be deleted too.`
       : "";
     this.dialog
       .open<NxLldConfirmDialogComponent, LldConfirmDialogData, boolean>(NxLldConfirmDialogComponent, {
@@ -250,7 +250,7 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
       .subscribe(confirmed => {
         if (confirmed) {
           // The full model, only IsDeleted set (see NxLldService.deleteGroup).
-          const { subGroups, ...model } = group;
+          const { subGroups, seriesSubGroups, ...model } = group;
           this.refresh(() => (this.busy = true));
           this.lldService
             .deleteGroup(model, this.token)

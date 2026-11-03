@@ -128,5 +128,28 @@
         }
       ]
     }
+  ],
+  "seriesSubGroups": [
+    {
+      "id": 1,
+      "groupId": 1,
+      "seriesIds": [
+        -2,
+        -3
+      ],
+      "sourceType": 1,
+      "equipmentId": 1,
+      "capacity": 2
+    },
+    {
+      "id": 2,
+      "groupId": 2,
+      "seriesIds": [
+        -5
+      ],
+      "sourceType": 2,
+      "equipmentId": 3,
+      "capacity": 1
+    }
   ]
 }

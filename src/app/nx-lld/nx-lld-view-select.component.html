@@ -11,7 +11,7 @@
   </mat-form-field>
 
   <!-- Shown while hovering (or tabbing into) the dropdown. -->
-  <div class="nx-lld-view-select-actions" *ngIf="config?.showToolbar" role="toolbar" aria-label="View actions">
+  <div class="nx-lld-view-select-actions" *ngIf="canEdit" role="toolbar" aria-label="View actions">
     <button type="button" class="nx-lld-view-select-btn nx-lld-view-select-btn--add" matTooltip="New view" aria-label="New view" (click)="newView()" [disabled]="editLoading">
       <svg viewBox="0 0 24 24" class="nx-lld-view-select-icon"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" /></svg>
     </button>

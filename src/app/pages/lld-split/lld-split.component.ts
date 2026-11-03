@@ -16,6 +16,11 @@ import { LldViewSelectConfig } from "../../nx-lld/nx-lld-view-select.component";
 export class LldSplitComponent {
   // Toggle to see the dropdown without its Edit / Delete icons.
   viewSelectConfig: LldViewSelectConfig = { showToolbar: true };
+  // TODO(host): the logged-in user's permission to add / edit / delete
+  // views and groups. Passed to the tabs only — like the host, whose header
+  // can't take it: the View dropdown there gets it through
+  // NxLldService. Toggle to see the read-only screen.
+  hasPermission = true;
 
   // TODO(host): the Group Types from configuration — [{ TYPES, TypeID }].
   groupTypes: LldGroupType[] = LLD_DEFAULT_GROUP_TYPES;

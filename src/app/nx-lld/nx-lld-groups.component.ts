@@ -1,8 +1,8 @@
 import { ChangeDetectorRef, Component, Input, NgZone, OnChanges, OnDestroy, SimpleChanges } from "@angular/core";
 import { MatDialog } from "@angular/material/dialog";
-import { ColDef, GridApi, GridReadyEvent } from "ag-grid-community";
-import { Observable, of, Subject, Subscription } from "rxjs";
-import { catchError, filter, finalize, switchMap } from "rxjs/operators";
+import { ColDef, ColumnApi, GridApi, GridReadyEvent } from "ag-grid-community";
+import { asapScheduler, Observable, of, Subject, Subscription } from "rxjs";
+import { catchError, filter, finalize, observeOn, switchMap } from "rxjs/operators";
 import { LLD_DEFAULT_GROUP_TYPES, LldGroup, LldGroupType, LldGroupTypeOption, LldGroupWithSubGroups, LldView, parseGroupTypes } from "./model/nx-lld.model";
 import { apiErrorMessage, LldViewSelection, NxLldService, selectedViewId } from "./services/nx-lld.service";
 import { LldGroupDialogData, NxLldGroupDialogComponent } from "./nx-lld-group-dialog.component";
@@ -26,6 +26,18 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
   // The Group Type dropdown: [{ "TYPES": "Pump", "TypeID": 6253 }, …], or
   // that as a JSON string. TypeID is saved as GroupType.
   @Input() groupTypes: LldGroupType[] | string = LLD_DEFAULT_GROUP_TYPES;
+  // The add / edit / delete permission — ONE value shared by every LLD
+  // component through NxLldService (hasPermission$), so the host can bind
+  // it on whichever component it renders, or call setHasPermission().
+  // Reads the shared value; false (the default) makes the tab
+  // read-only: no Add Group button, no Edit / Delete icons.
+  @Input() set hasPermission(value: boolean) {
+    this.lldService.setHasPermission(value);
+  }
+  get hasPermission(): boolean {
+    return this.permitted;
+  }
+  private permitted = false;
 
   typeOptions: LldGroupTypeOption[] = parseGroupTypes(LLD_DEFAULT_GROUP_TYPES);
   // An Edit fetching its group, or a Delete running.
@@ -40,6 +52,7 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
   private readonly viewRequest$ = new Subject<number | null>();
   private readonly subscriptions = new Subscription();
   private gridApi: GridApi | null = null;
+  private columnApi: ColumnApi | null = null;
 
   // The groups grid (AG Grid). Rows come in display order (by Order) —
   // the user can still sort by any column.
@@ -72,7 +85,22 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
   // Rows keyed by GroupID, so a reload keeps the grid's sort / scroll.
   readonly rowId = (p: { data: LldGroupWithSubGroups }) => String(p.data.id);
 
-  constructor(private lldService: NxLldService, private dialog: MatDialog, private cdr: ChangeDetectorRef, private zone: NgZone) {
+  constructor(
+    private lldService: NxLldService,
+    private dialog: MatDialog,
+    private cdr: ChangeDetectorRef,
+    private zone: NgZone
+  ) {
+    // observeOn(asap): applied on the next tick, not mid-check.
+    this.permitted = this.lldService.hasPermission;
+    this.subscriptions.add(
+      this.lldService.hasPermission$.pipe(observeOn(asapScheduler)).subscribe(value =>
+        this.refresh(() => {
+          this.permitted = value;
+          this.showActionsColumn();
+        })
+      )
+    );
     this.subscriptions.add(
       this.groupsRequest$
         .pipe(
@@ -154,6 +182,13 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
 
   onGridReady(event: GridReadyEvent): void {
     this.gridApi = event.api;
+    this.columnApi = event.columnApi;
+    this.showActionsColumn();
+  }
+
+  // The Edit / Delete column only for a user with permission.
+  private showActionsColumn(): void {
+    this.columnApi?.setColumnVisible("actions", this.hasPermission);
   }
 
   // No groups removes the grid (*ngIf) — and its API with it.
@@ -161,12 +196,13 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
     this.groups = groups;
     if (!groups.length) {
       this.gridApi = null;
+      this.columnApi = null;
     }
   }
 
   // Opens with the group's own details (GetLDGroupDetails with its GID).
   editGroup(group: LldGroup): void {
-    if (this.busy || !this.view || this.viewId == null) {
+    if (!this.hasPermission || this.busy || !this.view || this.viewId == null) {
       return;
     }
     this.busy = true;
@@ -180,7 +216,7 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
   }
 
   deleteGroup(group: LldGroupWithSubGroups): void {
-    if (this.busy) {
+    if (!this.hasPermission || this.busy) {
       return;
     }
     const children = group.subGroups.length
@@ -209,7 +245,7 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
 
   // Needs the view's details (the popup shows its name).
   private openGroupDialog(group?: LldGroup): void {
-    if (!this.view) {
+    if (!this.hasPermission || !this.view) {
       return;
     }
     this.dialog

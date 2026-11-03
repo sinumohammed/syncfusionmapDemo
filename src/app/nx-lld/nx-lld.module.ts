@@ -22,7 +22,6 @@ import { NxLldSubGroupDialogComponent } from "./nx-lld-subgroup-dialog.component
 import { NxLldSubGroupsComponent } from "./nx-lld-subgroups.component";
 import { NxLldViewDetailsComponent } from "./nx-lld-view-details.component";
 import { NxLldViewDialogComponent } from "./nx-lld-view-dialog.component";
-import { NxLldService } from "./services/nx-lld.service";
 
 // Self-contained like the other nx-* modules: import NxLldModule and drop
 // <app-nx-lld-config></app-nx-lld-config> where the LLD screen should render.
@@ -61,7 +60,6 @@ import { NxLldService } from "./services/nx-lld.service";
     MatTooltipModule,
     AgGridModule
   ],
-  providers: [NxLldService],
   // MatTabsModule too, for the host page that puts the Groups / Sub-groups
   // components in tabs.
   exports: [NxLldConfigComponent, NxLldViewDetailsComponent, NxLldGroupsComponent, NxLldSubGroupsComponent, MatTabsModule]

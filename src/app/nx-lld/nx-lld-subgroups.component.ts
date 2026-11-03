@@ -21,6 +21,12 @@ export class NxLldSubGroupsComponent implements OnInit, OnChanges, OnDestroy {
   @Input() viewSelection: string | LldViewSelection | null = null;
   // TODO(host): the logged-in user's API token.
   @Input() token = "";
+  // The add / edit / delete permission. Not used by this tab itself — it's
+  // written to NxLldService, so the View dropdown and the other
+  // tabs follow it wherever they're rendered.
+  @Input() set hasPermission(value: boolean) {
+    this.lldService.setHasPermission(value);
+  }
 
   viewId: number | null = null;
   lookups: LldLookups | null = null;

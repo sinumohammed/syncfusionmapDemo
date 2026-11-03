@@ -27,7 +27,7 @@ interface LldViewsRequest {
 // (viewChange) — the Groups / Sub-groups tabs take that view as input.
 // New opens the View popup empty; Edit fetches the view's details
 // (GetLDViewDetails) first; Delete asks first. All three only when
-// config.showToolbar is on.
+// config.showToolbar is on AND the user has permission (hasPermission).
 @Component({
   selector: "app-nx-lld-view-select",
   templateUrl: "./nx-lld-view-select.component.html",
@@ -40,6 +40,18 @@ export class NxLldViewSelectComponent implements DoCheck, OnDestroy {
   // TODO(host): the logged-in user's API token.
   @Input() token = "";
   @Input() config: LldViewSelectConfig = { showToolbar: true };
+  // The add / edit / delete permission — ONE value shared by every LLD
+  // component through NxLldService (hasPermission$), so the host can bind
+  // it on whichever component it renders, or call setHasPermission().
+  // Reads the shared value; false (the default) leaves just the
+  // dropdown.
+  @Input() set hasPermission(value: boolean) {
+    this.lldService.setHasPermission(value);
+  }
+  get hasPermission(): boolean {
+    return this.permitted;
+  }
+  private permitted = false;
   // The picked view (its list row), or null when there's none.
   @Output() readonly viewChange = new EventEmitter<LldView | null>();
 
@@ -64,10 +76,23 @@ export class NxLldViewSelectComponent implements DoCheck, OnDestroy {
   // detection.
   private readonly viewsRequest$ = new Subject<LldViewsRequest>();
   private readonly viewsSub: Subscription;
+  private readonly permissionSub: Subscription;
   private loadedHierarchyKey: string | null = null;
   private emittedView: LldView | null = null;
 
-  constructor(private lldService: NxLldService, private dialog: MatDialog, private cdr: ChangeDetectorRef, private zone: NgZone) {
+  constructor(
+    private lldService: NxLldService,
+    private dialog: MatDialog,
+    private cdr: ChangeDetectorRef,
+    private zone: NgZone
+  ) {
+    // observeOn(asap): the value can be set by a component checked AFTER
+    // this one (a tab below the header) — applied on the next tick instead
+    // of mid-check.
+    this.permitted = this.lldService.hasPermission;
+    this.permissionSub = this.lldService.hasPermission$
+      .pipe(observeOn(asapScheduler))
+      .subscribe(value => this.refresh(() => (this.permitted = value)));
     this.viewsSub = this.viewsRequest$
       .pipe(
         switchMap(({ selectId, selectName }: LldViewsRequest) => {
@@ -103,19 +128,27 @@ export class NxLldViewSelectComponent implements DoCheck, OnDestroy {
 
   ngOnDestroy(): void {
     this.viewsSub.unsubscribe();
+    this.permissionSub.unsubscribe();
   }
 
   onSelectionChange(): void {
     this.emitSelected();
   }
 
+  get canEdit(): boolean {
+    return !!this.config?.showToolbar && this.hasPermission;
+  }
+
   newView(): void {
+    if (!this.canEdit) {
+      return;
+    }
     this.openEditor(null);
   }
 
   editView(): void {
     const view = this.selectedView;
-    if (view && view.id != null) {
+    if (this.canEdit && view && view.id != null) {
       this.openEditor(view.id);
     }
   }
@@ -151,7 +184,7 @@ export class NxLldViewSelectComponent implements DoCheck, OnDestroy {
   // the same SaveLD call as an edit (see NxLldService.deleteView()).
   deleteView(): void {
     const view = this.selectedView;
-    if (!view || view.id == null || this.editLoading) {
+    if (!this.canEdit || !view || view.id == null || this.editLoading) {
       return;
     }
     this.dialog

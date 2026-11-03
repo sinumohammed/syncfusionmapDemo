@@ -6,13 +6,13 @@
   <ng-container *ngIf="viewId != null">
     <div class="nx-lld-tab-header">
       <h3 class="nx-lld-tab-title">Groups<ng-container *ngIf="view"> of {{ view.name }}</ng-container></h3>
-      <button mat-stroked-button color="primary" (click)="addGroup()" [disabled]="!view">
+      <button mat-stroked-button color="primary" *ngIf="hasPermission" (click)="addGroup()" [disabled]="!view">
         <svg viewBox="0 0 24 24" class="nx-lld-icon nx-lld-icon--btn"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" /></svg>
         Add Group
       </button>
     </div>
 
-    <div class="nx-lld-empty" *ngIf="!loading && !groups.length">No groups in this view yet — click Add Group to start.</div>
+    <div class="nx-lld-empty" *ngIf="!loading && !groups.length">No groups in this view yet<ng-container *ngIf="hasPermission"> — click Add Group to start</ng-container>.</div>
 
     <!-- suppressAnimationFrame: render cells (the Edit / Delete icons)
          straight away — AG Grid's animation-frame queue may not tick in the

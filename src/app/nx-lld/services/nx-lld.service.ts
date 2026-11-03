@@ -1,7 +1,7 @@
 import { Injectable } from "@angular/core";
 import { HttpClient, HttpErrorResponse, HttpHeaders } from "@angular/common/http";
-import { forkJoin, Observable, of, Subject, throwError } from "rxjs";
-import { catchError, delay, map, mergeMap, shareReplay, tap } from "rxjs/operators";
+import { BehaviorSubject, forkJoin, Observable, of, Subject, throwError } from "rxjs";
+import { catchError, delay, distinctUntilChanged, map, mergeMap, shareReplay, tap } from "rxjs/operators";
 import { dcTag } from "../model/dc-tag.model";
 import {
   LldApiResult,
@@ -297,9 +297,33 @@ interface LldMockData {
   subGroups: LldSubGroup[];
 }
 
-@Injectable()
+// providedIn "root": ONE instance for the whole app — the View dropdown's
+// module (NxLldViewSelectModule, in the host's header) and the tabs' module
+// share it even when one of them is lazy-loaded, so they share the
+// permission (hasPermission$), viewSaved$ and the caches. Needs the app's
+// root HttpClientModule (the host's own).
+@Injectable({ providedIn: "root" })
 export class NxLldService {
   constructor(private http: HttpClient) {}
+
+  // ------------------------------------------------------- permission
+  // Whether the logged-in user may add / edit / delete views and groups —
+  // ONE value shared by every LLD component, wherever it's rendered: the
+  // View dropdown in the host's header and the tabs on the page don't need
+  // a common parent to pass it down. Set it by binding [hasPermission] on
+  // any LLD tab (or the View dropdown) — each input writes here — or by
+  // calling setHasPermission(). Components read hasPermission$ and hide
+  // their add / edit / delete controls while it's false (the default).
+  private readonly permissionSubject = new BehaviorSubject<boolean>(false);
+  readonly hasPermission$: Observable<boolean> = this.permissionSubject.pipe(distinctUntilChanged());
+
+  get hasPermission(): boolean {
+    return this.permissionSubject.value;
+  }
+
+  setHasPermission(value: boolean | null | undefined): void {
+    this.permissionSubject.next(!!value);
+  }
 
   // --------------------------------------------------------- elements
   // The Subsurface dropdown. `tags` is the host's own tag selection, posted

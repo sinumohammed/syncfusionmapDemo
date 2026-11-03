@@ -10,17 +10,17 @@
 <mat-tab-group class="lld-split-tabs" animationDuration="0ms">
   <mat-tab label="View">
     <ng-template matTabContent>
-      <app-nx-lld-view-details [viewSelection]="viewSelection"></app-nx-lld-view-details>
+      <app-nx-lld-view-details [viewSelection]="viewSelection" [hasPermission]="hasPermission"></app-nx-lld-view-details>
     </ng-template>
   </mat-tab>
   <mat-tab label="Groups">
     <ng-template matTabContent>
-      <app-nx-lld-groups [viewSelection]="viewSelection" [groupTypes]="groupTypes"></app-nx-lld-groups>
+      <app-nx-lld-groups [viewSelection]="viewSelection" [groupTypes]="groupTypes" [hasPermission]="hasPermission"></app-nx-lld-groups>
     </ng-template>
   </mat-tab>
   <mat-tab label="Sub-groups">
     <ng-template matTabContent>
-      <app-nx-lld-subgroups [viewSelection]="viewSelection"></app-nx-lld-subgroups>
+      <app-nx-lld-subgroups [viewSelection]="viewSelection" [hasPermission]="hasPermission"></app-nx-lld-subgroups>
     </ng-template>
   </mat-tab>
 </mat-tab-group>

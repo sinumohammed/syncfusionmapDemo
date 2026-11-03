@@ -232,7 +232,7 @@ The same screen split into separate components, the way the host places them: th
 |---|---|---|---|
 | View dropdown | `NxLldViewSelectModule` (imports `NxLldModule`) | `app-nx-lld-view-select` | `hierarchyTags`, `token`, `config: { showToolbar }`, `hasPermission`; output `viewChange` (the picked view row) |
 | View tab | `NxLldModule` | `app-nx-lld-view-details` | `viewSelection`, `token`, `hasPermission` |
-| Groups tab | `NxLldModule` | `app-nx-lld-groups` | `viewSelection`, `token`, `groupTypes`, `hasPermission` |
+| Groups tab | `NxLldModule` | `app-nx-lld-groups` | `viewSelection`, `token`, `hasPermission` |
 | Sub-groups tab | `NxLldModule` | `app-nx-lld-subgroups` | `viewSelection`, `token`, `hasPermission` |
 
 - **Picked view → tabs**: the host turns the dropdown's pick into a JSON string `'{"LDID":[21]}'` and passes it as `[viewSelection]`. `selectedViewId()` takes the id from any shape (`{"id":21}`, `{"viewId":"21"}`, `[21]`, `21`, `"21"`, string or object); a tab only reloads when the id changes. Each tab is built inside `<ng-template matTabContent>`.
@@ -251,6 +251,7 @@ The same screen split into separate components, the way the host places them: th
 | Save / edit / delete view | `api/PDOCustom/SaveLD` | delete = the full model with `Status: 3` |
 | Groups of a view | `LimitDiagram/GetLDGroupDetails?LDID=<id>&GID=0` | empty body; `GID=0` = all groups; deleted groups aren't returned; sorted by `GroupOrder` |
 | One group (Edit) | `LimitDiagram/GetLDGroupDetails?LDID=<id>&GID=<gid>` | loaded before the Edit popup opens |
+| Group types | `LimitDiagram/GetLDGroupTypes` | empty body; `Value` rows `{ Id, GroupType, GroupTypeCategory, ElementTypeId }`; fetched once and cached |
 | Save / edit / delete group | `LimitDiagram/SaveLDGroup` | full model `{ GroupID, GroupName, LDID, GroupOrder, GroupDesc, GroupType, IsVisible, IsDeleted }`; add = `GroupID: 0`, delete = `IsDeleted: true` |
 
 **SaveLDGroup result**: a rejected save (e.g. duplicate name) comes back with `Status`/`IsValid` still **true** and `ID: 0`, the reason in `StatusMessage` — so `ID: 0` is treated as a failure (`savedGroupId()`). Agreed with the API: `ID` is the group's id when saved and 0 whenever it wasn't, for edit too (pending on the API side — until then a rejected edit looks like a success).
@@ -259,7 +260,7 @@ The same screen split into separate components, the way the host places them: th
 
 - **AG Grid** (`ag-theme-alpine`, `domLayout="autoHeight"`, `suppressAnimationFrame`): Order, Group, Type (name), Description, Visible, Sub-groups count, and an Edit/Delete icon column (`NxLldRowActionsCellComponent`). The host needs `ag-grid.css` + `ag-theme-alpine.css` in its global styles.
 - **Group popup**: Group Name (required), Description, Type (required; **locked on Edit**), Order (new groups default to after the last), Visible.
-- **Group types**: `[groupTypes]` takes the host's list `[{ "TYPES": "Pump", "TypeID": 6253 }, …]` (array or JSON string); the dropdown and grid show `TYPES`, `TypeID` is saved as `GroupType`. Default = `LLD_DEFAULT_GROUP_TYPES` (Tank and FILTER share TypeID 5132 — a group saved as either shows as Tank). Types arriving after the rows redraw the column; a `GroupType` sent as a string is coerced to a number.
+- **Group types**: from `GetLDGroupTypes` (`getGroupTypes()`, cached — the tab and every popup share one call; a failed call is retried on the next input change). The dropdown and grid show `GroupType`; `ElementTypeId` is saved as the group's `GroupType`. Tank and FILTER share ElementTypeId 5132 — a group saved as either shows as Tank. Types arriving after the rows redraw the column; a `GroupType` sent as a string is coerced to a number. Mock: `assets/mock-api/lld-group-types.json` (the real response).
 - **Sub-groups**: no API yet — counts come from the mock (0 with the real API).
 
 ### Still open

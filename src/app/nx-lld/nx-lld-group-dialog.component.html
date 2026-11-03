@@ -24,9 +24,10 @@
     <div class="nx-lld-dialog-row">
       <mat-form-field appearance="fill">
         <mat-label>Type</mat-label>
-        <mat-select formControlName="type">
+        <mat-select formControlName="type" [placeholder]="typesLoading ? 'Loading…' : ''">
           <mat-option *ngFor="let t of typeOptions" [value]="t.value">{{ t.label }}</mat-option>
         </mat-select>
+        <mat-hint *ngIf="typesError" class="nx-lld-dialog-field-error">Types failed to load: {{ typesError }}</mat-hint>
         <mat-error *ngIf="form.get('type')?.hasError('required')">Type is required</mat-error>
       </mat-form-field>
 

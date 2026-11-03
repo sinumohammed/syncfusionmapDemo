@@ -3,7 +3,7 @@ import { FormBuilder, FormGroup, Validators } from "@angular/forms";
 import { MAT_DIALOG_DATA, MatDialogRef } from "@angular/material/dialog";
 import { Subscription } from "rxjs";
 import { finalize } from "rxjs/operators";
-import { LLD_DEFAULT_GROUP_TYPES, LldGroup, LldGroupType, LldGroupTypeOption, LldView, parseGroupTypes } from "./model/nx-lld.model";
+import { LldGroup, LldGroupTypeOption, LldView } from "./model/nx-lld.model";
 import { apiErrorMessage, NxLldService } from "./services/nx-lld.service";
 
 export interface LldGroupDialogData {
@@ -12,9 +12,6 @@ export interface LldGroupDialogData {
   // The view the group belongs to — always the page's selected view.
   view: LldView;
   token: string;
-  // The Group Type dropdown: [{ TYPES, TypeID }] (or that as a JSON
-  // string); TypeID is saved as GroupType. Default LLD_DEFAULT_GROUP_TYPES.
-  groupTypes?: LldGroupType[] | string;
   // What Order starts at for a new group (e.g. after the last one). Default 1.
   nextOrder?: number;
 }
@@ -31,7 +28,11 @@ export interface LldGroupDialogData {
 })
 export class NxLldGroupDialogComponent implements OnDestroy {
   form: FormGroup;
-  readonly typeOptions: LldGroupTypeOption[];
+  // GetLDGroupTypes (label GroupType, value ElementTypeId — saved as
+  // GroupType). Usually already loaded by the Groups tab.
+  typeOptions: LldGroupTypeOption[] = [];
+  typesLoading = true;
+  typesError = "";
   saving = false;
   saveError = "";
   private readonly subscriptions = new Subscription();
@@ -44,7 +45,6 @@ export class NxLldGroupDialogComponent implements OnDestroy {
     private cdr: ChangeDetectorRef,
     private zone: NgZone
   ) {
-    this.typeOptions = parseGroupTypes(data.groupTypes ?? LLD_DEFAULT_GROUP_TYPES);
     const group = data.group;
     this.form = this.fb.group({
       name: [group?.name ?? "", Validators.required],
@@ -56,6 +56,15 @@ export class NxLldGroupDialogComponent implements OnDestroy {
     });
     // A rejected save's message goes away once the user changes anything.
     this.subscriptions.add(this.form.valueChanges.subscribe(() => (this.saveError = "")));
+    this.subscriptions.add(
+      this.lldService
+        .getGroupTypes(data.token)
+        .pipe(finalize(() => this.refresh(() => (this.typesLoading = false))))
+        .subscribe({
+          next: options => this.refresh(() => (this.typeOptions = options)),
+          error: (err: unknown) => this.refresh(() => (this.typesError = apiErrorMessage(err)))
+        })
+    );
   }
 
   get isEdit(): boolean {

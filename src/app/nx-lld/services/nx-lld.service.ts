@@ -8,13 +8,16 @@ import {
   LldApiStatus,
   LldGroup,
   LldGroupRequest,
+  LldGroupTypeOption,
+  LldGroupTypeResponse,
   LldGroupWithSubGroups,
   LldLookups,
   LldSaveViewRequest,
   LldSubGroup,
   LldView,
   LldViewResponse,
-  LldViewStatus
+  LldViewStatus,
+  toGroupTypeOptions
 } from "../model/nx-lld.model";
 
 // Real host endpoints (see getSubsurfaces() / getStations()).
@@ -37,6 +40,8 @@ export const LLD_GROUPS_URL = "LimitDiagram/GetLDGroupDetails";
 // Save = add (GroupID 0), edit (the real GroupID) AND delete (an edit with
 // IsDeleted true), same URL.
 export const LLD_SAVE_GROUP_URL = "LimitDiagram/SaveLDGroup";
+// The Group Type dropdown (see getGroupTypes()).
+export const LLD_GROUP_TYPES_URL = "LimitDiagram/GetLDGroupTypes";
 
 // TODO(host): real endpoints not known yet. Save = add (no id) AND edit
 // (with id), same URL; delete by id.
@@ -57,6 +62,8 @@ const MOCK_DATA_URL = "assets/mock-api/lld-data.json";
 const MOCK_SUBSURFACES_URL = "assets/mock-api/lld-subsurfaces.json";
 // GetStations responses, keyed by the subsurface's ElementVersionID.
 const MOCK_STATIONS_URL = "assets/mock-api/lld-stations.json";
+// The real GetLDGroupTypes response.
+const MOCK_GROUP_TYPES_URL = "assets/mock-api/lld-group-types.json";
 // Who the mock "server" stamps as a view's creator / modifier (the real API
 // takes the logged-in user).
 const MOCK_USER = "1337";
@@ -490,6 +497,21 @@ export class NxLldService {
   deleteView(view: LldView, token: string): Observable<LldView> {
     return this.saveView({ ...view, status: LldViewStatus.Deleted }, token);
   }
+
+  // ------------------------------------------------------- group types
+  // The Group Type dropdown / the Groups grid's Type column, as options
+  // (label GroupType, value ElementTypeId — what a group saves as its
+  // GroupType). Empty body. Fetched once and remembered: the tab and every
+  // group popup share it; a failed fetch isn't remembered.
+  getGroupTypes(token: string): Observable<LldGroupTypeOption[]> {
+    return this.cached(this.groupTypesCache, "all", () =>
+      (USE_MOCK
+        ? this.http.get<LldApiResult<LldGroupTypeResponse[]>>(MOCK_GROUP_TYPES_URL).pipe(delay(MOCK_LATENCY_MS))
+        : this.post<LldApiResult<LldGroupTypeResponse[]>>(LLD_GROUP_TYPES_URL, null, token)
+      ).pipe(map((result: LldApiResult<LldGroupTypeResponse[]>) => toGroupTypeOptions(unwrapResult(result))))
+    );
+  }
+  private readonly groupTypesCache = new Map<string, Observable<LldGroupTypeOption[]>>();
 
   // ------------------------------------------------------------ groups
   // One view's groups in display order: GetLDGroupDetails with the LDID and

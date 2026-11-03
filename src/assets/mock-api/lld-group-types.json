@@ -1,0 +1,28 @@
+{
+  "Value": [
+    { "Id": 1, "GroupType": "Wells", "GroupTypeCategory": "Subsurface", "ElementTypeId": 5000 },
+    { "Id": 2, "GroupType": "Separator", "GroupTypeCategory": "Surface", "ElementTypeId": 5131 },
+    { "Id": 3, "GroupType": "Tank", "GroupTypeCategory": "Surface", "ElementTypeId": 5132 },
+    { "Id": 4, "GroupType": "Compressor", "GroupTypeCategory": "Surface", "ElementTypeId": 5092 },
+    { "Id": 5, "GroupType": "Pump", "GroupTypeCategory": "Surface", "ElementTypeId": 6253 },
+    { "Id": 6, "GroupType": "UNIT", "GroupTypeCategory": "Surface", "ElementTypeId": 6339 },
+    { "Id": 7, "GroupType": "Blower", "GroupTypeCategory": "Surface", "ElementTypeId": 5084 },
+    { "Id": 8, "GroupType": "FLOW_LINE", "GroupTypeCategory": "Surface", "ElementTypeId": 5463 },
+    { "Id": 9, "GroupType": "COLUMN", "GroupTypeCategory": "Surface", "ElementTypeId": 5088 },
+    { "Id": 10, "GroupType": "EXCHANGER", "GroupTypeCategory": "Surface", "ElementTypeId": 6266 },
+    { "Id": 11, "GroupType": "FILTER", "GroupTypeCategory": "Surface", "ElementTypeId": 5132 },
+    { "Id": 12, "GroupType": "FURNACE", "GroupTypeCategory": "Surface", "ElementTypeId": 5423 },
+    { "Id": 13, "GroupType": "HEAT_RECOVERY_STEAM_GENERATOR", "GroupTypeCategory": "Surface", "ElementTypeId": 5329 },
+    { "Id": 14, "GroupType": "PROCESS_STEAM_GENERATOR", "GroupTypeCategory": "Surface", "ElementTypeId": 5433 },
+    { "Id": 15, "GroupType": "PROCESS (GU and AU)", "GroupTypeCategory": "Surface", "ElementTypeId": 6340 }
+  ],
+  "IsValid": true,
+  "Status": true,
+  "StatusMessage": null,
+  "Warning": null,
+  "ID": 0,
+  "Name": null,
+  "CreatedOn": "0001-01-01T00:00:00+04:00",
+  "StackTrace": null,
+  "ErrorMessage": null
+}

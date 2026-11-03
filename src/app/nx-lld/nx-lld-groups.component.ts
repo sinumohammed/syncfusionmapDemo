@@ -3,7 +3,7 @@ import { MatDialog } from "@angular/material/dialog";
 import { ColDef, ColumnApi, GridApi, GridReadyEvent } from "ag-grid-community";
 import { asapScheduler, Observable, of, Subject, Subscription } from "rxjs";
 import { catchError, filter, finalize, observeOn, switchMap } from "rxjs/operators";
-import { LLD_DEFAULT_GROUP_TYPES, LldGroup, LldGroupType, LldGroupTypeOption, LldGroupWithSubGroups, LldView, parseGroupTypes } from "./model/nx-lld.model";
+import { LldGroup, LldGroupTypeOption, LldGroupWithSubGroups, LldView } from "./model/nx-lld.model";
 import { apiErrorMessage, LldViewSelection, NxLldService, selectedViewId } from "./services/nx-lld.service";
 import { LldGroupDialogData, NxLldGroupDialogComponent } from "./nx-lld-group-dialog.component";
 import { LldConfirmDialogData, NxLldConfirmDialogComponent } from "./nx-lld-confirm-dialog.component";
@@ -23,9 +23,6 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
   @Input() viewSelection: string | LldViewSelection | null = null;
   // TODO(host): the logged-in user's API token.
   @Input() token = "";
-  // The Group Type dropdown: [{ "TYPES": "Pump", "TypeID": 6253 }, …], or
-  // that as a JSON string. TypeID is saved as GroupType.
-  @Input() groupTypes: LldGroupType[] | string = LLD_DEFAULT_GROUP_TYPES;
   // The add / edit / delete permission — ONE value shared by every LLD
   // component through NxLldService (hasPermission$), so the host can bind
   // it on whichever component it renders, or call setHasPermission().
@@ -39,7 +36,9 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
   }
   private permitted = false;
 
-  typeOptions: LldGroupTypeOption[] = parseGroupTypes(LLD_DEFAULT_GROUP_TYPES);
+  // GetLDGroupTypes (label GroupType, value ElementTypeId) — for the Type
+  // column; empty until they load.
+  typeOptions: LldGroupTypeOption[] = [];
   // An Edit fetching its group, or a Delete running.
   busy = false;
   viewId: number | null = null;
@@ -50,6 +49,7 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
   // switchMap drops a still-running fetch for a view that's no longer picked.
   private readonly groupsRequest$ = new Subject<number | null>();
   private readonly viewRequest$ = new Subject<number | null>();
+  private readonly groupTypesRequest$ = new Subject<void>();
   private readonly subscriptions = new Subscription();
   private gridApi: GridApi | null = null;
   private columnApi: ColumnApi | null = null;
@@ -60,7 +60,7 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
   readonly columnDefs: ColDef<LldGroupWithSubGroups>[] = [
     { field: "order", headerName: "Order", width: 90 },
     { field: "name", headerName: "Group", flex: 1, minWidth: 160, cellClass: "nx-lld-grid-strong" },
-    // Shows the type's name (TYPES) for the saved TypeID.
+    // Shows the type's name (GroupType) for the saved ElementTypeId.
     { field: "type", headerName: "Type", width: 160, valueFormatter: p => this.typeLabel(p.value) },
     { field: "description", headerName: "Description", flex: 2, minWidth: 200, valueFormatter: p => p.value || "—" },
     { field: "isVisible", headerName: "Visible", width: 100, valueFormatter: p => (p.value ? "Yes" : "No") },
@@ -137,6 +137,28 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
         )
         .subscribe((view: LldView | null) => this.refresh(() => (this.view = view)))
     );
+    // Types that arrive after the rows: AG Grid doesn't re-format cells it
+    // has already drawn on its own. Loaded on the first change, once the
+    // token is bound.
+    this.subscriptions.add(
+      this.groupTypesRequest$
+        .pipe(
+          switchMap(() =>
+            this.lldService.getGroupTypes(this.token).pipe(
+              catchError((err: unknown) => {
+                console.error("[LLD] GetLDGroupTypes failed:", apiErrorMessage(err), err);
+                return of<LldGroupTypeOption[]>([]);
+              })
+            )
+          )
+        )
+        .subscribe(options =>
+          this.refresh(() => {
+            this.typeOptions = options;
+            this.gridApi?.refreshCells({ columns: ["type"], force: true });
+          })
+        )
+    );
     // This view was just edited — its name may have changed.
     this.subscriptions.add(
       this.lldService.viewSaved$
@@ -146,11 +168,9 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes["groupTypes"]) {
-      this.typeOptions = parseGroupTypes(this.groupTypes);
-      // Types that arrive after the rows: AG Grid doesn't re-format cells it
-      // has already drawn on its own.
-      this.gridApi?.refreshCells({ columns: ["type"], force: true });
+    // Again only if the first fetch failed (an empty list).
+    if (!this.typeOptions.length) {
+      this.groupTypesRequest$.next();
     }
     if (changes["viewSelection"]) {
       const id = selectedViewId(this.viewSelection);
@@ -251,7 +271,7 @@ export class NxLldGroupsComponent implements OnChanges, OnDestroy {
     this.dialog
       .open<NxLldGroupDialogComponent, LldGroupDialogData, LldGroup>(NxLldGroupDialogComponent, {
         width: "420px",
-        data: { group, view: this.view, token: this.token, groupTypes: this.groupTypes, nextOrder: this.nextOrder() }
+        data: { group, view: this.view, token: this.token, nextOrder: this.nextOrder() }
       })
       .afterClosed()
       .subscribe(saved => {

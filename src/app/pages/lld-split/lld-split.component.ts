@@ -1,6 +1,6 @@
 import { Component } from "@angular/core";
 import { dcTag } from "../../nx-lld/model/dc-tag.model";
-import { LLD_DEFAULT_GROUP_TYPES, LldGroupType, LldView } from "../../nx-lld/model/nx-lld.model";
+import { LldView } from "../../nx-lld/model/nx-lld.model";
 import { LldViewSelectConfig } from "../../nx-lld/nx-lld-view-select.component";
 
 // "/lld-split" page — the LLD screen split into separate components, as the
@@ -21,9 +21,6 @@ export class LldSplitComponent {
   // can't take it: the View dropdown there gets it through
   // NxLldService. Toggle to see the read-only screen.
   hasPermission = true;
-
-  // TODO(host): the Group Types from configuration — [{ TYPES, TypeID }].
-  groupTypes: LldGroupType[] = LLD_DEFAULT_GROUP_TYPES;
 
   // The pick as each tab gets it: '{"LDID":[21]}', or null for none.
   viewSelection: string | null = null;

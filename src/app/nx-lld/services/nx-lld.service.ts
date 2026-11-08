@@ -6,6 +6,9 @@ import { dcTag } from "../model/dc-tag.model";
 import {
   LldApiResult,
   LldApiStatus,
+  LldEquipment,
+  LldEquipmentDetails,
+  LldEquipmentResponse,
   LldGroup,
   LldGroupRequest,
   LldGroupTypeOption,
@@ -45,6 +48,11 @@ export const LLD_GROUPS_URL = "LimitDiagram/GetLDGroupDetails";
 export const LLD_SAVE_GROUP_URL = "LimitDiagram/SaveLDGroup";
 // The Group Type dropdown (see getGroupTypes()).
 export const LLD_GROUP_TYPES_URL = "LimitDiagram/GetLDGroupTypes";
+// A group's equipment (see getEquipments()).
+export const LLD_EQUIPMENTS_URL = "LimitDiagram/GetEquipmentByGroupId";
+// TODO(host): an equipment's Capacity / Series — URL and response not known
+// yet; the mock makes them up (see getEquipmentDetails()).
+export const LLD_EQUIPMENT_DETAILS_URL = "LimitDiagram/GetEquipmentDetails";
 // A group type's series (see getSeries()).
 export const LLD_SERIES_URL = "LimitDiagram/GetLDSeries";
 // TODO(host): the split Sub-groups tab's save / delete — no API yet, the
@@ -75,6 +83,8 @@ const MOCK_STATIONS_URL = "assets/mock-api/lld-stations.json";
 const MOCK_GROUP_TYPES_URL = "assets/mock-api/lld-group-types.json";
 // The real GetLDSeries response (GroupTypeId=3); filtered per type by the mock.
 const MOCK_SERIES_URL = "assets/mock-api/lld-series.json";
+// The real GetEquipmentByGroupId response — the mock returns it for every group.
+const MOCK_EQUIPMENTS_URL = "assets/mock-api/lld-equipments.json";
 // Who the mock "server" stamps as a view's creator / modifier (the real API
 // takes the logged-in user).
 const MOCK_USER = "1337";
@@ -524,6 +534,54 @@ export class NxLldService {
     );
   }
   private readonly groupTypesCache = new Map<string, Observable<LldGroupTypeOption[]>>();
+
+  // --------------------------------------------------------- equipment
+  // A group's equipment: GetEquipmentByGroupId with the GroupId in the
+  // query string (…/GetEquipmentByGroupId?GroupId=5), the body empty.
+  // Remembered per group.
+  getEquipments(groupId: number, token: string): Observable<LldEquipment[]> {
+    return this.cached(this.equipmentsCache, groupId, () =>
+      (USE_MOCK
+        ? this.http.get<LldApiResult<LldEquipmentResponse[]>>(MOCK_EQUIPMENTS_URL).pipe(delay(MOCK_LATENCY_MS))
+        : this.post<LldApiResult<LldEquipmentResponse[]>>(`${LLD_EQUIPMENTS_URL}?GroupId=${encodeURIComponent(groupId)}`, null, token)
+      ).pipe(
+        map((result: LldApiResult<LldEquipmentResponse[]>) =>
+          (unwrapResult(result) ?? []).map(row => ({ id: row.EquipmentId, name: row.EquipmentName ?? "" }))
+        )
+      )
+    );
+  }
+  private readonly equipmentsCache = new Map<number, Observable<LldEquipment[]>>();
+
+  // An equipment's Capacity and Series (Manual / Auto, the telemetry for
+  // Auto). Not cached — the values can change.
+  // TODO(host): the real call — the URL, its parameters and the response
+  // shape are guesses until the API is known.
+  getEquipmentDetails(groupId: number, equipmentId: number, token: string): Observable<LldEquipmentDetails> {
+    if (USE_MOCK) {
+      // Made-up but stable per equipment.
+      const series = [-2, -3, -5];
+      const element = `\\\\PDO\\FHD\\Equipment\\${equipmentId}`;
+      return this.mock(() => ({
+        capacity: 100 + (equipmentId % 900),
+        capacityUnit: "m³/h",
+        capacityAuto: equipmentId % 2 === 0,
+        capacityElementPath: element,
+        capacityAttributePath: "|Design Capacity",
+        seriesId: series[equipmentId % series.length],
+        seriesAuto: equipmentId % 3 === 0,
+        telemetryStatus: "ON",
+        piTag: "YIB.AH.10ESD001.PV",
+        seriesElementPath: element,
+        seriesAttributePath: "|Running Status"
+      }));
+    }
+    return this.post<LldApiResult<LldEquipmentDetails>>(
+      `${LLD_EQUIPMENT_DETAILS_URL}?GroupId=${encodeURIComponent(groupId)}&EquipmentId=${encodeURIComponent(equipmentId)}`,
+      null,
+      token
+    ).pipe(map(result => unwrapResult(result)));
+  }
 
   // ------------------------------------------------------------ series
   // A group type's series: GetLDSeries with the type's Id (GetLDGroupTypes'

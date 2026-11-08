@@ -5,55 +5,48 @@
 
   <ng-container *ngIf="viewId != null">
     <div class="nx-lld-tab-header">
-      <mat-form-field appearance="outline" class="nx-lld-group-select">
-        <mat-label>Group</mat-label>
-        <mat-select [value]="selectedGroupId" (selectionChange)="onGroupChange($event.value)" [disabled]="!groups.length">
-          <mat-option [value]="allGroups">All</mat-option>
-          <mat-option *ngFor="let g of groups" [value]="g.id">{{ g.name }}</mat-option>
-        </mat-select>
-      </mat-form-field>
-      <button
-        mat-stroked-button
-        color="primary"
-        *ngIf="hasPermission"
-        (click)="addSubGroup()"
-        [disabled]="!selectedGroup"
-      >
-        <svg viewBox="0 0 24 24" class="nx-lld-icon nx-lld-icon--btn"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" /></svg>
-        Add Sub-group
-      </button>
+      <h3 class="nx-lld-tab-title">Equipment Sub-groups Mapping</h3>
+      <span class="nx-lld-tab-tools">
+        <mat-form-field appearance="outline" class="nx-lld-group-select">
+          <mat-label>Group</mat-label>
+          <mat-select [value]="selectedGroupId" (selectionChange)="onGroupChange($event.value)" [disabled]="!groups.length">
+            <mat-option [value]="allGroups">All</mat-option>
+            <mat-option *ngFor="let g of groups" [value]="g.id">{{ g.name }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <button mat-flat-button color="primary" *ngIf="hasPermission" (click)="addSubGroup()" [disabled]="!groups.length">
+          <svg viewBox="0 0 24 24" class="nx-lld-icon nx-lld-icon--btn"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" /></svg>
+          Add Sub-group
+        </button>
+      </span>
     </div>
 
     <div class="nx-lld-empty" *ngIf="!loading && !groups.length">This view has no groups yet — add one in the Groups tab first.</div>
     <div class="nx-lld-empty" *ngIf="!loading && groups.length && !rows.length">
-      {{ selectedGroup ? "No sub-groups in this group yet." : "No sub-groups in this view yet — pick a group to add one." }}
+      {{ selectedGroup ? "No sub-groups in this group yet." : "No sub-groups in this view yet." }}
     </div>
 
     <table class="nx-lld-table" *ngIf="rows.length" [class.nx-lld-grid--busy]="busy">
       <thead>
         <tr>
           <th>Group</th>
-          <th>Group Type</th>
-          <th>Series</th>
-          <th>Type</th>
+          <th>Equipment Type</th>
           <th>Equipment</th>
+          <th>Series</th>
           <th>Capacity</th>
-          <th *ngIf="hasPermission"></th>
+          <th class="nx-lld-table-actions" *ngIf="hasPermission">Actions</th>
         </tr>
       </thead>
       <tbody>
         <tr *ngFor="let row of rows; trackBy: trackRow">
-          <td class="nx-lld-strong">{{ row.group.name }}</td>
-          <td>{{ typeName(row.group) || "—" }}</td>
+          <td class="nx-lld-link">{{ row.group.name }}</td>
+          <td><span class="nx-lld-type-chip" *ngIf="typeName(row.group)">{{ typeName(row.group) }}</span></td>
+          <td>{{ row.subGroup.equipmentName || "—" }}</td>
           <td>
-            <span class="nx-lld-series" *ngFor="let s of row.series; trackBy: trackSeries">
-              <span class="nx-lld-swatch" [style.background]="s.color"></span>{{ s.name }}
-            </span>
-            <span class="nx-lld-muted" *ngIf="!row.subGroup.seriesIds.length">—</span>
+            <span class="nx-lld-series-badge" *ngIf="row.series" [style.--nx-lld-series]="row.series.color">{{ row.series.name }}</span>
+            <span class="nx-lld-muted" *ngIf="!row.series">—</span>
           </td>
-          <td>{{ sourceTypeName(row.subGroup.sourceType) }}</td>
-          <td>{{ equipmentName(row.subGroup.equipmentId) }}</td>
-          <td>{{ row.subGroup.capacity ?? "—" }}</td>
+          <td>{{ row.subGroup.capacity != null ? row.subGroup.capacity + " " + row.subGroup.capacityUnit : "—" }}</td>
           <td class="nx-lld-table-actions" *ngIf="hasPermission">
             <button mat-icon-button type="button" matTooltip="Edit sub-group" aria-label="Edit sub-group" (click)="editSubGroup(row)">
               <svg viewBox="0 0 24 24" class="nx-lld-icon"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" /></svg>

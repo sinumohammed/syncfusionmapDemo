@@ -133,23 +133,35 @@
     {
       "id": 1,
       "groupId": 1,
-      "seriesIds": [
-        -2,
-        -3
-      ],
-      "sourceType": 1,
-      "equipmentId": 1,
-      "capacity": 2
+      "equipmentId": 748770,
+      "equipmentName": "V-4401",
+      "capacity": 350,
+      "capacityUnit": "m³/h",
+      "capacityAuto": false,
+      "seriesId": -2,
+      "seriesAuto": false
     },
     {
       "id": 2,
-      "groupId": 2,
-      "seriesIds": [
-        -5
-      ],
-      "sourceType": 2,
-      "equipmentId": 3,
-      "capacity": 1
+      "groupId": 1,
+      "equipmentId": 748720,
+      "equipmentName": "V-4301",
+      "capacity": 210,
+      "capacityUnit": "m³/h",
+      "capacityAuto": true,
+      "seriesId": -3,
+      "seriesAuto": false
+    },
+    {
+      "id": 3,
+      "groupId": 3,
+      "equipmentId": 582875,
+      "equipmentName": "V-4201",
+      "capacity": 1200,
+      "capacityUnit": "m³/h",
+      "capacityAuto": false,
+      "seriesId": -5,
+      "seriesAuto": true
     }
   ]
 }

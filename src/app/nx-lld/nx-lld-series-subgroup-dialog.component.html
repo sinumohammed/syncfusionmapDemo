@@ -1,66 +1,117 @@
 <h2 mat-dialog-title class="nx-lld-dialog-title">
-  {{ isEdit ? "Edit Sub-group" : "Add Sub-group" }}
+  LD - Sub-group Configuration
   <span class="nx-lld-dialog-id" *ngIf="isEdit" title="Sub-group ID">ID {{ data.subGroup?.id }}</span>
 </h2>
-<mat-progress-bar *ngIf="saving" mode="indeterminate"></mat-progress-bar>
+<mat-progress-bar *ngIf="saving || listsLoading || detailsLoading" mode="indeterminate"></mat-progress-bar>
 <div mat-dialog-content>
   <div [formGroup]="form" class="nx-lld-dialog-form">
-    <div class="nx-lld-dialog-row">
-      <mat-form-field appearance="fill">
-        <mat-label>Group</mat-label>
-        <input matInput [value]="data.group.name" disabled />
-      </mat-form-field>
-      <mat-form-field appearance="fill">
-        <mat-label>Group Type</mat-label>
-        <input matInput [value]="groupTypeName || '—'" disabled />
-      </mat-form-field>
+    <mat-form-field appearance="fill">
+      <mat-label>Group Name</mat-label>
+      <mat-select formControlName="groupId" required>
+        <mat-option *ngFor="let g of data.groups" [value]="g.id">{{ g.name }}</mat-option>
+      </mat-select>
+      <mat-error *ngIf="form.get('groupId')?.hasError('required')">Group is required</mat-error>
+    </mat-form-field>
+
+    <div class="nx-lld-dialog-readonly">
+      <span class="nx-lld-dialog-readonly-label">Equipment Type</span>
+      <span>{{ equipmentTypeName || "—" }}</span>
     </div>
 
-    <fieldset class="nx-lld-dialog-series">
-      <legend>Series</legend>
-      <div class="nx-lld-dialog-loading" *ngIf="seriesLoading">
-        Loading series…
-        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
-      </div>
-      <div class="nx-lld-dialog-field-error" *ngIf="seriesError">Series failed to load: {{ seriesError }}</div>
-      <div class="nx-lld-dialog-readonly-label" *ngIf="!seriesLoading && !seriesError && !series.length">
-        {{ groupTypeId == null ? "The group has no type, so there are no series." : "No series for this group type." }}
-      </div>
-      <mat-checkbox
-        *ngFor="let s of series"
-        color="primary"
-        [checked]="selectedSeries.has(s.id)"
-        (change)="toggleSeries(s.id, $event.checked)"
-      >
-        <span class="nx-lld-dialog-swatch" [style.background]="s.color"></span>{{ s.name }}
-      </mat-checkbox>
-    </fieldset>
-
-    <div class="nx-lld-dialog-row">
-      <mat-form-field appearance="fill">
-        <mat-label>Type</mat-label>
-        <mat-select formControlName="sourceType">
-          <mat-option *ngFor="let t of dummy.types" [value]="t.id">{{ t.name }}</mat-option>
-        </mat-select>
-      </mat-form-field>
-      <mat-form-field appearance="fill">
-        <mat-label>Equipment</mat-label>
-        <mat-select formControlName="equipmentId">
-          <mat-option *ngFor="let e of equipments" [value]="e.id">{{ e.name }}</mat-option>
-        </mat-select>
-      </mat-form-field>
+    <div class="nx-lld-dialog-readonly">
+      <span class="nx-lld-dialog-readonly-label">Station</span>
+      <span class="nx-lld-dialog-chips">
+        <span class="nx-lld-dialog-chip" *ngFor="let s of data.stationNames">{{ s }}</span>
+        <span *ngIf="!data.stationNames.length">—</span>
+      </span>
     </div>
 
     <mat-form-field appearance="fill">
-      <mat-label>Capacity</mat-label>
-      <input matInput type="number" min="0" formControlName="capacity" />
-      <mat-error *ngIf="form.get('capacity')?.hasError('min')">0 or more</mat-error>
+      <mat-label>Equipment</mat-label>
+      <mat-select formControlName="equipmentId" required>
+        <mat-option *ngFor="let e of equipments" [value]="e.id">{{ e.name }}</mat-option>
+      </mat-select>
+      <mat-hint *ngIf="!group">Pick a group first</mat-hint>
+      <mat-error *ngIf="form.get('equipmentId')?.hasError('required')">Equipment is required</mat-error>
     </mat-form-field>
+    <div class="nx-lld-dialog-field-error" *ngIf="listsError">Failed to load the group's lists: {{ listsError }}</div>
+    <div class="nx-lld-dialog-field-error" *ngIf="detailsError">Failed to load the equipment's details ({{ detailsError }}) — enter Capacity and Series by hand.</div>
+
+    <ng-container *ngIf="hasEquipment">
+      <section class="nx-lld-dialog-section">
+        <div class="nx-lld-dialog-section-head">
+          <span class="nx-lld-dialog-section-title">Capacity <span class="nx-lld-dialog-required">*</span></span>
+          <mat-slide-toggle formControlName="capacityAuto" color="primary">Auto</mat-slide-toggle>
+        </div>
+        <div class="nx-lld-dialog-capacity">
+          <mat-form-field appearance="outline">
+            <input matInput type="number" min="0" formControlName="capacity" placeholder="e.g. 350" />
+            <span matSuffix class="nx-lld-dialog-unit" *ngIf="capacityUnit">{{ capacityUnit }}</span>
+            <mat-error *ngIf="form.get('capacity')?.hasError('required')">Capacity is required</mat-error>
+            <mat-error *ngIf="form.get('capacity')?.hasError('min')">0 or more</mat-error>
+          </mat-form-field>
+          <button
+            mat-icon-button
+            type="button"
+            class="nx-lld-dialog-apply"
+            *ngIf="capacityAuto"
+            (click)="applyCapacity()"
+            [disabled]="!capacityPending"
+            matTooltip="Save capacity"
+            aria-label="Save capacity"
+          >
+            <svg viewBox="0 0 24 24" class="nx-lld-icon">
+              <path d="M17 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7l-4-4zm-5 16a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm3-10H5V5h10v4z" />
+            </svg>
+          </button>
+        </div>
+        <div class="nx-lld-dialog-paths" *ngIf="capacityAuto && details">
+          <div><span>Element path:</span> {{ details.capacityElementPath || "—" }}</div>
+          <div><span>Attribute path:</span> {{ details.capacityAttributePath || "—" }}</div>
+        </div>
+      </section>
+
+      <section class="nx-lld-dialog-section">
+        <div class="nx-lld-dialog-section-head">
+          <span class="nx-lld-dialog-section-title">Series <span class="nx-lld-dialog-required">*</span></span>
+          <mat-slide-toggle formControlName="seriesAuto" color="primary">Auto</mat-slide-toggle>
+        </div>
+        <ng-container *ngIf="!seriesAuto">
+          <mat-radio-group formControlName="seriesId" class="nx-lld-dialog-radios">
+            <mat-radio-button *ngFor="let s of series" [value]="s.id" color="primary">
+              <span class="nx-lld-dialog-swatch" [style.background]="s.color"></span>{{ s.name }}
+            </mat-radio-button>
+          </mat-radio-group>
+          <div class="nx-lld-dialog-readonly-label" *ngIf="!series.length && !listsLoading">No series for this group type.</div>
+          <div class="nx-lld-dialog-field-error" *ngIf="form.get('seriesId')?.touched && form.get('seriesId')?.hasError('required')">
+            Series is required
+          </div>
+        </ng-container>
+        <div class="nx-lld-dialog-telemetry" *ngIf="seriesAuto">
+          <div class="nx-lld-dialog-telemetry-row">
+            <span class="nx-lld-dialog-section-title">Status:</span>
+            <span class="nx-lld-dialog-badge">{{ details?.telemetryStatus || "—" }}</span>
+            <span class="nx-lld-dialog-readonly-label nx-lld-dialog-telemetry-note">Telemetry Status</span>
+          </div>
+          <div class="nx-lld-dialog-telemetry-tag">
+            <span class="nx-lld-dialog-readonly-label">PI TAG REFERENCE:</span>
+            <code>{{ details?.piTag || "—" }}</code>
+          </div>
+          <div class="nx-lld-dialog-telemetry-series">
+            Automated Series: <strong>{{ automatedSeries?.name || "—" }}</strong>
+          </div>
+          <div class="nx-lld-dialog-paths" *ngIf="details">
+            <div><span>Element path:</span> {{ details.seriesElementPath || "—" }}</div>
+            <div><span>Attribute path:</span> {{ details.seriesAttributePath || "—" }}</div>
+          </div>
+        </div>
+      </section>
+    </ng-container>
 
     <div class="nx-lld-dialog-alert" role="alert" *ngIf="saveError">{{ saveError }}</div>
   </div>
 </div>
 <div mat-dialog-actions align="end">
   <button mat-button mat-dialog-close [disabled]="saving">Cancel</button>
-  <button mat-flat-button color="primary" (click)="save()" [disabled]="saving || seriesLoading">Save</button>
+  <button mat-flat-button color="primary" (click)="save()" [disabled]="saving || listsLoading || detailsLoading">Save Sub-group</button>
 </div>

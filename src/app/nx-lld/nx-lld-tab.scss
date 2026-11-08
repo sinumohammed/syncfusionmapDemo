@@ -147,17 +147,42 @@
   min-height: 0 !important;
 }
 
-// Sub-groups tab: a row's series, each with its colour.
-.nx-lld-series {
+// Sub-groups tab: the Group filter + Add button, right of the title.
+.nx-lld-tab-tools {
   display: inline-flex;
   align-items: center;
-  margin-right: 12px;
-  white-space: nowrap;
+  gap: 12px;
 }
-.nx-lld-swatch {
+.nx-lld-link {
+  color: #1d4ed8;
+  font-weight: 500;
+}
+.nx-lld-type-chip {
+  padding: 2px 10px;
+  border-radius: 10px;
+  background: #f3f4f6;
+  color: #374151;
+  font-size: 12px;
+}
+// A row's series in its own colour (--nx-lld-series, from GetLDSeries).
+.nx-lld-series-badge {
+  --nx-lld-series: #6b7280;
+  position: relative;
   display: inline-block;
-  width: 10px;
-  height: 10px;
-  margin-right: 6px;
-  border-radius: 2px;
+  padding: 2px 10px;
+  border-radius: 10px;
+  color: var(--nx-lld-series);
+  font-size: 12px;
+  font-weight: 600;
+  isolation: isolate;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: var(--nx-lld-series);
+    opacity: 0.14;
+  }
 }

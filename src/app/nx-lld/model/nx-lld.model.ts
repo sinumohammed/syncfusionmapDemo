@@ -199,37 +199,57 @@ export interface LldSeries {
   color: string;
 }
 
+// ------------------------------------------------------------ equipment
+// One row of GetEquipmentByGroupId's Value.
+export interface LldEquipmentResponse {
+  EquipmentId: number;
+  EquipmentName: string;
+}
+
+export interface LldEquipment {
+  id: number;
+  name: string;
+}
+
 // ------------------------------------------------- sub-groups (split tab)
-// What the Sub-groups tab's popup saves: the picked series, the Type, that
-// type's Equipment and the Capacity. TODO(host): no API yet — the mock stores these;
-// Type and Equipment are placeholders until they're discussed.
+// What the Sub-groups tab's popup saves (UC-06). TODO(host): no API yet —
+// the mock stores these.
 export interface LldSeriesSubGroup {
   id?: number | null;
   groupId: number;
-  // Picked series ids (GetLDSeries' Id).
-  seriesIds: number[];
-  // LLD_SUBGROUP_DUMMY.types' id.
-  sourceType: number | null;
-  // LLD_SUBGROUP_DUMMY.equipments' id — one of sourceType's equipments.
+  // GetEquipmentByGroupId's EquipmentId; the name is kept for the table.
   equipmentId: number | null;
+  equipmentName: string;
+  // The value only — the unit is shown beside it, never typed.
   capacity: number | null;
+  capacityUnit: string;
+  // Auto: the value is applied with the field's own Save button.
+  capacityAuto: boolean;
+  // GetLDSeries' Id — picked (Manual) or the telemetry's (Auto).
+  seriesId: number | null;
+  seriesAuto: boolean;
 }
 
-// TODO(host): placeholders for the popup's Type and Equipment — the one
-// place to replace them. Each equipment belongs to one type (typeId); the
-// Equipment dropdown lists the picked type's only.
-export const LLD_SUBGROUP_DUMMY = {
-  types: [
-    { id: 1, name: "Manual" },
-    { id: 2, name: "Calculated" }
-  ],
-  equipments: [
-    { id: 1, name: "Nitrogen", typeId: 1 },
-    { id: 2, name: "Compressor A", typeId: 1 },
-    { id: 3, name: "Pump P-101", typeId: 2 },
-    { id: 4, name: "Flow Meter FM-1", typeId: 2 }
-  ]
-};
+// An equipment's Capacity and Series as the API reports them — what the
+// popup fills in when the equipment is picked (the user can still change
+// them). TODO(host): no API yet, the shape is a guess (see
+// NxLldService.getEquipmentDetails()).
+export interface LldEquipmentDetails {
+  capacity: number | null;
+  capacityUnit: string;
+  capacityAuto: boolean;
+  // Where an Auto value is read from — shown under the field while Auto is on.
+  capacityElementPath: string;
+  capacityAttributePath: string;
+  // GetLDSeries' Id — Manual's pick, or the telemetry's series for Auto.
+  seriesId: number | null;
+  seriesAuto: boolean;
+  // Auto series: the telemetry status ("ON") and its PI tag.
+  telemetryStatus: string;
+  piTag: string;
+  seriesElementPath: string;
+  seriesAttributePath: string;
+}
 
 // One sub-group = ONE type + ONE template for every equipment in it —
 // mixed templates aren't representable, by design.

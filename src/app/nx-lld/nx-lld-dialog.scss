@@ -138,22 +138,6 @@
   color: #b3261e;
   font-size: 13px;
 }
-// Series sub-group popup: the group type's series as checkboxes.
-.nx-lld-dialog-series {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin: 0 0 12px;
-  padding: 8px 16px 12px;
-  border: 1px solid #c7d2fe;
-  border-radius: 12px;
-
-  legend {
-    padding: 0 6px;
-    font-size: 12px;
-    color: #6b7280;
-  }
-}
 .nx-lld-dialog-swatch {
   display: inline-block;
   width: 10px;
@@ -161,4 +145,155 @@
   margin-right: 8px;
   border-radius: 2px;
   vertical-align: middle;
+}
+
+// Sub-group popup (UC-06): the view's stations as chips — view only.
+.nx-lld-dialog-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.nx-lld-dialog-chip {
+  padding: 2px 10px;
+  border-radius: 12px;
+  background: #e0efff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 600;
+}
+// Capacity / Series: a bordered block, title + Auto toggle on top.
+.nx-lld-dialog-section {
+  display: flex;
+  flex-direction: column;
+  margin: 4px 0 12px;
+  padding: 10px 14px 4px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fafbfc;
+}
+.nx-lld-dialog-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.nx-lld-dialog-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #374151;
+}
+.nx-lld-dialog-required {
+  color: #d32f2f;
+}
+// Capacity value + its Auto Save button on one line.
+.nx-lld-dialog-capacity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  > .mat-form-field {
+    flex: 1 1 auto;
+  }
+}
+// The Auto capacity's Save: an icon button centred on the input box — the
+// margins match the outline field's own top margin and bottom hint space.
+.nx-lld-dialog-apply {
+  flex: 0 0 auto;
+  margin: 0.25em 0 1.59375em;
+  border-radius: 8px;
+  background: #1d4ed8;
+  color: #fff;
+  transition: background 0.15s;
+
+  &:hover:not([disabled]) {
+    background: #1e40af;
+  }
+  .nx-lld-icon {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+    vertical-align: middle;
+  }
+}
+// Nothing changed since the last save: greyed out.
+.nx-lld-dialog-apply[disabled] {
+  background: #e5e7eb;
+  color: #9ca3af;
+}
+// The unit beside the value — read-only, never typed.
+.nx-lld-dialog-unit {
+  padding-left: 8px;
+  color: #6b7280;
+  font-size: 13px;
+  white-space: nowrap;
+}
+// Auto series: the telemetry's status, PI tag and series.
+.nx-lld-dialog-telemetry {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+.nx-lld-dialog-telemetry-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+}
+.nx-lld-dialog-telemetry-note {
+  margin-left: auto;
+}
+.nx-lld-dialog-badge {
+  padding: 1px 10px;
+  border-radius: 10px;
+  background: #dcfce7;
+  color: #15803d;
+  font-size: 12px;
+  font-weight: 600;
+}
+.nx-lld-dialog-telemetry-tag {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: #f3f4f6;
+
+  code {
+    font-size: 12px;
+  }
+}
+.nx-lld-dialog-telemetry-series {
+  padding: 8px 12px;
+  border: 1px solid #dbeafe;
+  border-radius: 6px;
+  background: #eff6ff;
+  color: #1e3a8a;
+}
+// Manual series: one of the group type's series.
+.nx-lld-dialog-radios {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+// Auto: where the value is read from — small hint text.
+.nx-lld-dialog-paths {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: -4px 0 10px;
+  font-size: 11px;
+  color: #6b7280;
+  word-break: break-all;
+
+  span {
+    font-weight: 600;
+  }
 }

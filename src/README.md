@@ -252,6 +252,7 @@ The same screen split into separate components, the way the host places them: th
 | Groups of a view | `LimitDiagram/GetLDGroupDetails?LDID=<id>&GID=0` | empty body; `GID=0` = all groups; deleted groups aren't returned; sorted by `GroupOrder` |
 | One group (Edit) | `LimitDiagram/GetLDGroupDetails?LDID=<id>&GID=<gid>` | loaded before the Edit popup opens |
 | Series of a group type | `LimitDiagram/GetLDSeries?GroupTypeId=<Id>` | empty body; `GroupTypeId` = the GetLDGroupTypes **`Id`** (not the `ElementTypeId` a group saves — mapped back by `groupTypeId()`); rows `{ Id, SeriesName, SupportedGroupTypeId, Color, LDID }` (ids can be negative); cached per type |
+| Equipment of a group | `LimitDiagram/GetEquipmentByGroupId?GroupId=<id>` | empty body; rows `{ EquipmentId, EquipmentName }`; cached per group |
 | Group types | `LimitDiagram/GetLDGroupTypes` | empty body; `Value` rows `{ Id, GroupType, GroupTypeCategory, ElementTypeId }`; fetched once and cached |
 | Save / edit / delete group | `LimitDiagram/SaveLDGroup` | full model `{ GroupID, GroupName, LDID, GroupOrder, GroupDesc, GroupType, IsVisible, IsDeleted }`; add = `GroupID: 0`, delete = `IsDeleted: true` |
 
@@ -266,13 +267,23 @@ The same screen split into separate components, the way the host places them: th
 
 ### Sub-groups tab
 
-- **Group dropdown**: `All` (value `LLD_ALL_GROUPS` = 0, the default) lists every group's sub-groups with their group; **Add Sub-group is disabled under All** and enabled for a single group. A reload keeps the pick (All included).
-- **Table**: Group, Group Type, Series (colour swatch + name), Type, Equipment, Capacity, Edit/Delete (with permission). Add Sub-group and Edit/Delete follow the shared `hasPermission`.
-- **Popup** (`NxLldSeriesSubGroupDialogComponent`): Group and Group Type (read-only), **Series** checkboxes from `GetLDSeries` for the group's type, then Type and Equipment — **placeholders** (`LLD_SUBGROUP_DUMMY`) until discussed; the Equipment list is the picked Type's only (changing Type clears an equipment of another type), then Capacity (last). Future / Expected from the sketch are left out until discussed. Saved as `LldSeriesSubGroup` to the mock only (`saveSeriesSubGroup()` / `deleteSeriesSubGroup()`, URLs `TODO(host)`).
+UC-06 "Equipment Sub-groups Mapping".
+
+- **Group dropdown**: `All` (value `LLD_ALL_GROUPS` = 0, the default) lists every group's sub-groups; a reload keeps the pick (All included). **Add Sub-group** is always available (with permission and at least one group).
+- **Table**: Group, Equipment Type (chip), Equipment, Series (badge in the series' colour), Capacity (value + unit), Edit/Delete (with permission).
+- **Popup** "LD - Sub-group Configuration" (`NxLldSeriesSubGroupDialogComponent`):
+  - **Group Name** dropdown, pre-selected with the tab's pick (empty under All); locked on Edit. Changing it reloads the lists below and clears the equipment.
+  - **Equipment Type**: the group's type, read-only text. **Station**: the view's stations as chips, view only.
+  - **Equipment**: `GetEquipmentByGroupId?GroupId=<id>`.
+  - Once an equipment is picked, **Capacity** and **Series** are filled from its details (`getEquipmentDetails()`, the API is a `TODO(host)` guess and the mock makes the values up) and stay editable. Each has an **Auto** toggle (off = Manual).
+    - Capacity: the number only, the unit shown as a read-only suffix. With Auto on, the value is applied with the field's own **Save** button (Save Sub-group waits for it).
+    - Series: Manual = one of the group type's series (`GetLDSeries`) as radio buttons; Auto = the telemetry panel (status, PI tag, automated series).
+    - With Auto on, each shows its **Element path** / **Attribute path** as small text.
+  - Saved as `LldSeriesSubGroup` to the mock only (`saveSeriesSubGroup()` / `deleteSeriesSubGroup()`, URLs `TODO(host)`).
 - Tank and FILTER share ElementTypeId 5132, so a FILTER group asks GetLDSeries for Tank's Id (3).
 
 ### Still open
 
-- Sub-group save / delete / list APIs and the popup's placeholder fields (Type, Equipment) and the fields still to discuss (Future, Expected).
+- Sub-group save / delete / list APIs, and the equipment-details API (Capacity / Series / telemetry / paths).
 - SaveLD returning `ID: 0` on success (the page falls back to finding a new view by name); once it returns the real id, the same `ID: 0` = failure rule can apply to views.
 - TEMP `console.log`s of the SaveLD / SaveLDGroup payloads (and GetSubSurfaceOperations) — remove once the models are confirmed.

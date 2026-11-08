@@ -1,8 +1,8 @@
 import { ChangeDetectorRef, Component, Input, NgZone, OnChanges, OnDestroy, SimpleChanges } from "@angular/core";
 import { MatDialog } from "@angular/material/dialog";
 import { asapScheduler, Observable, of, Subject, Subscription } from "rxjs";
-import { catchError, finalize, observeOn, switchMap } from "rxjs/operators";
-import { groupTypeId, LldGroupTypeOption, LldGroupWithSubGroups, LldSeries, LldSeriesSubGroup } from "./model/nx-lld.model";
+import { catchError, filter, finalize, observeOn, switchMap } from "rxjs/operators";
+import { groupTypeId, LldGroupTypeOption, LldGroupWithSubGroups, LldSeries, LldSeriesSubGroup, LldView } from "./model/nx-lld.model";
 import { apiErrorMessage, LldViewSelection, NxLldService, selectedViewId } from "./services/nx-lld.service";
 import { LldSeriesSubGroupDialogData, NxLldSeriesSubGroupDialogComponent } from "./nx-lld-series-subgroup-dialog.component";
 import { LldConfirmDialogData, NxLldConfirmDialogComponent } from "./nx-lld-confirm-dialog.component";
@@ -22,8 +22,8 @@ interface LldSubGroupRow {
 // (All, or one of the view's groups) and its sub-groups. Add Sub-group
 // works either way — the popup (NxLldSeriesSubGroupDialogComponent) has its
 // own Group dropdown, pre-selected with the tab's pick. Gets the picked view
-// as the host passes it, {"LDID":[21]} — only its id is needed (the popup
-// loads the view's stations itself).
+// as the host passes it, {"LDID":[21]}; loads its details for the stations
+// the popup shows.
 @Component({
   selector: "app-nx-lld-subgroups",
   templateUrl: "./nx-lld-subgroups.component.html",
@@ -49,6 +49,8 @@ export class NxLldSubGroupsComponent implements OnChanges, OnDestroy {
   viewId: number | null = null;
   groups: LldGroupWithSubGroups[] = [];
   selectedGroupId: number = LLD_ALL_GROUPS;
+  // The view's details — its stations go to the popup.
+  view: LldView | null = null;
   // Rebuilt only when the groups, the pick or the series change — a getter
   // would hand *ngFor new rows on every check and swallow button clicks.
   rows: LldSubGroupRow[] = [];
@@ -61,6 +63,7 @@ export class NxLldSubGroupsComponent implements OnChanges, OnDestroy {
 
   // switchMap drops a still-running fetch for a view that's no longer picked.
   private readonly groupsRequest$ = new Subject<number | null>();
+  private readonly viewRequest$ = new Subject<number | null>();
   private readonly subscriptions = new Subscription();
 
   constructor(private lldService: NxLldService, private dialog: MatDialog, private cdr: ChangeDetectorRef, private zone: NgZone) {
@@ -88,6 +91,29 @@ export class NxLldSubGroupsComponent implements OnChanges, OnDestroy {
         )
         .subscribe(groups => this.refresh(() => this.setGroups(groups)))
     );
+    this.subscriptions.add(
+      this.viewRequest$
+        .pipe(
+          switchMap(
+            (viewId: number | null): Observable<LldView | null> =>
+              viewId == null
+                ? of(null)
+                : this.lldService.getViewDetails(viewId, this.token).pipe(
+                    catchError((err: unknown) => {
+                      console.error("[LLD] GetLDViewDetails failed:", apiErrorMessage(err), err);
+                      return of<LldView | null>(null);
+                    })
+                  )
+          )
+        )
+        .subscribe((view: LldView | null) => this.refresh(() => (this.view = view)))
+    );
+    // This view was just edited — its stations may have changed.
+    this.subscriptions.add(
+      this.lldService.viewSaved$
+        .pipe(filter((id: number | null) => id != null && id === this.viewId))
+        .subscribe(() => this.viewRequest$.next(this.viewId))
+    );
   }
 
   get selectedGroup(): LldGroupWithSubGroups | null {
@@ -111,8 +137,10 @@ export class NxLldSubGroupsComponent implements OnChanges, OnDestroy {
       if (id !== this.viewId) {
         this.viewId = id;
         this.groups = [];
+        this.view = null;
         this.selectedGroupId = LLD_ALL_GROUPS;
         this.updateRows();
+        this.viewRequest$.next(id);
         this.reload();
       }
     }
@@ -163,7 +191,7 @@ export class NxLldSubGroupsComponent implements OnChanges, OnDestroy {
   }
 
   private openDialog(groupId: number | null, subGroup?: LldSeriesSubGroup): void {
-    if (!this.hasPermission || !this.groups.length || this.viewId == null) {
+    if (!this.hasPermission || !this.groups.length) {
       return;
     }
     // The groups without the tab-only sub-group lists.
@@ -172,7 +200,7 @@ export class NxLldSubGroupsComponent implements OnChanges, OnDestroy {
       .open<NxLldSeriesSubGroupDialogComponent, LldSeriesSubGroupDialogData, LldSeriesSubGroup>(NxLldSeriesSubGroupDialogComponent, {
         width: "480px",
         maxWidth: "95vw",
-        data: { subGroup, groups, groupId, viewId: this.viewId, token: this.token }
+        data: { subGroup, groups, groupId, stationNames: this.view?.stationNames ?? [], token: this.token }
       })
       .afterClosed()
       .subscribe(saved => {

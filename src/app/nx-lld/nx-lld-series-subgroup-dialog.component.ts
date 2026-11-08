@@ -21,9 +21,8 @@ export interface LldSeriesSubGroupDialogData {
   groups: LldGroup[];
   // Pre-selected group: the tab's pick (null under All).
   groupId: number | null;
-  // The view — the popup loads its stations (GetLDViewDetails, cached:
-  // the same call the View tab makes) and shows them as chips.
-  viewId: number;
+  // The view's stations — shown as chips, not selectable.
+  stationNames: string[];
   token: string;
 }
 
@@ -70,8 +69,6 @@ export class NxLldSeriesSubGroupDialogComponent implements OnDestroy {
   detailsLoading = false;
   detailsError = "";
   capacityUnit: string;
-  // The view's stations (chips, view only).
-  stationNames: string[] = [];
   // Auto capacity: the value applied with its Save button — what's saved.
   appliedCapacity: number | null = null;
   saving = false;
@@ -135,12 +132,6 @@ export class NxLldSeriesSubGroupDialogComponent implements OnDestroy {
       this.equipmentChange$
         .pipe(switchMap(change => this.loadDetails(change.equipmentId, change.fill)))
         .subscribe(result => this.refresh(() => this.applyDetails(result)))
-    );
-    this.subscriptions.add(
-      this.lldService.getViewDetails(data.viewId, data.token).subscribe({
-        next: view => this.refresh(() => (this.stationNames = view.stationNames ?? [])),
-        error: (err: unknown) => console.error("[LLD] GetLDViewDetails failed:", apiErrorMessage(err), err)
-      })
     );
     this.groupChange$.next(this.form.get("groupId")!.value);
     // Edit: the saved equipment's telemetry / paths, the saved values kept.

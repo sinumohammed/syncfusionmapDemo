@@ -21,8 +21,8 @@
     <div class="nx-lld-dialog-readonly">
       <span class="nx-lld-dialog-readonly-label">Station</span>
       <span class="nx-lld-dialog-chips">
-        <span class="nx-lld-dialog-chip" *ngFor="let s of stationNames">{{ s }}</span>
-        <span *ngIf="!stationNames.length">—</span>
+        <span class="nx-lld-dialog-chip" *ngFor="let s of data.stationNames">{{ s }}</span>
+        <span *ngIf="!data.stationNames.length">—</span>
       </span>
     </div>
 

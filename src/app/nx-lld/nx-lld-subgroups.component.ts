@@ -1,7 +1,7 @@
 import { ChangeDetectorRef, Component, Input, NgZone, OnChanges, OnDestroy, SimpleChanges } from "@angular/core";
 import { MatDialog } from "@angular/material/dialog";
-import { asapScheduler, Observable, of, Subject, Subscription } from "rxjs";
-import { catchError, filter, finalize, observeOn, switchMap } from "rxjs/operators";
+import { asapScheduler, from, Observable, of, Subject, Subscription } from "rxjs";
+import { catchError, concatMap, filter, finalize, observeOn, switchMap } from "rxjs/operators";
 import { groupTypeId, LldGroupTypeOption, LldGroupWithSubGroups, LldSeries, LldSeriesSubGroup, LldView } from "./model/nx-lld.model";
 import { apiErrorMessage, LldViewSelection, NxLldService, selectedViewId } from "./services/nx-lld.service";
 import { LldSeriesSubGroupDialogData, NxLldSeriesSubGroupDialogComponent } from "./nx-lld-series-subgroup-dialog.component";
@@ -148,6 +148,7 @@ export class NxLldSubGroupsComponent implements OnChanges, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
+    this.seriesLoad.unsubscribe();
   }
 
   typeName(group: LldGroupWithSubGroups): string {
@@ -224,22 +225,32 @@ export class NxLldSubGroupsComponent implements OnChanges, OnDestroy {
   }
 
   // The series of every group type in the view (cached per type), for the
-  // rows' series names.
+  // rows' series names. One type at a time (concatMap): the host's HTTP
+  // service cancels a pending call when another starts with the same token,
+  // so parallel GetLDSeries calls would cancel each other. A new run
+  // replaces one still going.
   private loadSeries(): void {
     const typeIds = new Set(this.groups.map(g => groupTypeId(g.type, this.typeOptions)).filter((id): id is number => id != null));
-    typeIds.forEach(typeId =>
-      this.subscriptions.add(
-        this.lldService.getSeries(typeId, this.token).subscribe({
-          next: series =>
-            this.refresh(() => {
-              series.forEach(s => this.seriesById.set(s.id, s));
-              this.updateRows();
-            }),
-          error: (err: unknown) => console.error("[LLD] GetLDSeries failed:", apiErrorMessage(err), err)
-        })
+    this.seriesLoad.unsubscribe();
+    this.seriesLoad = from([...typeIds])
+      .pipe(
+        concatMap(typeId =>
+          this.lldService.getSeries(typeId, this.token).pipe(
+            catchError((err: unknown) => {
+              console.error("[LLD] GetLDSeries failed:", apiErrorMessage(err), err);
+              return of<LldSeries[]>([]);
+            })
+          )
+        )
       )
-    );
+      .subscribe(series =>
+        this.refresh(() => {
+          series.forEach(s => this.seriesById.set(s.id, s));
+          this.updateRows();
+        })
+      );
   }
+  private seriesLoad = Subscription.EMPTY;
 
   // Keeps the pick (All included) when it's still there, else All.
   private setGroups(groups: LldGroupWithSubGroups[]): void {

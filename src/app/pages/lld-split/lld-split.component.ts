@@ -15,7 +15,7 @@ import { LldViewSelectConfig } from "../../nx-lld/nx-lld-view-select.component";
 })
 export class LldSplitComponent {
   // Toggle to see the dropdown without its Edit / Delete icons.
-  viewSelectConfig: LldViewSelectConfig = { showToolbar: true };
+  viewSelectConfig: LldViewSelectConfig = { showToolbar: true, unit: "OIL,WATER,GROSS,GAS,STEAM,POLYMER", showUnitTypes: true };
   // TODO(host): the logged-in user's permission to add / edit / delete
   // views and groups. Passed to the tabs only — like the host, whose header
   // can't take it: the View dropdown there gets it through
@@ -24,6 +24,14 @@ export class LldSplitComponent {
 
   // The pick as each tab gets it: '{"LDID":[21]}', or null for none.
   viewSelection: string | null = null;
+
+  // TODO(host): the picked unit type ("oil") — for the screens below, once
+  // they use it.
+  selectedUnit: string | null = null;
+
+  onUnitChange(unit: string | null): void {
+    this.selectedUnit = unit;
+  }
 
   onViewChange(view: LldView | null): void {
     this.viewSelection = view?.id != null ? JSON.stringify({ LDID: [view.id] }) : null;

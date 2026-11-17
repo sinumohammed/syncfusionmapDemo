@@ -230,7 +230,7 @@ The same screen split into separate components, the way the host places them: th
 
 | Piece | Module | Selector | Inputs |
 |---|---|---|---|
-| View dropdown | `NxLldViewSelectModule` (imports `NxLldModule`) | `app-nx-lld-view-select` | `hierarchyTags`, `token`, `config: { showToolbar }`, `hasPermission`; output `viewChange` (the picked view row) |
+| View dropdown | `NxLldViewSelectModule` (imports `NxLldModule`) | `app-nx-lld-view-select` | `hierarchyTags`, `token`, `config: { showToolbar, unit, showUnitTypes }`, `hasPermission`; outputs `viewChange` (the picked view row), `unitChange` (the picked unit type) |
 | View tab | `NxLldModule` | `app-nx-lld-view-details` | `viewSelection`, `token`, `hasPermission` |
 | Groups tab | `NxLldModule` | `app-nx-lld-groups` | `viewSelection`, `token`, `hasPermission` |
 | Sub-groups tab | `NxLldModule` | `app-nx-lld-subgroups` | `viewSelection`, `token`, `hasPermission` |
@@ -240,7 +240,8 @@ The same screen split into separate components, the way the host places them: th
 - **Permission** (`hasPermission`, default `false` = read-only): one shared value in `NxLldService` (`hasPermission$`). Bind `[hasPermission]` on any tab (or the dropdown) — each input writes the shared value — or call `lldService.setHasPermission(value)`. While false, the dropdown's + / edit / delete icons and the Groups tab's Add Group button and Edit/Delete column are **hidden**, and the add/edit/delete methods refuse. The Sub-groups tab only passes the value on for now.
 - **Failed saves**: the popup stays open with the API's message; every failed view/group save (add, edit, delete) is also emitted on `lldService.saveFailed$` for the host's toaster: `lldService.saveFailed$.subscribe(msg => toastr.error(msg))`.
 - **Caching**: subsurfaces / views (per hierarchy), view details (per id) and lookups are fetched once; saving a view forgets its list and details and fires `viewSaved$` so the tabs reload it.
-- **View popup**: opens at once; Subsurface and Stations show loaders while their lists load (Save waits).
+- **Unit Type dropdown** (`config.showUnitTypes: true`): sits before the View dropdown and lists the picked view's units (its `Unit` from GetLDViews), labelled as in `config.unit` (else upper case). Picking one emits `unitChange` with the lower-case value (`"oil"`); a new view keeps the same unit if it has it, else its first, and emits only when the value changes (after `viewChange`). Empty and disabled when the view has no units.
+- **View popup**: opens at once; Subsurface and Stations show loaders while their lists load (Save waits). **Unit** checkboxes under Stations come from `config.unit` (`"OIL,WATER,GROSS,GAS,STEAM,POLYMER"`, shown as configured, three per row); at least one is required; saved as `Unit` in lower case, comma-separated; on Edit the view's `Unit` (from GetLDViews / GetLDViewDetails, case-insensitive) is ticked again. No `config.unit` → no Unit field (the `/lld` page has none).
 
 ### APIs
 
@@ -248,7 +249,7 @@ The same screen split into separate components, the way the host places them: th
 |---|---|---|
 | Views | `LimitDiagram/GetLDViews` | body: hierarchy tags trimmed to `TagID/TagName/ElementTypeID/SourceObjectID/ObjectID/isSelected/CategoryID/SourceClassID` |
 | View details | `LimitDiagram/GetLDViewDetails?LDID=<id>` | empty body; `SubSurfaceOperationId` comes back 0, so the subsurface is matched by name (`withSubsurfaceId()`) |
-| Save / edit / delete view | `api/PDOCustom/SaveLD` | delete = the full model with `Status: 3` |
+| Save / edit / delete view | `api/PDOCustom/SaveLD` | delete = the full model with `Status: 3`; `Unit` = the ticked units, lower case, comma-separated (`"oil,gas"`) |
 | Groups of a view | `LimitDiagram/GetLDGroupDetails?LDID=<id>&GID=0` | empty body; `GID=0` = all groups; deleted groups aren't returned; sorted by `GroupOrder` |
 | One group (Edit) | `LimitDiagram/GetLDGroupDetails?LDID=<id>&GID=<gid>` | loaded before the Edit popup opens |
 | Series of a group type | `LimitDiagram/GetLDSeries?GroupTypeId=<Id>` | empty body; `GroupTypeId` = the GetLDGroupTypes **`Id`** (not the `ElementTypeId` a group saves — mapped back by `groupTypeId()`); rows `{ Id, SeriesName, SupportedGroupTypeId, Color, LDID }` (ids can be negative); cached per type |

@@ -1,9 +1,13 @@
 :host {
-  display: inline-block;
+  display: flex;
+  justify-content: flex-end;
 }
+// Right-aligned: without the icons (no permission, or showToolbar false)
+// the dropdowns end flush right, no space kept for them.
 .nx-lld-view-select {
   display: inline-flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 2px;
 }
 // Pull the outline field's reserved hint space back so it sits centred in
@@ -13,6 +17,11 @@
   margin-bottom: -1.25em;
   font-size: 13px;
 }
+// Unit Type: narrower, a gap before the View dropdown.
+.nx-lld-view-select-unit {
+  width: 140px;
+  margin-right: 10px;
+}
 // Fills the hint strip's width; thin like the box's own border.
 .nx-lld-view-select-loader {
   flex: 1 0 100%;
@@ -21,26 +30,10 @@
     height: 2px;
   }
 }
-// New / Edit / Delete: plain icons, shown while the dropdown is hovered
-// (and kept up while a popup is loading). Not on focus-within — the select
-// keeps focus after picking a view, which left them showing until the next
-// click; keyboard users get them on tabbing onto an icon (focus-visible,
-// so a mouse click on one doesn't pin them either). They keep their space,
-// so nothing shifts when they appear.
+// New / Edit / Delete: plain icons, always shown — only rendered when the
+// user can edit (canEdit), so they take no space otherwise.
 .nx-lld-view-select-actions {
   display: inline-flex;
-  opacity: 0;
-  transition: opacity 0.15s;
-
-  &:has(:focus-visible) {
-    opacity: 1;
-  }
-}
-.nx-lld-view-select:hover,
-.nx-lld-view-select--busy {
-  .nx-lld-view-select-actions {
-    opacity: 1;
-  }
 }
 .nx-lld-view-select-btn {
   display: inline-flex;

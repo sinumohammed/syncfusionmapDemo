@@ -40,6 +40,24 @@
       <mat-error *ngIf="form.get('stationNames')?.hasError('required')">Select at least one station</mat-error>
     </mat-form-field>
 
+    <fieldset class="nx-lld-dialog-units" *ngIf="unitOptions.length">
+      <legend>Unit <span class="nx-lld-dialog-required">*</span></legend>
+      <div class="nx-lld-dialog-units-grid">
+        <mat-checkbox
+          *ngFor="let u of unitOptions"
+          color="primary"
+          [checked]="isUnitChecked(u.value)"
+          [disabled]="saving"
+          (change)="toggleUnit(u.value, $event.checked)"
+        >
+          {{ u.label }}
+        </mat-checkbox>
+      </div>
+      <div class="nx-lld-dialog-field-error" *ngIf="form.get('units')?.touched && form.get('units')?.hasError('required')">
+        Select at least one unit
+      </div>
+    </fieldset>
+
     <mat-form-field appearance="fill">
       <mat-label>Status</mat-label>
       <mat-select formControlName="status">

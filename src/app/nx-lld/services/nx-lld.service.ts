@@ -23,6 +23,7 @@ import {
   LldView,
   LldViewResponse,
   LldViewStatus,
+  parseUnits,
   toGroupTypeOptions
 } from "../model/nx-lld.model";
 
@@ -144,6 +145,7 @@ function toSaveViewRequest(view: LldView): LldSaveViewRequest {
     SubSurfaceOperationId: view.subsurfaceId!,
     SubSurfaceOperation: view.subsurfaceName,
     Facility: view.stationNames.join(","),
+    Unit: (view.units ?? []).join(","),
     Status: view.status
   };
   return view.id != null ? { LDID: view.id, ...request } : request;
@@ -204,6 +206,7 @@ function toView(row: LldViewResponse): LldView {
       .split(",")
       .map(s => s.trim())
       .filter(s => s),
+    units: parseUnits(row.Unit),
     status: row.Status,
     createdBy: user(row.CreatedBy),
     createdOn: row.CreatedOn ?? null,

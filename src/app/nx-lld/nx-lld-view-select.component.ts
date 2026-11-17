@@ -2,7 +2,7 @@ import { ChangeDetectorRef, Component, DoCheck, EventEmitter, Input, NgZone, OnD
 import { MatDialog } from "@angular/material/dialog";
 import { asapScheduler, forkJoin, Observable, of, Subject, Subscription } from "rxjs";
 import { catchError, finalize, map, observeOn, switchMap } from "rxjs/operators";
-import { LldView } from "./model/nx-lld.model";
+import { LldUnitOption, LldView, parseUnitOptions } from "./model/nx-lld.model";
 import { dcTag } from "./model/dc-tag.model";
 import { apiErrorMessage, hierarchyKey, NxLldService, withSubsurfaceId } from "./services/nx-lld.service";
 import { LldViewDialogData, NxLldViewDialogComponent } from "./nx-lld-view-dialog.component";
@@ -10,9 +10,16 @@ import { LldConfirmDialogData, NxLldConfirmDialogComponent } from "./nx-lld-conf
 
 // What the host can switch on the dropdown.
 export interface LldViewSelectConfig {
-  // true -> New / Edit / Delete icons, shown while hovering the dropdown;
-  // false -> the list only.
+  // true -> New / Edit / Delete icons beside the dropdown (with
+  // permission); false -> the list only, right-aligned.
   showToolbar: boolean;
+  // The View popup's Unit checkboxes, comma-separated:
+  // "OIL,WATER,GROSS,GAS,STEAM,POLYMER". Sent to the API in lower case.
+  // Absent / empty -> no Unit field.
+  unit?: string;
+  // true -> a Unit Type dropdown before the View dropdown, listing the
+  // picked view's units (its Unit); the pick is emitted as unitChange.
+  showUnitTypes?: boolean;
 }
 
 // A views reload: which view to select once the list arrives — by id, or
@@ -54,9 +61,17 @@ export class NxLldViewSelectComponent implements DoCheck, OnDestroy {
   private permitted = false;
   // The picked view (its list row), or null when there's none.
   @Output() readonly viewChange = new EventEmitter<LldView | null>();
+  // The picked unit type, lower case as saved ("oil"), or null when the
+  // view has none. Only with config.showUnitTypes. Emitted after
+  // viewChange whenever it changes — a new view keeps the same unit when
+  // it has it, else picks its first.
+  @Output() readonly unitChange = new EventEmitter<string | null>();
 
   views: LldView[] = [];
   selectedViewId: number | null = null;
+  // The picked view's units as Unit Type options.
+  unitTypeOptions: LldUnitOption[] = [];
+  selectedUnit: string | null = null;
   // Set while New / Edit fetch what the popup needs, so a double-click
   // can't open two popups.
   editLoading = false;
@@ -79,6 +94,7 @@ export class NxLldViewSelectComponent implements DoCheck, OnDestroy {
   private readonly permissionSub: Subscription;
   private loadedHierarchyKey: string | null = null;
   private emittedView: LldView | null = null;
+  private emittedUnit: string | null = null;
 
   constructor(
     private lldService: NxLldService,
@@ -133,6 +149,10 @@ export class NxLldViewSelectComponent implements DoCheck, OnDestroy {
 
   onSelectionChange(): void {
     this.emitSelected();
+  }
+
+  onUnitChange(): void {
+    this.emitUnit();
   }
 
   get canEdit(): boolean {
@@ -221,7 +241,7 @@ export class NxLldViewSelectComponent implements DoCheck, OnDestroy {
     this.dialog
       .open<NxLldViewDialogComponent, LldViewDialogData, LldView>(NxLldViewDialogComponent, {
         width: "420px",
-        data: { view, subsurfaces, token: this.token }
+        data: { view, subsurfaces, token: this.token, unitOptions: parseUnitOptions(this.config?.unit) }
       })
       .afterClosed()
       .subscribe(saved => {
@@ -250,6 +270,30 @@ export class NxLldViewSelectComponent implements DoCheck, OnDestroy {
     if (view !== this.emittedView) {
       this.emittedView = view;
       this.viewChange.emit(view);
+      this.setUnitTypes(view);
+    }
+  }
+
+  // The view's units, shown as configured (config.unit) or else in upper
+  // case. Keeps the picked unit when the view has it, else its first.
+  private setUnitTypes(view: LldView | null): void {
+    if (!this.config?.showUnitTypes) {
+      return;
+    }
+    const configured = parseUnitOptions(this.config.unit);
+    this.unitTypeOptions = (view?.units ?? []).map(value => ({
+      value,
+      label: configured.find(o => o.value === value)?.label ?? value.toUpperCase()
+    }));
+    const keep = this.unitTypeOptions.some(o => o.value === this.selectedUnit);
+    this.selectedUnit = keep ? this.selectedUnit : this.unitTypeOptions[0]?.value ?? null;
+    this.emitUnit();
+  }
+
+  private emitUnit(): void {
+    if (this.selectedUnit !== this.emittedUnit) {
+      this.emittedUnit = this.selectedUnit;
+      this.unitChange.emit(this.selectedUnit);
     }
   }
 

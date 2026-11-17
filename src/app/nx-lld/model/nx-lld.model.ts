@@ -31,6 +31,8 @@ export interface LldSaveViewRequest {
   SubSurfaceOperation: string;
   // The selected stations' names, comma-separated.
   Facility: string;
+  // The ticked units, lower case, comma-separated ("oil,gas").
+  Unit: string;
   Status: LldViewStatus;
 }
 
@@ -44,6 +46,7 @@ export interface LldViewResponse {
   SubSurfaceOperationId: number | null;
   SubSurfaceOperation: string | null;
   Facility: string | null;
+  Unit?: string | null;
   Status: LldViewStatus;
   CreatedBy: number | string | null;
   CreatedOn?: string | null;
@@ -95,6 +98,35 @@ export const LLD_VIEW_STATUS_OPTIONS: { value: LldViewStatus; label: string }[] 
   { value: LldViewStatus.Public, label: "Public" }
 ];
 
+// One Unit checkbox: the configured name as shown ("OIL"), and what's
+// sent / matched — the same in lower case ("oil").
+export interface LldUnitOption {
+  label: string;
+  value: string;
+}
+
+// The host's Unit configuration — "OIL,WATER,GROSS,GAS,STEAM,POLYMER" —
+// as checkbox options, in that order. Blanks and repeats are skipped.
+export function parseUnitOptions(config: string | null | undefined): LldUnitOption[] {
+  const options: LldUnitOption[] = [];
+  (config ?? "").split(",").forEach(part => {
+    const label = part.trim();
+    const value = label.toLowerCase();
+    if (label && !options.some(o => o.value === value)) {
+      options.push({ label, value });
+    }
+  });
+  return options;
+}
+
+// A comma-separated Unit from the API ("Oil, gas") as lower-case values.
+export function parseUnits(unit: string | null | undefined): string[] {
+  return (unit ?? "")
+    .split(",")
+    .map(u => u.trim().toLowerCase())
+    .filter(u => u);
+}
+
 export interface LldView {
   id?: number | null;
   name: string;
@@ -104,6 +136,8 @@ export interface LldView {
   // Selected stations' names (their tags' TagName) — all from that
   // subsurface's own station list (getStations()). Saved comma-separated.
   stationNames: string[];
+  // Ticked units, lower case ("oil", "gas") — sent comma-separated as Unit.
+  units: string[];
   // Audit info, set by the server and shown on the view card. createdBy is
   // also sent back on an edit. modifiedBy/modifiedOn stay empty until the
   // view is first edited. Dates are ISO strings.

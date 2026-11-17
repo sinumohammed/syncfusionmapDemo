@@ -14,7 +14,11 @@
       "createdBy": "1337",
       "createdOn": "2026-10-05T09:12:00+04:00",
       "modifiedBy": "1402",
-      "modifiedOn": "2026-10-09T14:40:00+04:00"
+      "modifiedOn": "2026-10-09T14:40:00+04:00",
+      "units": [
+        "oil",
+        "gas"
+      ]
     },
     {
       "id": 2,
@@ -29,7 +33,10 @@
       "status": 1,
       "description": "",
       "createdBy": "1337",
-      "createdOn": "2026-10-07T11:05:00+04:00"
+      "createdOn": "2026-10-07T11:05:00+04:00",
+      "units": [
+        "water"
+      ]
     }
   ],
   "groups": [

@@ -297,3 +297,22 @@
     font-weight: 600;
   }
 }
+
+// View popup: the Unit checkboxes, three to a row.
+.nx-lld-dialog-units {
+  margin: 0 0 16px;
+  padding: 6px 14px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+
+  legend {
+    padding: 0 6px;
+    font-size: 12px;
+    color: #6b7280;
+  }
+}
+.nx-lld-dialog-units-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px 12px;
+}

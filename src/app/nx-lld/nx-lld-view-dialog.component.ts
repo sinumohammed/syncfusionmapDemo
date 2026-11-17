@@ -4,7 +4,7 @@ import { MAT_DIALOG_DATA, MatDialogRef } from "@angular/material/dialog";
 import { isObservable, Observable, of, Subject, Subscription } from "rxjs";
 import { catchError, finalize, switchMap } from "rxjs/operators";
 import { dcTag } from "./model/dc-tag.model";
-import { LLD_VIEW_STATUS_OPTIONS, LldView, LldViewStatus } from "./model/nx-lld.model";
+import { LLD_VIEW_STATUS_OPTIONS, LldUnitOption, LldView, LldViewStatus } from "./model/nx-lld.model";
 import { apiErrorMessage, findSubsurface, NxLldService } from "./services/nx-lld.service";
 
 export interface LldViewDialogData {
@@ -14,11 +14,14 @@ export interface LldViewDialogData {
   // then the popup opens at once and shows a loader in that field.
   subsurfaces: dcTag[] | Observable<dcTag[]>;
   token: string;
+  // The Unit checkboxes (config.unit, see parseUnitOptions()); at least one
+  // must be ticked. Absent / empty -> no Unit field.
+  unitOptions?: LldUnitOption[];
 }
 
 // New/Edit View popup: View Name, Subsurface, Stations (multi-select of
-// that subsurface's own stations, fetched when it's picked), Status,
-// Description. Saves through
+// that subsurface's own stations, fetched when it's picked), Unit
+// (checkboxes, at least one), Status, Description. Saves through
 // NxLldService itself and closes with the saved view so the page can
 // select it. Duplicate names are checked by the API
 // only (it also sees views this screen doesn't list); its message shows
@@ -30,6 +33,7 @@ export interface LldViewDialogData {
 })
 export class NxLldViewDialogComponent implements OnDestroy {
   readonly statusOptions = LLD_VIEW_STATUS_OPTIONS;
+  readonly unitOptions: LldUnitOption[];
   form: FormGroup;
   saving = false;
   saveError = "";
@@ -54,10 +58,16 @@ export class NxLldViewDialogComponent implements OnDestroy {
     private zone: NgZone
   ) {
     const view = data.view;
+    this.unitOptions = data.unitOptions ?? [];
     this.form = this.fb.group({
       name: [view?.name ?? "", Validators.required],
       subsurfaceName: [null, Validators.required],
       stationNames: [view?.stationNames ?? [], Validators.required],
+      // Edit: the saved units that are still configured, ticked.
+      units: [
+        (view?.units ?? []).filter(u => this.unitOptions.some(o => o.value === u)),
+        this.unitOptions.length ? Validators.required : null
+      ],
       status: [view?.status ?? LldViewStatus.Private, Validators.required],
       description: [view?.description ?? ""]
     });
@@ -160,6 +170,17 @@ export class NxLldViewDialogComponent implements OnDestroy {
     return this.data.view?.id != null;
   }
 
+  isUnitChecked(value: string): boolean {
+    return (this.form.get("units")!.value as string[]).includes(value);
+  }
+
+  toggleUnit(value: string, checked: boolean): void {
+    const control = this.form.get("units")!;
+    const units = (control.value as string[]).filter(u => u !== value);
+    control.setValue(checked ? [...units, value] : units);
+    control.markAsTouched();
+  }
+
   save(): void {
     // Not while a list is loading — the payload below is filtered through
     // the stations, so an early save would drop the selection.
@@ -177,6 +198,8 @@ export class NxLldViewDialogComponent implements OnDestroy {
       subsurfaceName: subsurface?.TagName ?? "",
       // Dropdown order, not click order.
       stationNames: this.stations.map(s => s.TagName ?? "").filter(name => value.stationNames.includes(name)),
+      // Configured order, not click order.
+      units: this.unitOptions.map(o => o.value).filter(u => value.units.includes(u)),
       status: value.status,
       description: (value.description ?? "").trim(),
       createdBy: this.data.view?.createdBy

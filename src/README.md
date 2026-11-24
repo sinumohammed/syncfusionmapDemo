@@ -191,7 +191,7 @@ Enum-backed fields take the enum's **number** (a numeric string such as `"2"` is
 | `HealthyLabel` | chart; the trend leaf's own `HealthyLabel` wins | string | "Healthy" | The green all-clear badge's text when `ZeroAsHealthy` is true and every value is 0. |
 | `ShowLegendValue` | collection, chart wins | boolean | true | `false` hides the value boxes around the ring. |
 | `ActionCommand` | chart only | `ActionCommand`: 0 NavigateInSamePage … 4 NoAction, 5 FilterOutput | 0 | 0 selects on click as before; **4 NoAction** makes the card non-clickable (no selection, no event, no hover lift). 1/2/3/5 are TODO and behave like 0. |
-| `SelectedChartName` | collection | a chart's `Name` | — | That chart (matched like the trend join) is selected as the charts load and fires the same `sublayersSelected` event as a click; re-applied after each reload. Ignored if no chart matches or it is NoAction. |
+| `SelectedChartName` | collection | a chart's `Name` | — | That chart (matched like the trend join) is selected as the charts load and fires the same `sublayersSelected` event as a click; re-applied after each reload. While set, selection is radio-like — never nothing selected: clicking the selected chart again goes back to this one, and clicking this one again keeps it. Ignored if no chart matches or it is NoAction. |
 
 `Label` used to be the healthy badge's text — that is `HealthyLabel` now; a config still using `Label` for it will show that text as the chart's name.
 

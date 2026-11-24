@@ -381,6 +381,31 @@ export class NxCircularChartCollectionComponent implements OnChanges, AfterViewI
   // than as a getter re-run on every change-detection pass.
   skeletonItems: number[] = [];
 
+  // The skeleton shows while an ApiUrl fetch runs AND before the host has
+  // passed any rawConfig at all — a host loading the config itself would
+  // otherwise leave a blank panel until it arrives (seen in production,
+  // where that wait is seconds and the ApiUrl fetch itself too quick for
+  // its own skeleton to be seen). The host has to render the component
+  // while it waits (rawConfig null), not *ngIf it in afterwards.
+  get showSkeleton(): boolean {
+    return this.loading || !this.rawConfig;
+  }
+
+  // The cards to draw: the configured count while fetching; before any
+  // config, one full screen of them — `columns` x `rows` (one row with the
+  // plain grid, rows <= 0). Same array kept while the count is unchanged.
+  get skeletonCards(): number[] {
+    if (this.rawConfig) {
+      return this.skeletonItems;
+    }
+    const count = this.columns * Math.max(this.rows, 1);
+    if (this.placeholderItems.length !== count) {
+      this.placeholderItems = Array.from({ length: count }, (_, i) => i);
+    }
+    return this.placeholderItems;
+  }
+  private placeholderItems: number[] = [];
+
   // Skeleton cards match the collection's ChartSize (a chart's own override
   // isn't known until its config is built), so the grid doesn't jump in
   // height when the real cards replace them.
@@ -677,6 +702,16 @@ export class NxCircularChartCollectionComponent implements OnChanges, AfterViewI
       return;
     }
     const alreadySelected = this.selectedId === circularChart.id;
+    // SelectedChartName set: radio-like, never nothing selected. Clicking
+    // the selected chart again goes back to the default one; clicking the
+    // default itself keeps it selected (no event).
+    const defaultChart = this.circularCharts.find(c => c.defaultSelected && c.selectable !== false);
+    if (alreadySelected && defaultChart) {
+      if (defaultChart !== circularChart) {
+        this.onCircularChartSelected(defaultChart);
+      }
+      return;
+    }
     this.selectedId = alreadySelected ? null : circularChart.id;
 
     const allIds = this.circularCharts.flatMap(d => d.sublayerIds ?? [d.id]);
